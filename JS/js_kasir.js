@@ -15,6 +15,7 @@ let CART = [];
   let LAST_RECEIPT_HTML = '';
   let LAST_REPRINT_COUNT = 0;
   let ACTIVE_SHIFT = JSON.parse(localStorage.getItem('POS_ACTIVE_SHIFT') || 'null');
+  let RETURN_TARGET_TRX = null;
 
   // Saluran Layar Pelanggan Tanpa Internet (0ms)
   const customerChannel = new BroadcastChannel('POS_CUSTOMER_DISPLAY');
@@ -114,6 +115,7 @@ let CART = [];
         price: product.price,
         cost_price: product.cost_price || 0,
         is_non_physical: product.is_non_physical || false,
+        manual_discount: 0,
         qty: qty
       });
       SELECTED_INDEX = CART.length - 1;
@@ -123,17 +125,29 @@ let CART = [];
 
   function evaluateCartWithMember() {
     const evalResult = PromoEngine.evaluateCart(CART, ACTIVE_PROMOS);
-    // Hitung diskon otomatis berbasis level member jika item belum kena promo khusus
+
+    // Pertahankan diskon manual per item jika diberikan supervisor via [F4]
+    let manualExtra = 0;
+    CART.forEach(item => {
+      if ((item.manual_discount || 0) > (item.discount || 0)) {
+        const diff = item.manual_discount - (item.discount || 0);
+        item.discount = item.manual_discount;
+        manualExtra += diff;
+      }
+    });
+
+    const afterItemDisc = Math.max(0, evalResult.grandTotal - manualExtra);
     const memberPct = Number(ACTIVE_MEMBER.member_discount_pct) || 0;
     let memberDiscountExtra = 0;
-    if (memberPct > 0 && evalResult.grandTotal > 0) {
-      memberDiscountExtra = Math.round(evalResult.grandTotal * (memberPct / 100));
+    if (memberPct > 0 && afterItemDisc > 0) {
+      memberDiscountExtra = Math.round(afterItemDisc * (memberPct / 100));
     }
+
     return {
       ...evalResult,
       memberDiscount: memberDiscountExtra,
-      totalDiscount: evalResult.totalDiscount + memberDiscountExtra,
-      grandTotal: Math.max(0, evalResult.grandTotal - memberDiscountExtra)
+      totalDiscount: evalResult.totalDiscount + manualExtra + memberDiscountExtra,
+      grandTotal: Math.max(0, afterItemDisc - memberDiscountExtra)
     };
   }
 
@@ -245,6 +259,49 @@ let CART = [];
     }
   }
 
+  // === UBAH QTY & DISKON PER BARIS [F4] ===
+  function openEditItemModal() {
+    if (CART.length === 0 || SELECTED_INDEX < 0) return alert('Pilih baris barang di tabel belanja terlebih dahulu.');
+    const item = CART[SELECTED_INDEX];
+    document.getElementById('editItemTitle').textContent = `${item.name} (Rp ${item.price.toLocaleString('id-ID')})`;
+    document.getElementById('editItemQty').value = item.qty;
+    document.getElementById('editItemDiscPct').value = 0;
+    document.getElementById('editItemDiscRp').value = item.manual_discount || 0;
+    document.getElementById('editItemPin').value = '';
+    document.getElementById('editItemModal').style.display = 'flex';
+    document.getElementById('editItemQty').focus();
+    document.getElementById('editItemQty').select();
+  }
+
+  async function applyEditItem() {
+    if (SELECTED_INDEX < 0 || !CART[SELECTED_INDEX]) return;
+    const item = CART[SELECTED_INDEX];
+    const newQty = Math.max(1, parseInt(document.getElementById('editItemQty').value, 10) || 1);
+    const discPct = Math.max(0, Math.min(100, Number(document.getElementById('editItemDiscPct').value) || 0));
+    const discRp = Math.max(0, Number(document.getElementById('editItemDiscRp').value) || 0);
+    const pin = document.getElementById('editItemPin').value;
+
+    const lineGross = item.price * newQty;
+    const calcDisc = Math.round(lineGross * (discPct / 100)) + discRp;
+
+    if (calcDisc > 0) {
+      if (!pin) return alert('PIN Supervisor wajib diisi untuk memberikan diskon manual per item.');
+      try {
+        await ApiClient.call('auth/verify-pin', { pin });
+      } catch (e) {
+        return alert('PIN Supervisor ditolak: ' + e.message);
+      }
+    }
+
+    item.qty = newQty;
+    item.manual_discount = calcDisc;
+    item.discount = calcDisc;
+    if (calcDisc > 0) item.promoLabel = `Disc Manual Rp ${calcDisc.toLocaleString('id-ID')}`;
+
+    closeModals();
+    renderCart();
+  }
+
   // Void Item Terpilih (Wajib PIN Supervisor)
   async function voidSelectedItem() {
     if (CART.length === 0 || SELECTED_INDEX < 0) return;
@@ -320,8 +377,12 @@ let CART = [];
     document.getElementById('payTempoInput').value = 0;
     tempoRow.style.display = (ACTIVE_MEMBER.member_id !== 'MBR-000' && sisaLimit > 0) ? 'block' : 'none';
 
-    document.getElementById('payCashInput').value = defaultMode === 'CASH' ? evalResult.grandTotal : 0;
-    document.getElementById('payQrisInput').value = defaultMode === 'QRIS' ? evalResult.grandTotal : 0;
+    const initialDue = (document.getElementById('payAutoRound') && document.getElementById('payAutoRound').checked)
+      ? Math.floor(evalResult.grandTotal / 100) * 100
+      : evalResult.grandTotal;
+
+    document.getElementById('payCashInput').value = defaultMode === 'CASH' ? initialDue : 0;
+    document.getElementById('payQrisInput').value = defaultMode === 'QRIS' ? initialDue : 0;
     document.getElementById('payEdcInput').value = 0;
     document.getElementById('payEdcRef').value = '';
 
@@ -329,7 +390,7 @@ let CART = [];
     document.getElementById('checkoutModal').style.display = 'flex';
 
     if (defaultMode === 'QRIS') {
-      customerChannel.postMessage({ type: 'SHOW_QRIS', amount: evalResult.grandTotal });
+      customerChannel.postMessage({ type: 'SHOW_QRIS', amount: initialDue });
       document.getElementById('payQrisInput').focus();
     } else {
       document.getElementById('payCashInput').focus();
@@ -344,7 +405,16 @@ let CART = [];
     const redeemPts = Math.min(maxPts, Math.max(0, Number(document.getElementById('payRedeemPoints').value) || 0));
     const redeemValue = redeemPts * 100; // 1 Poin = Rp 100
 
-    const netDue = Math.max(0, evalResult.grandTotal - invoiceDisc - redeemValue);
+    let netBeforeTax = Math.max(0, evalResult.grandTotal - invoiceDisc - redeemValue);
+    const includePpn = document.getElementById('payIncludePpn') && document.getElementById('payIncludePpn').checked;
+    const ppnAmount = includePpn ? Math.round(netBeforeTax * 0.11) : 0;
+
+    let netDue = netBeforeTax + ppnAmount;
+    const autoRound = document.getElementById('payAutoRound') && document.getElementById('payAutoRound').checked;
+    if (autoRound && netDue > 0) {
+      netDue = Math.floor(netDue / 100) * 100;
+    }
+
     const cash = Number(document.getElementById('payCashInput').value) || 0;
     const qris = Number(document.getElementById('payQrisInput').value) || 0;
     const edc = Number(document.getElementById('payEdcInput').value) || 0;
@@ -354,7 +424,7 @@ let CART = [];
     const change = totalPaid - netDue;
 
     return {
-      evalResult, invoiceDisc, redeemPts, redeemValue, netDue,
+      evalResult, invoiceDisc, redeemPts, redeemValue, ppnAmount, netDue,
       cash, qris, edc, tempo, totalPaid, change
     };
   }
@@ -410,6 +480,7 @@ let CART = [];
       promo_applied_json: JSON.stringify(comp.evalResult.appliedPromos),
       subtotal: comp.evalResult.subtotal,
       discount_total: totalAllDiscount,
+      tax_amount: comp.ppnAmount,
       grand_total: comp.netDue,
       payments_json: JSON.stringify(payments),
       trx_type: trxType,
@@ -463,6 +534,7 @@ let CART = [];
         <hr>
         <div style="display:flex;justify-content:space-between;"><span>Subtotal</span><span>${trx.subtotal.toLocaleString('id-ID')}</span></div>
         <div style="display:flex;justify-content:space-between;"><span>Total Diskon/Poin</span><span>-${trx.discount_total.toLocaleString('id-ID')}</span></div>
+        ${comp.ppnAmount > 0 ? `<div style="display:flex;justify-content:space-between;"><span>PPN (11%)</span><span>${comp.ppnAmount.toLocaleString('id-ID')}</span></div>` : ''}
         <div style="display:flex;justify-content:space-between;font-weight:bold;font-size:14px;"><span>TOTAL</span><span>Rp ${trx.grand_total.toLocaleString('id-ID')}</span></div>
         ${comp.cash > 0 ? `<div style="display:flex;justify-content:space-between;"><span>Tunai</span><span>${comp.cash.toLocaleString('id-ID')}</span></div>` : ''}
         ${comp.qris > 0 ? `<div style="display:flex;justify-content:space-between;"><span>QRIS/Transfer</span><span>${comp.qris.toLocaleString('id-ID')}</span></div>` : ''}
@@ -623,6 +695,7 @@ let CART = [];
       promo_applied_json: '[]',
       subtotal: totalNonTunaiMasuk,
       discount_total: 0,
+      tax_amount: 0,
       grand_total: totalNonTunaiMasuk,
       payments_json: JSON.stringify([
         { method: 'QRIS_IN', amount: totalNonTunaiMasuk },
@@ -634,12 +707,111 @@ let CART = [];
     };
 
     await LocalDB.saveTransaction(trxRecord);
-    printThermalReceipt(trxRecord, itemsList, { cash: 0, qris: totalNonTunaiMasuk, edc: 0, tempo: 0, change: 0 }, false);
+    printThermalReceipt(trxRecord, itemsList, { ppnAmount: 0, cash: 0, qris: totalNonTunaiMasuk, edc: 0, tempo: 0, change: 0 }, false);
 
     document.getElementById('cashout-amount').value = '';
     document.getElementById('cashout-ref').value = '';
     closeModals();
     ApiClient.syncQueue();
+  }
+
+  // === RETUR PENJUALAN BERBASIS NOMOR STRUK [F12] ===
+  function openReturnModal() {
+    RETURN_TARGET_TRX = null;
+    document.getElementById('returnSearchTrxId').value = '';
+    document.getElementById('returnTrxMeta').textContent = '';
+    document.getElementById('returnItemsBody').innerHTML = '';
+    document.getElementById('returnReason').value = '';
+    document.getElementById('returnSpvPin').value = '';
+    document.getElementById('returnModal').style.display = 'flex';
+    document.getElementById('returnSearchTrxId').focus();
+  }
+
+  async function searchTrxForReturn() {
+    const trxId = document.getElementById('returnSearchTrxId').value.trim();
+    if (!trxId) return;
+    try {
+      const trx = await ApiClient.call('pos/find-trx', { trxId });
+      RETURN_TARGET_TRX = trx;
+      document.getElementById('returnTrxMeta').textContent =
+        `Struk: ${trx.trx_id} | Tanggal: ${new Date(trx.timestamp).toLocaleString('id-ID')} | Kasir: ${trx.cashier_id}`;
+
+      document.getElementById('returnItemsBody').innerHTML = trx.items.map((it, idx) => `
+        <tr>
+          <td><strong>${it.name}</strong><br><small>${it.barcode || it.sku_code}</small></td>
+          <td class="num">Rp ${Number(it.price).toLocaleString('id-ID')}</td>
+          <td class="num">${it.qty} ${it.unit || 'PCS'}</td>
+          <td class="num">
+            <input type="number" class="ret-qty-inp" data-idx="${idx}" min="0" max="${it.qty}" value="0" style="width:75px; margin:0;">
+          </td>
+        </tr>
+      `).join('');
+    } catch (e) {
+      alert(e.message);
+    }
+  }
+
+  async function submitSalesReturn() {
+    if (!RETURN_TARGET_TRX) return alert('Cari nomor struk transaksi terlebih dahulu.');
+    const supervisorPin = document.getElementById('returnSpvPin').value;
+    const reason = document.getElementById('returnReason').value.trim();
+    if (!supervisorPin) return alert('PIN Supervisor wajib diisi untuk memproses retur.');
+
+    const returnItems = [];
+    document.querySelectorAll('.ret-qty-inp').forEach(inp => {
+      const q = Number(inp.value) || 0;
+      if (q > 0) {
+        const orig = RETURN_TARGET_TRX.items[Number(inp.dataset.idx)];
+        returnItems.push({ ...orig, return_qty: q });
+      }
+    });
+
+    if (returnItems.length === 0) return alert('Isi minimal 1 barang yang diretur.');
+
+    try {
+      const res = await ApiClient.call('pos/return-trx', {
+        originalTrxId: RETURN_TARGET_TRX.trx_id,
+        memberId: RETURN_TARGET_TRX.member_id,
+        returnItems: returnItems,
+        shiftId: ACTIVE_SHIFT ? ACTIVE_SHIFT.shiftId : 'SHF-RETURN',
+        supervisorPin: supervisorPin,
+        reason: reason
+      });
+
+      // Cetak bukti retur thermal
+      const paperClass = SESSION.store.ukuranKertas === '58mm' ? 'paper-58' : 'paper-80';
+      document.getElementById('thermalReceiptArea').innerHTML = `
+        <div class="receipt ${paperClass}">
+          <div style="text-align:center;">
+            <strong>${SESSION.store.namaToko}</strong><br>
+            <strong>*** BUKTI RETUR PENJUALAN ***</strong>
+          </div>
+          <hr>
+          <small>No. Retur: ${res.returnTrxId}<br>Ref. Struk: ${res.originalTrxId}<br>Kasir: ${SESSION.user.nama} | SPV: ${res.supervisor}</small>
+          <hr>
+          ${res.items.map(i => `
+            <div>${i.name}</div>
+            <div style="display:flex;justify-content:space-between;">
+              <span>${i.qty} x ${Number(i.price).toLocaleString('id-ID')}</span>
+              <span>${(Number(i.price) * i.qty).toLocaleString('id-ID')}</span>
+            </div>
+          `).join('')}
+          <hr>
+          <div style="display:flex;justify-content:space-between;font-weight:bold;">
+            <span>TOTAL REFUND TUNAI</span>
+            <span>Rp ${res.totalRefund.toLocaleString('id-ID')}</span>
+          </div>
+          <hr>
+          <div style="text-align:center;"><small>Alasan: ${reason || '-'}</small></div>
+        </div>
+      `;
+      window.print();
+
+      alert(`Retur berhasil (${res.returnTrxId}). Total uang dikembalikan: Rp ${res.totalRefund.toLocaleString('id-ID')}`);
+      closeModals();
+    } catch (e) {
+      alert('Gagal memproses retur: ' + e.message);
+    }
   }
 
   function closeModals() {
@@ -653,11 +825,13 @@ let CART = [];
     else if (e.key === 'F8') { e.preventDefault(); openCheckoutModal('CASH'); }
     else if (e.key === 'F10') { e.preventDefault(); openCheckoutModal('QRIS'); }
     else if (e.key === 'F2') { e.preventDefault(); openSearchModal(); }
+    else if (e.key === 'F4') { e.preventDefault(); openEditItemModal(); }
     else if (e.key === 'F5' || e.key === 'F7') { e.preventDefault(); openNonPhysicalModal(); }
     else if (e.key === 'F6') { e.preventDefault(); handleHoldRecall(); }
     else if (e.key === 'F3') { e.preventDefault(); reprintLastReceipt(); }
     else if (e.key === 'F9') { e.preventDefault(); openCashDropModal(); }
     else if (e.key === 'F11') { e.preventDefault(); manualKickDrawer(); }
+    else if (e.key === 'F12') { e.preventDefault(); openReturnModal(); }
     else if (e.key === 'Delete') { e.preventDefault(); voidSelectedItem(); }
     else if (e.key === 'Escape') { closeModals(); }
   });

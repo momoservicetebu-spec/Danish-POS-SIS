@@ -82,6 +82,10 @@
             <span class="kbd-badge">[F2]</span>
             <span>Cari Barang Katalog</span>
           </button>
+          <button class="tile-btn bg-sky" onclick="openEditItemModal()">
+            <span class="kbd-badge">[F4]</span>
+            <span>Ubah Qty / Diskon Baris</span>
+          </button>
           <button class="tile-btn bg-amber" onclick="handleHoldRecall()">
             <span class="kbd-badge">[F6]</span>
             <span>Pending / Recall Struk</span>
@@ -106,6 +110,10 @@
             <span class="kbd-badge">[ESC] / [Del]</span>
             <span>Void Item / Batal</span>
           </button>
+          <button class="tile-btn bg-crimson" onclick="openReturnModal()">
+            <span class="kbd-badge">[F12]</span>
+            <span>Retur Penjualan (Struk)</span>
+          </button>
         </div>
 
         <button class="btn-checkout" onclick="openCheckoutModal('CASH')">
@@ -116,7 +124,7 @@
     </div>
   </div>
 
-  <!-- MODAL PEMBAYARAN LENGKAP (RENE POS: Diskon Faktur, Tukar Poin, Tunai, QRIS, EDC, Tempo) -->
+  <!-- MODAL PEMBAYARAN LENGKAP (RENE POS: Diskon Faktur, Tukar Poin, PPN, Pembulatan, Tunai, QRIS, EDC, Tempo) -->
   <div id="checkoutModal" class="modal-backdrop">
     <div class="modal-box" style="max-width:520px;">
       <div style="display:flex; justify-content:space-between; align-items:center;">
@@ -130,7 +138,7 @@
       </div>
 
       <!-- Diskon Global Faktur & Tukar Poin Member -->
-      <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px; background:#F8FAFC; padding:10px; border-radius:10px; border:1px solid var(--border); margin-bottom:12px;">
+      <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px; background:#F8FAFC; padding:10px; border-radius:10px; border:1px solid var(--border); margin-bottom:10px;">
         <div>
           <label style="font-size:12px; font-weight:600; display:block; margin-bottom:4px;">Diskon Faktur (Rp)</label>
           <input type="number" id="payInvoiceDiscount" value="0" min="0" oninput="calcChange()" style="margin-bottom:0;">
@@ -139,6 +147,16 @@
           <label style="font-size:12px; font-weight:600; display:block; margin-bottom:4px;">Tukar Poin (<span id="availPointsLbl">0</span> pt @Rp100)</label>
           <input type="number" id="payRedeemPoints" value="0" min="0" oninput="calcChange()" style="margin-bottom:0;" disabled>
         </div>
+      </div>
+
+      <!-- Opsi PPN 11% & Pembulatan Otomatis -->
+      <div style="display:flex; justify-content:space-between; align-items:center; font-size:12px; margin-bottom:10px; padding:6px 10px; background:#F1F5F9; border-radius:8px;">
+        <label style="display:flex; align-items:center; gap:6px; cursor:pointer; font-weight:600;">
+          <input type="checkbox" id="payIncludePpn" onchange="calcChange()" style="width:auto; margin:0;"> Tambah PPN 11% (Exclusive)
+        </label>
+        <label style="display:flex; align-items:center; gap:6px; cursor:pointer; font-weight:600;">
+          <input type="checkbox" id="payAutoRound" checked onchange="calcChange()" style="width:auto; margin:0;"> Bulatkan Rp 100
+        </label>
       </div>
 
       <!-- Multi-Metode Bayar -->
@@ -223,6 +241,63 @@
         </table>
       </div>
       <button onclick="closeModals()" style="margin-top:12px; width:100%; padding:10px; border-radius:10px; border:1px solid var(--border);">Tutup</button>
+    </div>
+  </div>
+
+  <!-- MODAL UBAH QTY & DISKON PER BARIS [F4] -->
+  <div id="editItemModal" class="modal-backdrop">
+    <div class="modal-box" style="max-width:420px;">
+      <h3 style="margin-top:0;">Ubah Qty & Diskon Item Terpilih [F4]</h3>
+      <div id="editItemTitle" style="font-weight:700; color:#1D4ED8; margin-bottom:12px;">-</div>
+
+      <label style="font-size:12px; font-weight:600;">Jumlah (Qty)</label>
+      <input type="number" id="editItemQty" min="1" value="1">
+
+      <label style="font-size:12px; font-weight:600;">Diskon Baris (% Persen) — Opsional</label>
+      <input type="number" id="editItemDiscPct" min="0" max="100" value="0" placeholder="Contoh: 10">
+
+      <label style="font-size:12px; font-weight:600;">Diskon Baris (Rp Nominal) — Opsional</label>
+      <input type="number" id="editItemDiscRp" min="0" value="0" placeholder="Contoh: 2000">
+
+      <label style="font-size:12px; font-weight:600; color:#DC2626;">PIN Supervisor (Wajib jika memberi diskon manual)</label>
+      <input type="password" id="editItemPin" placeholder="Masukkan PIN Supervisor">
+
+      <div style="display:flex; gap:10px; margin-top:8px;">
+        <button onclick="closeModals()" style="flex:1; padding:10px; border-radius:10px; border:1px solid var(--border); cursor:pointer;">Batal</button>
+        <button onclick="applyEditItem()" style="flex:2; padding:10px; border-radius:10px; border:none; background:var(--royal-blue); color:#fff; font-weight:700; cursor:pointer;">Simpan Perubahan</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL RETUR PENJUALAN BERBASIS NOMOR STRUK [F12] -->
+  <div id="returnModal" class="modal-backdrop">
+    <div class="modal-box" style="max-width:620px;">
+      <h3 style="margin-top:0;">Retur Penjualan Berbasis Nomor Struk [F12]</h3>
+      <div style="display:flex; gap:8px; margin-bottom:12px;">
+        <input type="text" id="returnSearchTrxId" placeholder="Masukkan Nomor Struk (misal: TRX-TK-001-...)" style="margin-bottom:0;">
+        <button onclick="searchTrxForReturn()" style="padding:10px 16px; border-radius:10px; border:none; background:var(--royal-blue); color:#fff; font-weight:700; cursor:pointer;">Cari Struk</button>
+      </div>
+
+      <div id="returnTrxMeta" style="font-size:12px; color:var(--text-muted); margin-bottom:8px;"></div>
+
+      <div style="max-height:220px; overflow-y:auto; border:1px solid var(--border); border-radius:10px; margin-bottom:12px;">
+        <table class="cart-table">
+          <thead>
+            <tr><th>Barang</th><th class="num">Harga</th><th class="num">Beli</th><th class="num" style="width:90px;">Qty Retur</th></tr>
+          </thead>
+          <tbody id="returnItemsBody"></tbody>
+        </table>
+      </div>
+
+      <div style="display:grid; grid-template-columns:2fr 1fr; gap:10px; margin-bottom:12px;">
+        <input type="text" id="returnReason" placeholder="Alasan retur (misal: Kemasan rusak / Salah beli)" style="margin-bottom:0;">
+        <input type="password" id="returnSpvPin" placeholder="PIN Supervisor" style="margin-bottom:0;">
+      </div>
+
+      <div style="display:flex; gap:10px;">
+        <button onclick="closeModals()" style="flex:1; padding:10px; border-radius:10px; border:1px solid var(--border); cursor:pointer;">Batal</button>
+        <button onclick="submitSalesReturn()" style="flex:2; padding:10px; border-radius:10px; border:none; background:var(--crimson); color:#fff; font-weight:700; cursor:pointer;">Proses Retur & Cetak Bukti</button>
+      </div>
     </div>
   </div>
 
