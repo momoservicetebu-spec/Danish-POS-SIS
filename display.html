@@ -1,0 +1,136 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <title>Customer Display - Enterprise Retail POS v3.1</title>
+  <style>
+    :root {
+      --bg-canvas: #F4F6F9;
+      --surface: #FFFFFF;
+      --border: #E2E8F0;
+      --emerald: #10B981;
+      --royal-blue: #2563EB;
+      --text-main: #0F172A;
+      --text-muted: #64748B;
+    }
+
+    * { box-sizing: border-box; font-family: 'Inter', system-ui, sans-serif; }
+
+    /* Viewport Terkunci 100vh Non-Scrolling */
+    html, body {
+      margin: 0; padding: 0; height: 100vh; width: 100vw; overflow: hidden;
+      background: var(--bg-canvas); color: var(--text-main);
+    }
+
+    /* MODE SIAGA (IDLE SLIDESHOW PROMO)[cite: 2] */
+    #idleScreen {
+      height: 100vh; width: 100vw; display: flex; flex-direction: column;
+      align-items: center; justify-content: center; text-align: center;
+      background: linear-gradient(135deg, #0F172A 0%, #1E293B 100%);
+      color: #FFFFFF; padding: 40px;
+    }
+    .promo-slide-card {
+      background: rgba(255, 255, 255, 0.08); border: 1px solid rgba(255, 255, 255, 0.15);
+      border-radius: 24px; padding: 48px; max-width: 820px; width: 100%;
+    }
+    .promo-tag {
+      background: var(--emerald); color: #fff; padding: 6px 16px;
+      border-radius: 999px; font-size: 14px; font-weight: 800; display: inline-block; margin-bottom: 16px;
+    }
+
+    /* MODE AKTIF TRANSAKSI[cite: 2] */
+    #activeScreen {
+      display: none; height: 100vh; padding: 16px;
+      grid-template-columns: 62fr 38fr; gap: 16px;
+    }
+    .card {
+      background: var(--surface); border-radius: 16px; border: 1px solid var(--border);
+      box-shadow: 0 4px 12px rgba(15, 23, 42, 0.04); padding: 20px;
+      display: flex; flex-direction: column; min-height: 0;
+    }
+    .item-list { flex: 1; overflow-y: auto; }
+    table { width: 100%; border-collapse: collapse; }
+    th, td { padding: 12px; border-bottom: 1px solid var(--border); text-align: left; }
+    th { font-size: 13px; color: var(--text-muted); }
+    .num { text-align: right; font-variant-numeric: tabular-nums; }
+
+    .summary-panel {
+      background: #0F172A; color: #FFFFFF; border-radius: 16px; padding: 28px;
+      display: flex; flex-direction: column; justify-content: space-between;
+    }
+    .big-total {
+      font-size: 48px; font-weight: 800; color: #34D399;
+      font-variant-numeric: tabular-nums; text-align: right;
+    }
+
+    /* Kotak QRIS & Kembalian */
+    .qris-box {
+      display: none; background: #FFFFFF; color: #0F172A; border-radius: 16px;
+      padding: 20px; text-align: center; margin-top: 16px;
+    }
+    .change-box {
+      display: none; background: var(--emerald); color: #FFFFFF; border-radius: 16px;
+      padding: 20px; text-align: center; margin-top: 16px;
+    }
+  </style>
+</head>
+<body>
+  <!-- LAYAR SIAGA / SLIDESHOW PROMOSI[cite: 2] -->
+  <div id="idleScreen">
+    <div class="promo-slide-card">
+      <span class="promo-tag" id="slideBadge">PROMO SPESIAL HARI INI</span>
+      <h1 id="slideTitle" style="font-size: 42px; margin: 0 0 16px;">Selamat Datang di Gerai Kami</h1>
+      <p id="slideDesc" style="font-size: 20px; color: #CBD5E1; margin: 0;">Belanja hemat setiap hari dengan penawaran Tebus Murah (PWP) dan Harga Grosir!</p>
+    </div>
+    <div style="margin-top: 24px; color: #94A3B8; font-size: 14px;" id="idleClock"></div>
+  </div>
+
+  <!-- LAYAR AKTIF TRANSAKSI PELANGGAN[cite: 2] -->
+  <div id="activeScreen">
+    <div class="card">
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
+        <h2 style="margin:0;" id="dispStoreName">Rincian Belanja Anda</h2>
+        <span style="color:var(--text-muted); font-size:14px;" id="dispItemCount">0 Item</span>
+      </div>
+      <div class="item-list">
+        <table>
+          <thead>
+            <tr><th>Nama Barang</th><th class="num">Qty</th><th class="num">Harga</th><th class="num">Subtotal</th></tr>
+          </thead>
+          <tbody id="dispCartBody"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <div class="summary-panel">
+      <div>
+        <div style="display:flex; justify-content:space-between; font-size:16px; color:#94A3B8; margin-bottom:8px;">
+          <span>Subtotal</span>
+          <strong id="dispSubtotal" style="color:#fff;">Rp 0</strong>
+        </div>
+        <div style="display:flex; justify-content:space-between; font-size:16px; color:#FBBF24; margin-bottom:20px;">
+          <span>Total Hemat Promo</span>
+          <strong id="dispDiscount">- Rp 0</strong>
+        </div>
+        <div style="font-size:14px; color:#94A3B8; text-align:right;">TOTAL BELANJA</div>
+        <div class="big-total" id="dispGrandTotal">Rp 0</div>
+      </div>
+
+      <!-- Tampilan Kode QRIS Pembayaran[cite: 2] -->
+      <div id="qrisBox" class="qris-box">
+        <div style="font-weight:800; font-size:16px; color:var(--royal-blue); margin-bottom:8px;">SCAN QRIS UNTUK MEMBAYAR</div>
+        <img id="qrisImage" src="" alt="QRIS Code" style="width:180px; height:180px; border:1px solid #E2E8F0; border-radius:12px;">
+        <div style="font-weight:800; font-size:20px; margin-top:8px;" id="qrisNominal">Rp 0</div>
+      </div>
+
+      <!-- Tampilan Kembalian Setelah Pembayaran Selesai[cite: 2] -->
+      <div id="changeBox" class="change-box">
+        <div style="font-size:15px; font-weight:600;">TERIMA KASIH • KEMBALIAN ANDA</div>
+        <div style="font-size:38px; font-weight:900; margin-top:4px;" id="dispChange">Rp 0</div>
+      </div>
+    </div>
+  </div>
+
+  <?!= include('js_display'); ?>
+</body>
+</html>

@@ -1,0 +1,118 @@
+<script>
+  const SecurityModule = {
+    IDLE_LIMIT_MS: 3 * 60 * 1000, // Auto-lock layar setelah 3 menit tanpa aktivitas
+    idleTimer: null,
+    isLocked: false,
+
+    init: function() {
+      this.blockDevToolsAndContext();
+      this.setupIdleAutoLock();
+      this.checkLocalClockIntegrity();
+    },
+
+    /**
+     * Mematikan akses Developer Tools (F12, Ctrl+Shift+I/J/C, Ctrl+U) & Klik Kanan
+     */
+    blockDevToolsAndContext: function() {
+      document.addEventListener('contextmenu', e => e.preventDefault());
+
+      document.addEventListener('keydown', e => {
+        if (
+          e.key === 'F12' ||
+          (e.ctrlKey && e.shiftKey && ['I', 'J', 'C'].includes(e.key.toUpperCase())) ||
+          (e.ctrlKey && e.key.toUpperCase() === 'U')
+        ) {
+          e.preventDefault();
+          return false;
+        }
+      });
+    },
+
+    /**
+     * Mengunci layar kasir otomatis setelah 3 menit idle (buka kembali dengan PIN)
+     */
+    setupIdleAutoLock: function() {
+      this.injectLockOverlay();
+      const resetTimer = () => {
+        if (this.isLocked) return;
+        clearTimeout(this.idleTimer);
+        this.idleTimer = setTimeout(() => this.lockScreen(), this.IDLE_LIMIT_MS);
+      };
+
+      ['mousemove', 'keydown', 'click', 'touchstart'].forEach(evt => {
+        document.addEventListener(evt, resetTimer, { passive: true });
+      });
+      resetTimer();
+    },
+
+    injectLockOverlay: function() {
+      const overlay = document.createElement('div');
+      overlay.id = 'securityLockOverlay';
+      overlay.style.cssText = `
+        display:none; position:fixed; inset:0; background:rgba(15, 23, 42, 0.96);
+        z-index:9999; color:#fff; flex-direction:column; align-items:center; justify-content:center;
+      `;
+      overlay.innerHTML = `
+        <div style="background:#1E293B; padding:32px; border-radius:16px; width:360px; text-align:center; border:1px solid #334155;">
+          <div style="font-size:32px; margin-bottom:8px;">🔒</div>
+          <h3 style="margin:0 0 8px;">Terminal Terkunci Otomatis</h3>
+          <p style="font-size:13px; color:#94A3B8; margin-bottom:20px;">Tidak ada aktivitas selama 3 menit. Masukkan PIN Supervisor untuk membuka kembali.</p>
+          <input type="password" id="unlockPinInput" placeholder="Masukkan PIN Supervisor" 
+            style="width:100%; padding:12px; border-radius:10px; border:1px solid #475569; background:#0F172A; color:#fff; text-align:center; font-size:18px; margin-bottom:12px;">
+          <button onclick="SecurityModule.unlockScreen()" 
+            style="width:100%; padding:12px; border-radius:10px; border:none; background:#10B981; color:#fff; font-weight:700; cursor:pointer;">Buka Kunci Terminal</button>
+        </div>
+      `;
+      document.body.appendChild(overlay);
+    },
+
+    lockScreen: function() {
+      this.isLocked = true;
+      const overlay = document.getElementById('securityLockOverlay');
+      if (overlay) {
+        overlay.style.display = 'flex';
+        const inp = document.getElementById('unlockPinInput');
+        if (inp) { inp.value = ''; inp.focus(); }
+      }
+    },
+
+    unlockScreen: async function() {
+      const pin = document.getElementById('unlockPinInput').value;
+      if (!pin) return;
+      try {
+        await ApiClient.call('auth/verify-pin', { pin });
+        this.isLocked = false;
+        document.getElementById('securityLockOverlay').style.display = 'none';
+        if (typeof focusScanner === 'function') focusScanner();
+      } catch (e) {
+        alert('PIN salah: ' + e.message);
+      }
+    },
+
+    /**
+     * Pengecekan integritas jam lokal terhadap waktu server terakhir[cite: 1, 6]
+     */
+    checkLocalClockIntegrity: function() {
+      const lastKnownServerMs = Number(localStorage.getItem('POS_LAST_SERVER_MS') || 0);
+      const nowMs = Date.now();
+      if (lastKnownServerMs > 0 && (lastKnownServerMs - nowMs) > 5 * 60 * 1000) {
+        alert('PERINGATAN KEAMANAN: Jam sistem komputer terdeteksi dimundurkan! Transaksi diblokir sampai jam diperbaiki.');
+        this.lockScreen();
+      } else {
+        localStorage.setItem('POS_LAST_SERVER_MS', String(nowMs));
+      }
+    },
+
+    /**
+     * Generator Checksum SHA-256 klien untuk validasi integritas transaksi[cite: 5, 6]
+     */
+    sha256: async function(message) {
+      const msgBuffer = new TextEncoder().encode(message);
+      const hashBuffer = await crypto.subtle.digest('SHA-256', msgBuffer);
+      const hashArray = Array.from(new Uint8Array(hashBuffer));
+      return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+    }
+  };
+
+  window.addEventListener('DOMContentLoaded', () => SecurityModule.init());
+</script>
