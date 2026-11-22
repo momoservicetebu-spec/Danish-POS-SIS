@@ -1,0 +1,187 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <title>Admin & SIS - Enterprise Retail POS v3.1</title>
+  <style>
+    :root {
+      --bg-canvas: #F4F6F9; --surface: #FFFFFF; --border: #E2E8F0;
+      --primary: #10B981; --blue: #2563EB; --amber: #F59E0B; --red: #DC2626;
+      --text-main: #0F172A; --text-muted: #64748B;
+    }
+    * { box-sizing: border-box; font-family: 'Inter', system-ui, sans-serif; }
+    body { margin: 0; background: var(--bg-canvas); color: var(--text-main); }
+    
+    /* Top Navbar */
+    .topbar {
+      height: 64px; background: var(--surface); border-bottom: 1px solid var(--border);
+      padding: 0 24px; display: flex; align-items: center; justify-content: space-between;
+      position: sticky; top: 0; z-index: 10;
+    }
+    .nav-tabs { display: flex; gap: 8px; }
+    .tab-btn {
+      padding: 8px 16px; border-radius: 10px; border: 1px solid transparent;
+      background: transparent; font-weight: 600; cursor: pointer; color: var(--text-muted);
+    }
+    .tab-btn.active { background: #ECFDF5; color: var(--primary); border-color: #A7F3D0; }
+    
+    /* Bento Grid Layout[cite: 4] */
+    .container { max-width: 1360px; margin: 20px auto; padding: 0 20px; }
+    .bento-kpi { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; margin-bottom: 20px; }
+    .card {
+      background: var(--surface); border-radius: 16px; border: 1px solid var(--border);
+      box-shadow: 0 4px 12px rgba(15, 23, 42, 0.04); padding: 20px;
+    }
+    .kpi-label { font-size: 13px; color: var(--text-muted); font-weight: 600; }
+    .kpi-val { font-size: 26px; font-weight: 800; margin-top: 8px; font-variant-numeric: tabular-nums; }
+    .bento-main { display: grid; grid-template-columns: 2fr 1fr; gap: 16px; }
+    
+    table { width: 100%; border-collapse: collapse; font-size: 13px; }
+    th, td { padding: 10px 12px; text-align: left; border-bottom: 1px solid var(--border); }
+    th { background: #F8FAFC; font-weight: 700; color: var(--text-muted); }
+    
+    .btn {
+      padding: 10px 16px; border-radius: 10px; border: none; font-weight: 600;
+      cursor: pointer; color: #fff; font-size: 13px;
+    }
+    .btn-green { background: var(--primary); }
+    .btn-blue { background: var(--blue); }
+    .btn-red { background: var(--red); }
+    .form-row { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin-bottom: 12px; }
+    input, select { padding: 10px; border-radius: 8px; border: 1px solid var(--border); width: 100%; }
+    .section { display: none; }
+    .section.active { display: block; }
+    .badge { padding: 4px 8px; border-radius: 6px; font-size: 11px; font-weight: 700; }
+    .badge-danger { background: #FEF2F2; color: var(--red); }
+    .badge-ok { background: #ECFDF5; color: var(--primary); }
+  </style>
+</head>
+<body>
+  <header class="topbar">
+    <div>
+      <strong id="storeTitle">SIS Backoffice</strong> • 
+      <span id="userBadge" style="font-size: 13px; color: var(--text-muted);">Loading...</span>
+    </div>
+    <div class="nav-tabs">
+      <button class="tab-btn active" onclick="switchTab('dashboard', this)">Dashboard KPI</button>
+      <button class="tab-btn" onclick="switchTab('gudang', this)">Gudang (LPB/NRB)</button>
+      <button class="tab-btn" onclick="switchTab('so', this)">Blind Stock Opname</button>
+      <button class="tab-btn" onclick="switchTab('brankas', this)">Brankas & Setoran</button>
+      <button class="btn btn-blue" onclick="goKasir()">Buka Layar Kasir</button>
+      <button class="btn btn-red" onclick="logout()">Keluar</button>
+    </div>
+  </header>
+
+  <main class="container">
+    <!-- TAB 1: DASHBOARD KPI -->
+    <div id="tab-dashboard" class="section active">
+      <div class="bento-kpi">
+        <div class="card">
+          <div class="kpi-label">Omzet Hari Ini</div>
+          <div class="kpi-val" id="kpiOmzet">Rp 0</div>
+        </div>
+        <div class="card">
+          <div class="kpi-label">Jumlah Transaksi</div>
+          <div class="kpi-val" id="kpiStruk">0</div>
+        </div>
+        <div class="card">
+          <div class="kpi-label">Peringatan Stok Menipis</div>
+          <div class="kpi-val" id="kpiLowStock" style="color: var(--amber);">0 SKU</div>
+        </div>
+        <div class="card">
+          <div class="kpi-label">Anomali / Flagged Fraud</div>
+          <div class="kpi-val" id="kpiFraud" style="color: var(--red);">0</div>
+        </div>
+      </div>
+
+      <div class="bento-main">
+        <div class="card">
+          <h3 style="margin-top:0;">Log Keamanan & Audit Trail Terbaru</h3>
+          <table>
+            <thead>
+              <tr><th>Waktu</th><th>Toko</th><th>User</th><th>Aktivitas</th><th>Keterangan</th></tr>
+            </thead>
+            <tbody id="auditTableBody"></tbody>
+          </table>
+        </div>
+        <div class="card">
+          <h3 style="margin-top:0;">Antrean Cetak Price Tag Rak</h3>
+          <table>
+            <thead>
+              <tr><th>SKU / Barang</th><th>Harga Baru</th></tr>
+            </thead>
+            <tbody id="priceTagBody"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- TAB 2: GUDANG LPB & NRB -->
+    <div id="tab-gudang" class="section">
+      <div class="card" style="margin-bottom: 16px;">
+        <h3 style="margin-top:0;">Input Penerimaan (LPB) / Retur Rusak (NRB) / Mutasi</h3>
+        <div class="form-row">
+          <select id="docTipe">
+            <option value="LPB">LPB - Penerimaan Barang Masuk</option>
+            <option value="NRB">NRB - Retur Barang Rusak / Kedaluwarsa</option>
+            <option value="MUTASI_OUT">Mutasi Keluar Antar Toko</option>
+          </select>
+          <input type="text" id="docAsal" placeholder="Asal Gudang / Supplier / Toko Tujuan">
+          <input type="password" id="docPin" placeholder="PIN Supervisor (Jika Pramuniaga)">
+        </div>
+        <div class="form-row">
+          <input type="text" id="docSku" placeholder="Kode SKU (misal: SKU-1001)">
+          <input type="number" id="docQty" placeholder="Jumlah Fisik (Qty)">
+          <input type="date" id="docExpired" title="Tanggal Kedaluwarsa (FEFO)">
+        </div>
+        <button class="btn btn-green" onclick="submitGudangDoc()">Simpan & Proses Stok</button>
+      </div>
+    </div>
+
+    <!-- TAB 3: BLIND STOCK OPNAME -->
+    <div id="tab-so" class="section">
+      <div class="card">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
+          <div>
+            <h3 style="margin:0;">Stock Opname (Metode Blind Count)</h3>
+            <small style="color:var(--text-muted);">Stok komputer disembunyikan agar perhitungan fisik objektif.</small>
+          </div>
+          <div style="display:flex; gap:8px;">
+            <select id="jenisSO" style="width:180px;">
+              <option value="PARSIAL">SO Parsial (Harian)</option>
+              <option value="GRAND">Grand SO (Bulanan)</option>
+            </select>
+            <input type="password" id="soPin" placeholder="PIN Kepala Toko" style="width:160px;">
+            <button class="btn btn-green" onclick="submitSO()">Simpan Hasil SO</button>
+          </div>
+        </div>
+        <table>
+          <thead>
+            <tr><th>SKU</th><th>Barcode</th><th>Nama Barang</th><th>Satuan</th><th>Input Hitungan Fisik Rak</th></tr>
+          </thead>
+          <tbody id="soTableBody"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- TAB 4: BRANKAS & SETORAN -->
+    <div id="tab-brankas" class="section">
+      <div class="card" style="max-width: 600px;">
+        <h3 style="margin-top:0;">Pencatatan Kas Brankas & Setoran Bank</h3>
+        <div style="display:flex; flex-direction:column; gap:12px;">
+          <select id="kasJenis">
+            <option value="SETOR_BANK">Setoran Tunai ke Bank</option>
+            <option value="CASH_DROP">Cash Drop dari Laci Kasir</option>
+            <option value="BIAYA_OPS">Pengeluaran Operasional Toko</option>
+          </select>
+          <input type="number" id="kasNominal" placeholder="Nominal (Rp)">
+          <input type="text" id="kasKet" placeholder="Keterangan / Nomor Referensi Bukti Setor">
+          <button class="btn btn-green" onclick="submitKasBrankas()">Catat Transaksi Brankas</button>
+        </div>
+      </div>
+    </div>
+  </main>
+
+  <?!= include('js_admin'); ?>
+</body>
+</html>
