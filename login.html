@@ -1,0 +1,157 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <title>Login - Enterprise Retail POS & SIS v3.1</title>
+  <style>
+    :root {
+      --bg-canvas: #F4F6F9;
+      --surface: #FFFFFF;
+      --border: #E2E8F0;
+      --primary: #10B981;
+      --primary-dark: #059669;
+      --text-main: #0F172A;
+      --text-muted: #64748B;
+      --danger: #DC2626;
+    }
+    * { box-sizing: border-box; font-family: 'Inter', system-ui, -apple-system, sans-serif; }
+    body {
+      margin: 0; height: 100vh; display: flex; align-items: center; justify-content: center;
+      background-color: var(--bg-canvas); color: var(--text-main);
+    }
+    .login-card {
+      width: 100%; max-width: 420px; background: var(--surface);
+      border-radius: 16px; border: 1px solid var(--border);
+      box-shadow: 0 4px 12px rgba(15, 23, 42, 0.04); padding: 32px;
+    }
+    .brand { display: flex; align-items: center; gap: 12px; margin-bottom: 24px; }
+    .brand-badge {
+      background: var(--primary); color: #fff; font-weight: 800;
+      padding: 10px 14px; border-radius: 12px; font-size: 18px;
+    }
+    h1 { font-size: 20px; margin: 0; }
+    p.sub { margin: 4px 0 0; font-size: 13px; color: var(--text-muted); }
+    .form-group { margin-bottom: 16px; }
+    label { display: block; font-size: 13px; font-weight: 600; margin-bottom: 6px; }
+    input, select {
+      width: 100%; padding: 12px 14px; border-radius: 10px;
+      border: 1px solid var(--border); font-size: 14px; outline: none;
+    }
+    input:focus, select:focus { border-color: var(--primary); }
+    .btn-login {
+      width: 100%; padding: 14px; background: var(--primary); color: #fff;
+      border: none; border-radius: 12px; font-size: 15px; font-weight: 700;
+      cursor: pointer; transition: 0.2s; margin-top: 8px;
+    }
+    .btn-login:hover { background: var(--primary-dark); }
+    .btn-login:disabled { opacity: 0.6; cursor: not-allowed; }
+    .device-info {
+      margin-top: 20px; padding-top: 16px; border-top: 1px solid var(--border);
+      font-size: 11px; color: var(--text-muted); display: flex; justify-content: space-between;
+    }
+    .error-box {
+      display: none; background: #FEF2F2; color: var(--danger); border: 1px solid #FECACA;
+      padding: 10px 12px; border-radius: 10px; font-size: 13px; margin-bottom: 16px;
+    }
+  </style>
+</head>
+<body>
+  <div class="login-card">
+    <div class="brand">
+      <div class="brand-badge">POS</div>
+      <div>
+        <h1>Enterprise Retail POS</h1>
+        <p class="sub">Store Information System v3.1</p>
+      </div>
+    </div>
+
+    <div id="errorBox" class="error-box"></div>
+
+    <form id="loginForm">
+      <div class="form-group">
+        <label>Kode Cabang / Gerai</label>
+        <input type="text" id="storeCode" value="TK-001" required placeholder="Contoh: TK-001">
+      </div>
+      <div class="form-group">
+        <label>Username</label>
+        <input type="text" id="username" required autocomplete="off" placeholder="Masukkan username">
+      </div>
+      <div class="form-group">
+        <label>Password</label>
+        <input type="password" id="password" required placeholder="••••••••">
+      </div>
+      <div class="form-group">
+        <label>Mode Terminal</label>
+        <select id="targetTerminal">
+          <option value="kasir">Terminal Kasir (POS)</option>
+          <option value="admin">Backoffice / Admin SIS</option>
+        </select>
+      </div>
+      <button type="submit" id="btnSubmit" class="btn-login">Masuk ke Sistem</button>
+    </form>
+
+    <div class="device-info">
+      <span>Device ID: <strong id="deviceLabel">-</strong></span>
+      <span>Offline-Ready Engine</span>
+    </div>
+  </div>
+
+  <script>
+    // Generate atau ambil Hardware Device ID permanen di browser ini
+    function getOrCreateDeviceId() {
+      let devId = localStorage.getItem('POS_DEVICE_ID');
+      if (!devId) {
+        devId = 'DEV-' + crypto.randomUUID().slice(0, 8).toUpperCase();
+        localStorage.setItem('POS_DEVICE_ID', devId);
+      }
+      return devId;
+    }
+
+    const deviceId = getOrCreateDeviceId();
+    document.getElementById('deviceLabel').textContent = deviceId;
+
+    document.getElementById('loginForm').addEventListener('submit', function(e) {
+      e.preventDefault();
+      const btn = document.getElementById('btnSubmit');
+      const errBox = document.getElementById('errorBox');
+      errBox.style.display = 'none';
+      btn.disabled = true;
+      btn.textContent = 'Memverifikasi Perangkat & Sesi...';
+
+      const reqPayload = {
+        endpoint: 'auth/login',
+        deviceId: deviceId,
+        clientTimestamp: new Date().toISOString(),
+        payload: {
+          storeCode: document.getElementById('storeCode').value.trim().toUpperCase(),
+          username: document.getElementById('username').value.trim(),
+          password: document.getElementById('password').value
+        }
+      };
+
+      google.script.run
+        .withSuccessHandler(function(res) {
+          btn.disabled = false;
+          btn.textContent = 'Masuk ke Sistem';
+          if (res.status !== 200) {
+            errBox.textContent = res.error || 'Gagal login.';
+            errBox.style.display = 'block';
+            return;
+          }
+          // Simpan sesi lokal untuk digunakan oleh Kasir / Admin
+          localStorage.setItem('POS_SESSION', JSON.stringify(res.data));
+          const mode = document.getElementById('targetTerminal').value;
+          const baseUrl = window.location.href.split('?')[0];
+          window.top.location.href = `${baseUrl}?page=${mode}`;
+        })
+        .withFailureHandler(function(err) {
+          btn.disabled = false;
+          btn.textContent = 'Masuk ke Sistem';
+          errBox.textContent = 'Koneksi server gagal: ' + err.message;
+          errBox.style.display = 'block';
+        })
+        .apiRouter(reqPayload);
+    });
+  </script>
+</body>
+</html>
