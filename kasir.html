@@ -3,8 +3,8 @@
 <head>
   <meta charset="UTF-8">
   <title>Terminal Kasir - Enterprise Retail POS v3.1</title>
- <link rel="stylesheet" href="CSS/css_global.css">
- <link rel="stylesheet" href="CSS/css_thermal.css">
+  <link rel="stylesheet" href="CSS/css_global.css">
+  <link rel="stylesheet" href="CSS/css_thermal.css">
 </head>
 <body>
   <div class="pos-wrapper">
@@ -24,11 +24,22 @@
 
     <!-- BENTO GRID WORKSPACE -->
     <div class="pos-bento">
-      <!-- KOLOM KIRI (65%): Scan Input & Tabel Daftar Belanja[cite: 4] -->
+      <!-- KOLOM KIRI (65%): Scan Input, Info Member & Tabel Daftar Belanja -->
       <div class="col-left">
-        <div class="card scan-card">
-          <input type="text" id="barcodeInput" class="scan-input" placeholder="Scan Barcode atau Ketik Kode Barang lalu Enter..." autofocus autocomplete="off">
-          <button onclick="syncMasterNow()" style="padding:14px 16px; border-radius:12px; border:1px solid var(--border); background:#F8FAFC; font-weight:700; cursor:pointer;">Sync Master</button>
+        <div class="card scan-card" style="flex-wrap:wrap; gap:10px;">
+          <input type="text" id="barcodeInput" class="scan-input" placeholder="Scan Barcode atau Ketik Kode Barang (misal: 3*barcode) lalu Enter..." autofocus autocomplete="off">
+          <button onclick="openMemberModal()" style="padding:14px 14px; border-radius:12px; border:1px solid #BFDBFE; background:#EFF6FF; color:#1D4ED8; font-weight:700; cursor:pointer;">Member [F1]</button>
+          <button onclick="syncMasterNow()" style="padding:14px 14px; border-radius:12px; border:1px solid var(--border); background:#F8FAFC; font-weight:700; cursor:pointer;">Sync Master</button>
+        </div>
+
+        <!-- Bar Status Pelanggan / Member Aktif (RENE POS) -->
+        <div id="activeMemberBar" style="display:flex; justify-content:space-between; align-items:center; background:#FFFFFF; border:1px solid var(--border); border-radius:12px; padding:8px 14px; font-size:13px;">
+          <div>
+            <span style="color:var(--text-muted);">Pelanggan:</span>
+            <strong id="lblActiveMemberName">Pelanggan Umum (UMUM)</strong>
+            <span id="lblActiveMemberBadge" style="margin-left:6px; padding:2px 8px; border-radius:6px; background:#F1F5F9; font-size:11px; font-weight:700;">0 Poin</span>
+          </div>
+          <button onclick="resetActiveMember()" id="btnResetMember" style="display:none; background:none; border:none; color:#DC2626; font-weight:600; cursor:pointer; font-size:12px;">Ganti ke Umum</button>
         </div>
 
         <div class="card cart-card">
@@ -39,7 +50,7 @@
                   <th style="width:40px;">#</th>
                   <th>Barcode / Nama Barang</th>
                   <th class="num">Harga</th>
-                  <th class="num" style="width:80px;">Qty</th>
+                  <th class="num" style="width:90px;">Qty</th>
                   <th class="num">Diskon</th>
                   <th class="num">Subtotal</th>
                 </tr>
@@ -50,33 +61,33 @@
         </div>
       </div>
 
-      <!-- KOLOM KANAN (35%): Grand Total, Action Tiles & Checkout[cite: 4] -->
+      <!-- KOLOM KANAN (35%): Grand Total, Action Tiles & Checkout -->
       <div class="col-right">
         <div class="total-card">
           <div style="display:flex; justify-content:space-between; font-size:13px; color:#94A3B8;">
             <span>Subtotal: <strong id="lblSubtotal" style="color:#fff;">Rp 0</strong></span>
-            <span>Hemat Promo: <strong id="lblDiscount" style="color:#FBBF24;">Rp 0</strong></span>
+            <span>Hemat Promo/Member: <strong id="lblDiscount" style="color:#FBBF24;">Rp 0</strong></span>
           </div>
           <div class="grand-total-val" id="lblGrandTotal">Rp 0</div>
           <div id="pwpAlertBox" class="promo-alert"></div>
         </div>
 
-        <!-- Color-Coded Action Tiles[cite: 4] -->
+        <!-- Color-Coded Action Tiles -->
         <div class="action-grid">
           <button class="tile-btn bg-royal" onclick="openCheckoutModal('QRIS')">
             <span class="kbd-badge">[F10]</span>
-            <span>Bayar QRIS / Split</span>
+            <span>Bayar QRIS / EDC / Split</span>
           </button>
           <button class="tile-btn bg-sky" onclick="openSearchModal()">
-            <span class="kbd-badge">[F2] / [F4]</span>
-            <span>Cari Barang / Ubah Qty</span>
+            <span class="kbd-badge">[F2]</span>
+            <span>Cari Barang Katalog</span>
           </button>
           <button class="tile-btn bg-amber" onclick="handleHoldRecall()">
             <span class="kbd-badge">[F6]</span>
             <span>Pending / Recall Struk</span>
           </button>
-          <button class="tile-btn bg-violet" onclick="openPpobModal()">
-            <span class="kbd-badge">[F7]</span>
+          <button class="tile-btn bg-violet" onclick="openNonPhysicalModal()">
+            <span class="kbd-badge">[F5] / [F7]</span>
             <span>PPOB / Tarik Tunai</span>
           </button>
           <button class="tile-btn bg-slate" onclick="reprintLastReceipt()">
@@ -105,20 +116,61 @@
     </div>
   </div>
 
-  <!-- MODAL PEMBAYARAN & SPLIT PAYMENT[cite: 2] -->
+  <!-- MODAL PEMBAYARAN LENGKAP (RENE POS: Diskon Faktur, Tukar Poin, Tunai, QRIS, EDC, Tempo) -->
   <div id="checkoutModal" class="modal-backdrop">
-    <div class="modal-box">
-      <h3 style="margin-top:0;">Penyelesaian Pembayaran</h3>
-      <div style="font-size:28px; font-weight:800; color:var(--emerald); margin-bottom:16px;" id="modalTotalDue">Rp 0</div>
-      
-      <label style="font-size:13px; font-weight:600;">Tunai Diterima (Rp)</label>
-      <input type="number" id="payCashInput" placeholder="0" oninput="calcChange()">
+    <div class="modal-box" style="max-width:520px;">
+      <div style="display:flex; justify-content:space-between; align-items:center;">
+        <h3 style="margin:0;">Penyelesaian Pembayaran</h3>
+        <span id="checkoutMemberTag" style="font-size:12px; background:#EFF6FF; color:#1D4ED8; padding:4px 8px; border-radius:6px; font-weight:700;">Pelanggan Umum</span>
+      </div>
 
-      <label style="font-size:13px; font-weight:600;">Pembayaran QRIS / Non-Tunai (Opsional untuk Split Payment)</label>
-      <input type="number" id="payQrisInput" placeholder="0" oninput="calcChange()">
+      <div style="display:flex; justify-content:space-between; align-items:baseline; margin:12px 0;">
+        <span style="font-size:13px; color:var(--text-muted);">Tagihan Akhir:</span>
+        <div style="font-size:28px; font-weight:800; color:var(--emerald);" id="modalTotalDue">Rp 0</div>
+      </div>
 
-      <div style="padding:12px; background:#F8FAFC; border-radius:10px; margin-bottom:16px; display:flex; justify-content:space-between;">
-        <span>Kembalian:</span>
+      <!-- Diskon Global Faktur & Tukar Poin Member -->
+      <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px; background:#F8FAFC; padding:10px; border-radius:10px; border:1px solid var(--border); margin-bottom:12px;">
+        <div>
+          <label style="font-size:12px; font-weight:600; display:block; margin-bottom:4px;">Diskon Faktur (Rp)</label>
+          <input type="number" id="payInvoiceDiscount" value="0" min="0" oninput="calcChange()" style="margin-bottom:0;">
+        </div>
+        <div>
+          <label style="font-size:12px; font-weight:600; display:block; margin-bottom:4px;">Tukar Poin (<span id="availPointsLbl">0</span> pt @Rp100)</label>
+          <input type="number" id="payRedeemPoints" value="0" min="0" oninput="calcChange()" style="margin-bottom:0;" disabled>
+        </div>
+      </div>
+
+      <!-- Multi-Metode Bayar -->
+      <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-bottom:10px;">
+        <div>
+          <label style="font-size:12px; font-weight:600; display:block; margin-bottom:4px;">Tunai Diterima (Rp)</label>
+          <input type="number" id="payCashInput" placeholder="0" oninput="calcChange()" style="margin-bottom:0;">
+        </div>
+        <div>
+          <label style="font-size:12px; font-weight:600; display:block; margin-bottom:4px;">QRIS / Transfer (Rp)</label>
+          <input type="number" id="payQrisInput" placeholder="0" oninput="calcChange()" style="margin-bottom:0;">
+        </div>
+      </div>
+
+      <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-bottom:10px;">
+        <div>
+          <label style="font-size:12px; font-weight:600; display:block; margin-bottom:4px;">Kartu Debit / Kredit EDC (Rp)</label>
+          <input type="number" id="payEdcInput" placeholder="0" oninput="calcChange()" style="margin-bottom:0;">
+        </div>
+        <div>
+          <label style="font-size:12px; font-weight:600; display:block; margin-bottom:4px;">No. Approval / Ref EDC</label>
+          <input type="text" id="payEdcRef" placeholder="Contoh: 482910" style="margin-bottom:0;">
+        </div>
+      </div>
+
+      <div id="tempoPaymentRow" style="display:none; margin-bottom:10px;">
+        <label style="font-size:12px; font-weight:600; display:block; margin-bottom:4px; color:#B45309;">Kredit / Tempo Member (Sisa Limit: <span id="availCreditLbl">Rp 0</span>)</label>
+        <input type="number" id="payTempoInput" value="0" min="0" oninput="calcChange()" style="margin-bottom:0; border-color:#F59E0B;">
+      </div>
+
+      <div style="padding:12px; background:#F8FAFC; border-radius:10px; margin-bottom:14px; display:flex; justify-content:space-between;">
+        <span>Kembalian Tunai:</span>
         <strong id="modalChangeVal" style="font-size:18px; color:var(--royal-blue);">Rp 0</strong>
       </div>
 
@@ -126,6 +178,36 @@
         <button onclick="closeModals()" style="flex:1; padding:12px; border-radius:10px; border:1px solid var(--border); cursor:pointer;">Batal</button>
         <button onclick="processFinalPayment()" style="flex:2; padding:12px; border-radius:10px; border:none; background:var(--emerald); color:#fff; font-weight:700; cursor:pointer;">Selesaikan & Cetak Struk</button>
       </div>
+    </div>
+  </div>
+
+  <!-- MODAL PENCARIAN & DAFTAR MEMBER [F1] -->
+  <div id="memberModal" class="modal-backdrop">
+    <div class="modal-box" style="max-width:580px;">
+      <h3 style="margin-top:0;">Pilih Pelanggan / Member (RENE CRM)</h3>
+      <input type="text" id="memberSearchInput" placeholder="Cari nama member, nomor HP, atau kode kartu..." oninput="runMemberSearch()">
+      <div style="max-height:220px; overflow-y:auto; border:1px solid var(--border); border-radius:10px; margin-bottom:14px;">
+        <table class="cart-table">
+          <thead><tr><th>Kode</th><th>Nama Member</th><th>Level</th><th class="num">Poin</th></tr></thead>
+          <tbody id="memberResultBody"></tbody>
+        </table>
+      </div>
+
+      <details style="background:#F8FAFC; padding:10px; border-radius:10px; border:1px solid var(--border); margin-bottom:12px;">
+        <summary style="cursor:pointer; font-weight:700; font-size:13px; color:#1D4ED8;">+ Daftar Member Baru Cepat</summary>
+        <div style="display:grid; grid-template-columns:1fr 1fr; gap:8px; margin-top:10px;">
+          <input type="text" id="newMbrName" placeholder="Nama Pelanggan" style="margin-bottom:0;">
+          <input type="text" id="newMbrPhone" placeholder="No. HP (Jadi Kode Kartu)" style="margin-bottom:0;">
+          <select id="newMbrLevel" style="padding:10px; border-radius:8px; border:1px solid var(--border);">
+            <option value="SILVER">Level: SILVER (Diskon 2%)</option>
+            <option value="GOLD">Level: GOLD (Diskon 5%)</option>
+            <option value="GROSIR">Level: GROSIR</option>
+          </select>
+          <button onclick="quickRegisterMember()" style="padding:10px; border-radius:8px; border:none; background:var(--royal-blue); color:#fff; font-weight:700; cursor:pointer;">Simpan & Pilih</button>
+        </div>
+      </details>
+
+      <button onclick="closeModals()" style="width:100%; padding:10px; border-radius:10px; border:1px solid var(--border); cursor:pointer;">Tutup</button>
     </div>
   </div>
 
@@ -144,15 +226,62 @@
     </div>
   </div>
 
-  <!-- AREA CETAK STRUK THERMAL (58mm / 80mm)[cite: 3, 6] -->
+  <!-- MODAL PPOB & TARIK TUNAI [F5 / F7] -->
+  <div id="modal-non-physical" class="modal-backdrop">
+    <div class="modal-box" style="max-width:440px;">
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:14px;">
+        <h3 style="margin:0;">Layanan Digital (PPOB) & Tarik Tunai</h3>
+        <button type="button" onclick="closeModals()" style="background:none; border:none; font-size:20px; cursor:pointer;">&times;</button>
+      </div>
+
+      <div style="display:flex; gap:8px; margin-bottom:14px;">
+        <button type="button" id="tab-btn-ppob" onclick="switchNonPhysicalTab('PPOB')" style="flex:1; padding:10px; border-radius:10px; border:1px solid #2563EB; background:#2563EB; color:#FFF; font-weight:600; cursor:pointer;">PPOB / Pulsa / PLN</button>
+        <button type="button" id="tab-btn-cashout" onclick="switchNonPhysicalTab('CASH_OUT')" style="flex:1; padding:10px; border-radius:10px; border:1px solid #E2E8F0; background:#F8FAFC; color:#0F172A; font-weight:600; cursor:pointer;">Tarik Tunai (Cash Out)</button>
+      </div>
+
+      <div id="form-ppob">
+        <label style="font-size:12px; font-weight:600;">Jenis Layanan</label>
+        <select id="ppob-category" style="width:100%; padding:10px; border-radius:8px; border:1px solid var(--border); margin-bottom:10px;">
+          <option value="PULSA">Pulsa Seluler</option>
+          <option value="TOKEN_PLN">Token Listrik PLN</option>
+          <option value="EWALLET">Top-Up E-Wallet (DANA/OVO/GoPay)</option>
+          <option value="TAGIHAN">Pembayaran Tagihan (PDAM/BPJS)</option>
+        </select>
+        <label style="font-size:12px; font-weight:600;">Nomor Tujuan / ID Pelanggan</label>
+        <input type="text" id="ppob-target" placeholder="081234567890 / ID PLN">
+        <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px;">
+          <div>
+            <label style="font-size:12px; font-weight:600;">Modal Saldo (Rp)</label>
+            <input type="number" id="ppob-cost" placeholder="50500">
+          </div>
+          <div>
+            <label style="font-size:12px; font-weight:600;">Harga Jual (Rp)</label>
+            <input type="number" id="ppob-price" placeholder="52500">
+          </div>
+        </div>
+        <button type="button" onclick="addPpobToCart()" style="width:100%; padding:12px; border-radius:10px; border:none; background:var(--emerald); color:#FFF; font-weight:700; cursor:pointer;">+ Masukkan ke Struk Kasir</button>
+      </div>
+
+      <div id="form-cashout" style="display:none;">
+        <label style="font-size:12px; font-weight:600;">Nominal Uang Tunai Diambil Pelanggan (Rp)</label>
+        <input type="number" id="cashout-amount" placeholder="200000">
+        <label style="font-size:12px; font-weight:600;">Biaya Admin Tarik Tunai (Rp)</label>
+        <input type="number" id="cashout-fee" value="3000">
+        <label style="font-size:12px; font-weight:600;">Referensi Transfer / QRIS Pelanggan</label>
+        <input type="text" id="cashout-ref" placeholder="No. Ref QRIS / Transfer Masuk">
+        <button type="button" onclick="submitCashOutTransaction()" style="width:100%; padding:12px; border-radius:10px; border:none; background:#0D9488; color:#FFF; font-weight:700; cursor:pointer;">Proses Tarik Tunai & Buka Laci</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- AREA CETAK STRUK THERMAL (58mm / 80mm) -->
   <div id="thermalReceiptArea" class="thermal-only"></div>
 
-<script src="https://unpkg.com/dexie@3.2.4/dist/dexie.min.js"></script>
-<script src="JS/js_db.js"></script>
-<script src="JS/js_api.js"></script>
-<script src="JS/js_promo.js"></script>
-<script src="JS/js_kasir.js"></script>
-<script src="JS/js_security.js"></script>
-
+  <script src="https://unpkg.com/dexie@3.2.4/dist/dexie.min.js"></script>
+  <script src="JS/js_db.js"></script>
+  <script src="JS/js_api.js"></script>
+  <script src="JS/js_promo.js"></script>
+  <script src="JS/js_kasir.js"></script>
+  <script src="JS/js_security.js"></script>
 </body>
 </html>

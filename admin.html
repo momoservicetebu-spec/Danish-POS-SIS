@@ -48,6 +48,7 @@
     .btn-green { background: var(--primary); }
     .btn-blue { background: var(--blue); }
     .btn-violet { background: var(--violet); }
+    .btn-amber { background: var(--amber); }
     .btn-red { background: var(--red); }
     .btn-sm { padding: 5px 10px; font-size: 12px; border-radius: 8px; }
     .form-row { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin-bottom: 12px; }
@@ -68,6 +69,7 @@
     <div class="nav-tabs">
       <button class="tab-btn active" onclick="switchTab('dashboard', this)">Dashboard KPI</button>
       <button class="tab-btn" onclick="switchTab('master', this)">Master & Promo</button>
+      <button class="tab-btn" onclick="switchTab('members', this)">Member & Piutang</button>
       <button class="tab-btn" onclick="switchTab('gudang', this)">Gudang & Mutasi</button>
       <button class="tab-btn" onclick="switchTab('so', this)">Blind Stock Opname</button>
       <button class="tab-btn" onclick="switchTab('brankas', this)">Brankas & Setoran</button>
@@ -182,7 +184,42 @@
       </div>
     </div>
 
-    <!-- TAB 3: GUDANG LPB, NRB & MUTASI ANTAR TOKO -->
+    <!-- TAB 3: MEMBER & PIUTANG PELANGGAN (RENE CRM) -->
+    <div id="tab-members" class="section">
+      <div class="card" style="margin-bottom:16px;">
+        <h3 style="margin-top:0;">Tambah / Perbarui Data Member & Limit Piutang</h3>
+        <div class="form-row">
+          <input type="text" id="mbrCardCode" placeholder="Kode Kartu / No. Member">
+          <input type="text" id="mbrNama" placeholder="Nama Pelanggan">
+          <input type="text" id="mbrPhone" placeholder="Nomor HP (WhatsApp)">
+        </div>
+        <div class="form-row">
+          <select id="mbrLevel">
+            <option value="SILVER">SILVER (Member Reguler)</option>
+            <option value="GOLD">GOLD (Member VIP)</option>
+            <option value="GROSIR">GROSIR / RESELLER</option>
+          </select>
+          <input type="number" id="mbrDiscountPct" placeholder="Diskon Member Otomatis (%)" min="0" max="100">
+          <input type="number" id="mbrCreditLimit" placeholder="Limit Kredit / Tempo (Rp)" min="0">
+        </div>
+        <button class="btn btn-green" onclick="submitMemberAdmin()">Simpan Data Member</button>
+      </div>
+
+      <div class="card">
+        <h3 style="margin-top:0;">Daftar Member, Saldo Poin & Kartu Piutang</h3>
+        <table>
+          <thead>
+            <tr>
+              <th>ID</th><th>Kode Kartu</th><th>Nama Pelanggan</th><th>No. HP</th>
+              <th>Level</th><th>Diskon</th><th>Saldo Poin</th><th>Limit Piutang</th><th>Sisa Piutang</th><th>Aksi</th>
+            </tr>
+          </thead>
+          <tbody id="membersTableBody"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- TAB 4: GUDANG LPB, NRB & MUTASI ANTAR TOKO -->
     <div id="tab-gudang" class="section">
       <div class="card" style="margin-bottom: 16px;">
         <h3 style="margin-top:0;">Input Penerimaan (LPB) / Retur Rusak (NRB) / Mutasi Antar Toko</h3>
@@ -205,7 +242,7 @@
       </div>
     </div>
 
-    <!-- TAB 4: BLIND STOCK OPNAME -->
+    <!-- TAB 5: BLIND STOCK OPNAME -->
     <div id="tab-so" class="section">
       <div class="card">
         <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
@@ -231,7 +268,7 @@
       </div>
     </div>
 
-    <!-- TAB 5: BRANKAS & SETORAN -->
+    <!-- TAB 6: BRANKAS & SETORAN -->
     <div id="tab-brankas" class="section">
       <div class="card" style="max-width: 600px;">
         <h3 style="margin-top:0;">Pencatatan Kas Brankas & Setoran Bank</h3>
@@ -248,7 +285,7 @@
       </div>
     </div>
 
-    <!-- TAB 6: MANAJEMEN USER & DEVICE BINDING -->
+    <!-- TAB 7: MANAJEMEN USER & DEVICE BINDING -->
     <div id="tab-users" class="section">
       <div class="card" style="margin-bottom:16px;">
         <h3 style="margin-top:0;">Tambah Pengguna Baru (RBAC)</h3>

@@ -1,4 +1,4 @@
-// JS/js_admin.js - Logika Backoffice & Admin SIS v3.1
+// JS/js_admin.js - Logika Backoffice & Admin SIS v3.1 (RENE POS Edition)
 if (SESSION) {
   document.getElementById('storeTitle').textContent = `${SESSION.store.namaToko} (${SESSION.store.kodeToko})`;
   document.getElementById('userBadge').textContent = `${SESSION.user.nama} [${SESSION.user.role}]`;
@@ -21,6 +21,7 @@ function switchTab(tabName, btn) {
 
   if (tabName === 'dashboard') loadDashboard();
   if (tabName === 'master') loadMasterCatalog();
+  if (tabName === 'members') loadMembersTable();
   if (tabName === 'so') loadBlindSOItems();
   if (tabName === 'users') loadUsersTable();
 }
@@ -115,6 +116,72 @@ function submitPromo() {
     alert(res.message);
     document.getElementById('prmBarcodeSyarat').value = '';
     document.getElementById('prmHarga').value = '';
+  });
+}
+
+// === MEMBER & PIUTANG PELANGGAN (RENE CRM) ===
+function loadMembersTable() {
+  callAdminApi('member/list', {}, members => {
+    const tbody = document.getElementById('membersTableBody');
+    tbody.innerHTML = members.map(m => `
+      <tr>
+        <td><strong>${m.member_id}</strong></td>
+        <td><code>${m.card_code}</code></td>
+        <td>${m.name}</td>
+        <td>${m.phone}</td>
+        <td><span class="badge badge-ok">${m.price_level}</span></td>
+        <td>${m.member_discount_pct}%</td>
+        <td><strong>${m.points.toLocaleString('id-ID')}</strong> pt</td>
+        <td>Rp ${m.credit_limit.toLocaleString('id-ID')}</td>
+        <td style="color:${m.current_debt > 0 ? '#DC2626' : '#0F172A'}; font-weight:700;">
+          Rp ${m.current_debt.toLocaleString('id-ID')}
+        </td>
+        <td style="display:flex; gap:6px;">
+          <button class="btn btn-blue btn-sm" onclick='fillMemberForm(${JSON.stringify(m)})'>Edit</button>
+          ${m.current_debt > 0 ? `<button class="btn btn-amber btn-sm" onclick="payDebtModal('${m.member_id}', '${m.name}', ${m.current_debt})">Bayar Piutang</button>` : ''}
+        </td>
+      </tr>
+    `).join('');
+  });
+}
+
+function fillMemberForm(m) {
+  document.getElementById('mbrCardCode').value = m.card_code;
+  document.getElementById('mbrNama').value = m.name;
+  document.getElementById('mbrPhone').value = m.phone;
+  document.getElementById('mbrLevel').value = m.price_level;
+  document.getElementById('mbrDiscountPct').value = m.member_discount_pct;
+  document.getElementById('mbrCreditLimit').value = m.credit_limit;
+}
+
+function submitMemberAdmin() {
+  const payload = {
+    cardCode: document.getElementById('mbrCardCode').value,
+    nama: document.getElementById('mbrNama').value,
+    phone: document.getElementById('mbrPhone').value,
+    priceLevel: document.getElementById('mbrLevel').value,
+    discountPct: Number(document.getElementById('mbrDiscountPct').value) || 0,
+    creditLimit: Number(document.getElementById('mbrCreditLimit').value) || 0
+  };
+  callAdminApi('member/save', payload, res => {
+    alert(res.message);
+    document.getElementById('mbrCardCode').value = '';
+    document.getElementById('mbrNama').value = '';
+    document.getElementById('mbrPhone').value = '';
+    loadMembersTable();
+  });
+}
+
+function payDebtModal(memberId, memberName, currentDebt) {
+  const amountStr = prompt(`PELUNASAN PIUTANG MEMBER\nPelanggan: ${memberName}\nSisa Piutang: Rp ${currentDebt.toLocaleString('id-ID')}\n\nMasukkan nominal pembayaran (Rp):`, currentDebt);
+  if (!amountStr) return;
+  const amountPaid = Number(amountStr) || 0;
+  if (amountPaid <= 0) return alert('Nominal pembayaran tidak valid.');
+
+  const note = prompt('Catatan / No. Referensi Pembayaran (Tunai / Transfer):', 'Pelunasan di toko') || '-';
+  callAdminApi('member/pay-debt', { memberId, amountPaid, note }, res => {
+    alert(res.message);
+    loadMembersTable();
   });
 }
 

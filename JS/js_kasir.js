@@ -1,6 +1,17 @@
 let CART = [];
   let SELECTED_INDEX = -1;
   let ACTIVE_PROMOS = [];
+  let ACTIVE_MEMBER = {
+    member_id: 'MBR-000',
+    card_code: 'UMUM',
+    name: 'Pelanggan Umum',
+    phone: '-',
+    price_level: 'UMUM',
+    member_discount_pct: 0,
+    points: 0,
+    credit_limit: 0,
+    current_debt: 0
+  };
   let LAST_RECEIPT_HTML = '';
   let LAST_REPRINT_COUNT = 0;
   let ACTIVE_SHIFT = JSON.parse(localStorage.getItem('POS_ACTIVE_SHIFT') || 'null');
@@ -49,9 +60,9 @@ let CART = [];
   async function syncMasterNow() {
     try {
       const data = await ApiClient.call('pos/sync-master', {});
-      await LocalDB.saveMasterData(data.products, data.promotions);
+      await LocalDB.saveMasterData(data.products, data.promotions, data.members || []);
       ACTIVE_PROMOS = await LocalDB.getActivePromotions();
-      alert(`Sinkronisasi selesai: ${data.products.length} SKU & ${data.promotions.length} Promo aktif.`);
+      alert(`Sinkronisasi selesai: ${data.products.length} SKU, ${data.promotions.length} Promo, & ${(data.members || []).length} Member.`);
     } catch (e) {
       alert('Gagal sinkron master: ' + e.message);
     }
@@ -110,12 +121,28 @@ let CART = [];
     renderCart();
   }
 
-  function renderCart() {
+  function evaluateCartWithMember() {
     const evalResult = PromoEngine.evaluateCart(CART, ACTIVE_PROMOS);
+    // Hitung diskon otomatis berbasis level member jika item belum kena promo khusus
+    const memberPct = Number(ACTIVE_MEMBER.member_discount_pct) || 0;
+    let memberDiscountExtra = 0;
+    if (memberPct > 0 && evalResult.grandTotal > 0) {
+      memberDiscountExtra = Math.round(evalResult.grandTotal * (memberPct / 100));
+    }
+    return {
+      ...evalResult,
+      memberDiscount: memberDiscountExtra,
+      totalDiscount: evalResult.totalDiscount + memberDiscountExtra,
+      grandTotal: Math.max(0, evalResult.grandTotal - memberDiscountExtra)
+    };
+  }
+
+  function renderCart() {
+    const evalResult = evaluateCartWithMember();
     const tbody = document.getElementById('cartTableBody');
 
     tbody.innerHTML = CART.map((item, idx) => {
-      const lineTotal = (item.price * item.qty) - item.discount;
+      const lineTotal = (item.price * item.qty) - (item.discount || 0);
       const unitBadge = `<span style="background:#E2E8F0;color:#334155;font-size:11px;font-weight:700;padding:2px 6px;border-radius:6px;margin-left:4px;">${item.unit || 'PCS'}</span>`;
       return `
         <tr class="cart-row ${idx === SELECTED_INDEX ? 'selected' : ''}" onclick="SELECTED_INDEX=${idx}; renderCart();">
@@ -126,7 +153,7 @@ let CART = [];
           </td>
           <td class="num">${item.price.toLocaleString('id-ID')}</td>
           <td class="num"><strong>${item.qty}</strong> ${item.unit || 'PCS'}</td>
-          <td class="num" style="color:#DC2626;">${item.discount > 0 ? '-' + item.discount.toLocaleString('id-ID') : '0'}</td>
+          <td class="num" style="color:#DC2626;">${(item.discount || 0) > 0 ? '-' + item.discount.toLocaleString('id-ID') : '0'}</td>
           <td class="num"><strong>${lineTotal.toLocaleString('id-ID')}</strong></td>
         </tr>
       `;
@@ -154,6 +181,70 @@ let CART = [];
     });
   }
 
+  // === MODUL MEMBER & CRM (RENE POS) [F1] ===
+  function openMemberModal() {
+    document.getElementById('memberModal').style.display = 'flex';
+    document.getElementById('memberSearchInput').value = '';
+    document.getElementById('memberSearchInput').focus();
+    runMemberSearch();
+  }
+
+  async function runMemberSearch() {
+    const kw = document.getElementById('memberSearchInput').value;
+    const list = await LocalDB.searchMembers(kw);
+    document.getElementById('memberResultBody').innerHTML = list.map(m => `
+      <tr style="cursor:pointer;" onclick='selectActiveMember(${JSON.stringify(m)})'>
+        <td><strong>${m.card_code}</strong></td>
+        <td>${m.name}<br><small style="color:#64748B;">${m.phone}</small></td>
+        <td><span style="background:#EFF6FF;color:#1D4ED8;padding:2px 6px;border-radius:6px;font-size:11px;font-weight:700;">${m.price_level}</span></td>
+        <td class="num"><strong>${m.points}</strong> pt</td>
+      </tr>
+    `).join('') || '<tr><td colspan="4" style="text-align:center;">Member tidak ditemukan.</td></tr>';
+  }
+
+  function selectActiveMember(member) {
+    ACTIVE_MEMBER = member;
+    document.getElementById('lblActiveMemberName').textContent = `${member.name} (${member.price_level}${member.member_discount_pct > 0 ? ' -' + member.member_discount_pct + '%' : ''})`;
+    document.getElementById('lblActiveMemberBadge').textContent = `${member.points} Poin`;
+    document.getElementById('btnResetMember').style.display = member.member_id !== 'MBR-000' ? 'inline-block' : 'none';
+    closeModals();
+    renderCart();
+  }
+
+  function resetActiveMember() {
+    selectActiveMember({
+      member_id: 'MBR-000',
+      card_code: 'UMUM',
+      name: 'Pelanggan Umum',
+      phone: '-',
+      price_level: 'UMUM',
+      member_discount_pct: 0,
+      points: 0,
+      credit_limit: 0,
+      current_debt: 0
+    });
+  }
+
+  async function quickRegisterMember() {
+    const nama = document.getElementById('newMbrName').value.trim();
+    const phone = document.getElementById('newMbrPhone').value.trim();
+    const level = document.getElementById('newMbrLevel').value;
+    const discountPct = level === 'GOLD' ? 5 : (level === 'SILVER' ? 2 : 0);
+
+    if (!nama || !phone) return alert('Nama dan No. HP pelanggan wajib diisi.');
+
+    try {
+      const res = await ApiClient.call('member/save', { nama, phone, priceLevel: level, discountPct });
+      if (res.member) {
+        await LocalDB.upsertMember(res.member);
+        selectActiveMember(res.member);
+        alert(res.message);
+      }
+    } catch (e) {
+      alert('Gagal mendaftarkan member: ' + e.message);
+    }
+  }
+
   // Void Item Terpilih (Wajib PIN Supervisor)
   async function voidSelectedItem() {
     if (CART.length === 0 || SELECTED_INDEX < 0) return;
@@ -166,7 +257,6 @@ let CART = [];
       SELECTED_INDEX = CART.length - 1;
       renderCart();
 
-      // Catat ke Audit Trail
       await db.audit_logs.add({
         timestamp: new Date().toISOString(),
         user_id: SESSION.user.userId,
@@ -208,13 +298,33 @@ let CART = [];
     focusScanner();
   }
 
-  // Pembayaran & Split Payment [F8 / F10]
+  // Pembayaran Lengkap RENE POS [F8 / F10]
   function openCheckoutModal(defaultMode) {
     if (CART.length === 0) return;
-    const evalResult = PromoEngine.evaluateCart(CART, ACTIVE_PROMOS);
-    document.getElementById('modalTotalDue').textContent = 'Rp ' + evalResult.grandTotal.toLocaleString('id-ID');
+    const evalResult = evaluateCartWithMember();
+
+    document.getElementById('checkoutMemberTag').textContent = `${ACTIVE_MEMBER.name} (${ACTIVE_MEMBER.points} Poin)`;
+    document.getElementById('payInvoiceDiscount').value = 0;
+
+    // Kontrol Tukar Poin Member
+    const redeemInp = document.getElementById('payRedeemPoints');
+    document.getElementById('availPointsLbl').textContent = ACTIVE_MEMBER.points;
+    redeemInp.value = 0;
+    redeemInp.max = ACTIVE_MEMBER.points;
+    redeemInp.disabled = ACTIVE_MEMBER.member_id === 'MBR-000' || ACTIVE_MEMBER.points <= 0;
+
+    // Kontrol Kredit / Tempo Member
+    const sisaLimit = Math.max(0, (ACTIVE_MEMBER.credit_limit || 0) - (ACTIVE_MEMBER.current_debt || 0));
+    const tempoRow = document.getElementById('tempoPaymentRow');
+    document.getElementById('availCreditLbl').textContent = 'Rp ' + sisaLimit.toLocaleString('id-ID');
+    document.getElementById('payTempoInput').value = 0;
+    tempoRow.style.display = (ACTIVE_MEMBER.member_id !== 'MBR-000' && sisaLimit > 0) ? 'block' : 'none';
+
     document.getElementById('payCashInput').value = defaultMode === 'CASH' ? evalResult.grandTotal : 0;
     document.getElementById('payQrisInput').value = defaultMode === 'QRIS' ? evalResult.grandTotal : 0;
+    document.getElementById('payEdcInput').value = 0;
+    document.getElementById('payEdcRef').value = '';
+
     calcChange();
     document.getElementById('checkoutModal').style.display = 'flex';
 
@@ -227,47 +337,80 @@ let CART = [];
     }
   }
 
-  function calcChange() {
-    const evalResult = PromoEngine.evaluateCart(CART, ACTIVE_PROMOS);
+  function getCheckoutComputation() {
+    const evalResult = evaluateCartWithMember();
+    const invoiceDisc = Math.max(0, Number(document.getElementById('payInvoiceDiscount').value) || 0);
+    const maxPts = ACTIVE_MEMBER.points || 0;
+    const redeemPts = Math.min(maxPts, Math.max(0, Number(document.getElementById('payRedeemPoints').value) || 0));
+    const redeemValue = redeemPts * 100; // 1 Poin = Rp 100
+
+    const netDue = Math.max(0, evalResult.grandTotal - invoiceDisc - redeemValue);
     const cash = Number(document.getElementById('payCashInput').value) || 0;
     const qris = Number(document.getElementById('payQrisInput').value) || 0;
-    const change = (cash + qris) - evalResult.grandTotal;
-    document.getElementById('modalChangeVal').textContent = 'Rp ' + Math.max(0, change).toLocaleString('id-ID');
+    const edc = Number(document.getElementById('payEdcInput').value) || 0;
+    const tempo = Number(document.getElementById('payTempoInput').value) || 0;
+
+    const totalPaid = cash + qris + edc + tempo;
+    const change = totalPaid - netDue;
+
+    return {
+      evalResult, invoiceDisc, redeemPts, redeemValue, netDue,
+      cash, qris, edc, tempo, totalPaid, change
+    };
+  }
+
+  function calcChange() {
+    const comp = getCheckoutComputation();
+    document.getElementById('modalTotalDue').textContent = 'Rp ' + comp.netDue.toLocaleString('id-ID');
+    document.getElementById('modalChangeVal').textContent = 'Rp ' + Math.max(0, comp.change).toLocaleString('id-ID');
   }
 
   async function processFinalPayment() {
-    const evalResult = PromoEngine.evaluateCart(CART, ACTIVE_PROMOS);
-    const cash = Number(document.getElementById('payCashInput').value) || 0;
-    const qris = Number(document.getElementById('payQrisInput').value) || 0;
+    const comp = getCheckoutComputation();
+    const edcRef = document.getElementById('payEdcRef').value.trim();
 
-    if ((cash + qris) < evalResult.grandTotal) {
-      return alert('Nominal pembayaran kurang dari Grand Total!');
+    if (comp.totalPaid < comp.netDue) {
+      return alert('Nominal pembayaran kurang dari Tagihan Akhir!');
+    }
+    if (comp.edc > 0 && !edcRef) {
+      return alert('Nomor Approval / Referensi EDC wajib diisi untuk pembayaran kartu!');
+    }
+    const sisaLimit = Math.max(0, (ACTIVE_MEMBER.credit_limit || 0) - (ACTIVE_MEMBER.current_debt || 0));
+    if (comp.tempo > sisaLimit) {
+      return alert(`Nominal Tempo melebihi sisa limit piutang member (Rp ${sisaLimit.toLocaleString('id-ID')})!`);
     }
 
     const payments = [];
-    if (cash > 0) payments.push({ method: 'CASH', amount: cash - Math.max(0, (cash + qris) - evalResult.grandTotal) });
-    if (qris > 0) payments.push({ method: 'QRIS', amount: qris });
+    const cashNet = comp.cash > 0 ? Math.max(0, comp.cash - Math.max(0, comp.change)) : 0;
+    if (cashNet > 0) payments.push({ method: 'CASH', amount: cashNet });
+    if (comp.qris > 0) payments.push({ method: 'QRIS', amount: comp.qris });
+    if (comp.edc > 0) payments.push({ method: 'EDC', amount: comp.edc, ref: edcRef });
+    if (comp.tempo > 0) payments.push({ method: 'TEMPO', amount: comp.tempo });
+    if (comp.redeemValue > 0) payments.push({ method: 'POINTS_REDEEM', amount: comp.redeemValue, points: comp.redeemPts });
 
     const isPurePpob = CART.every(it => it.is_non_physical === true);
     const trxType = isPurePpob ? 'PPOB' : 'SALE';
+    const totalAllDiscount = comp.evalResult.totalDiscount + comp.invoiceDisc + comp.redeemValue;
 
     const trxId = `TRX-${SESSION.store.kodeToko}-${Date.now()}`;
     const shiftId = ACTIVE_SHIFT ? ACTIVE_SHIFT.shiftId : 'SHF-OFFLINE';
     const itemsJson = JSON.stringify(CART);
 
     // Hitung SHA-256 Checksum lokal untuk anti-tampering
-    const checksum = await SecurityModule.sha256(`${trxId}|${shiftId}|${evalResult.grandTotal}|${itemsJson}`);
+    const checksum = await SecurityModule.sha256(`${trxId}|${shiftId}|${comp.netDue}|${itemsJson}`);
 
     const trxRecord = {
       trx_id: trxId,
       shift_id: shiftId,
       timestamp: new Date().toISOString(),
       cashier_id: SESSION.user.userId,
+      member_id: ACTIVE_MEMBER.member_id,
+      points_redeemed: comp.redeemPts,
       items_json: itemsJson,
-      promo_applied_json: JSON.stringify(evalResult.appliedPromos),
-      subtotal: evalResult.subtotal,
-      discount_total: evalResult.totalDiscount,
-      grand_total: evalResult.grandTotal,
+      promo_applied_json: JSON.stringify(comp.evalResult.appliedPromos),
+      subtotal: comp.evalResult.subtotal,
+      discount_total: totalAllDiscount,
+      grand_total: comp.netDue,
       payments_json: JSON.stringify(payments),
       trx_type: trxType,
       sync_status: 'PENDING',
@@ -276,19 +419,27 @@ let CART = [];
 
     await LocalDB.saveTransaction(trxRecord);
 
-    const change = (cash + qris) - evalResult.grandTotal;
-    printThermalReceipt(trxRecord, CART, cash, qris, change, false);
+    // Update poin lokal member secara langsung agar akurat untuk transaksi berikutnya
+    if (ACTIVE_MEMBER.member_id !== 'MBR-000') {
+      const earnedPts = Math.floor(comp.netDue / 10000);
+      ACTIVE_MEMBER.points = Math.max(0, ACTIVE_MEMBER.points - comp.redeemPts + earnedPts);
+      ACTIVE_MEMBER.current_debt = (ACTIVE_MEMBER.current_debt || 0) + comp.tempo;
+      await LocalDB.upsertMember(ACTIVE_MEMBER);
+    }
+
+    printThermalReceipt(trxRecord, CART, comp, false);
 
     // Reset keranjang & kirim sinyal kembalian ke layar pelanggan
-    customerChannel.postMessage({ type: 'PAYMENT_DONE', grandTotal: evalResult.grandTotal, change: change });
+    customerChannel.postMessage({ type: 'PAYMENT_DONE', grandTotal: comp.netDue, change: Math.max(0, comp.change) });
     CART = [];
     SELECTED_INDEX = -1;
+    resetActiveMember();
     closeModals();
     renderCart();
     ApiClient.syncQueue(); // Trigger background sync
   }
 
-  function printThermalReceipt(trx, items, cash, qris, change, isCopy) {
+  function printThermalReceipt(trx, items, comp, isCopy) {
     const paperClass = SESSION.store.ukuranKertas === '58mm' ? 'paper-58' : 'paper-80';
     const copyBanner = isCopy ? '<div style="text-align:center;font-weight:bold;border:1px dashed #000;margin:4px 0;">*** COPY STRUK ***</div>' : '';
 
@@ -300,7 +451,7 @@ let CART = [];
         </div>
         ${copyBanner}
         <hr>
-        <small>No: ${trx.trx_id}<br>Kasir: ${SESSION.user.nama} | ${new Date(trx.timestamp).toLocaleString('id-ID')}</small>
+        <small>No: ${trx.trx_id}<br>Kasir: ${SESSION.user.nama} | ${new Date(trx.timestamp).toLocaleString('id-ID')}<br>Member: ${ACTIVE_MEMBER.name}</small>
         <hr>
         ${items.map(i => `
           <div>${i.name}</div>
@@ -311,11 +462,13 @@ let CART = [];
         `).join('')}
         <hr>
         <div style="display:flex;justify-content:space-between;"><span>Subtotal</span><span>${trx.subtotal.toLocaleString('id-ID')}</span></div>
-        <div style="display:flex;justify-content:space-between;"><span>Diskon</span><span>-${trx.discount_total.toLocaleString('id-ID')}</span></div>
+        <div style="display:flex;justify-content:space-between;"><span>Total Diskon/Poin</span><span>-${trx.discount_total.toLocaleString('id-ID')}</span></div>
         <div style="display:flex;justify-content:space-between;font-weight:bold;font-size:14px;"><span>TOTAL</span><span>Rp ${trx.grand_total.toLocaleString('id-ID')}</span></div>
-        <div style="display:flex;justify-content:space-between;"><span>Tunai</span><span>${cash.toLocaleString('id-ID')}</span></div>
-        ${qris > 0 ? `<div style="display:flex;justify-content:space-between;"><span>QRIS</span><span>${qris.toLocaleString('id-ID')}</span></div>` : ''}
-        <div style="display:flex;justify-content:space-between;"><span>Kembali</span><span>${change.toLocaleString('id-ID')}</span></div>
+        ${comp.cash > 0 ? `<div style="display:flex;justify-content:space-between;"><span>Tunai</span><span>${comp.cash.toLocaleString('id-ID')}</span></div>` : ''}
+        ${comp.qris > 0 ? `<div style="display:flex;justify-content:space-between;"><span>QRIS/Transfer</span><span>${comp.qris.toLocaleString('id-ID')}</span></div>` : ''}
+        ${comp.edc > 0 ? `<div style="display:flex;justify-content:space-between;"><span>EDC</span><span>${comp.edc.toLocaleString('id-ID')}</span></div>` : ''}
+        ${comp.tempo > 0 ? `<div style="display:flex;justify-content:space-between;"><span>Kredit/Tempo</span><span>${comp.tempo.toLocaleString('id-ID')}</span></div>` : ''}
+        <div style="display:flex;justify-content:space-between;"><span>Kembali</span><span>${Math.max(0, comp.change).toLocaleString('id-ID')}</span></div>
         <hr>
         <div style="text-align:center;"><small>Terima Kasih Atas Kunjungan Anda</small></div>
       </div>
@@ -358,7 +511,6 @@ let CART = [];
         actionType: 'MANUAL_OPEN_DRAWER',
         detail: 'Pembukaan laci uang manual via F11'
       });
-      // Cetak karakter kosong untuk memicu kick RJ11 printer thermal
       document.getElementById('thermalReceiptArea').innerHTML = '<div class="receipt">&nbsp;</div>';
       window.print();
     } catch (e) {
@@ -390,19 +542,13 @@ let CART = [];
     window.open('display.html', 'POSCustomerDisplay', 'width=1024,height=768');
   }
 
-  // === MODUL TRANSAKSI NON-FISIK: PPOB & TARIK TUNAI [F5] ===
+  // === MODUL TRANSAKSI NON-FISIK: PPOB & TARIK TUNAI [F5 / F7] ===
   function openNonPhysicalModal() {
     const modal = document.getElementById('modal-non-physical');
     if (modal) {
       modal.style.display = 'flex';
       switchNonPhysicalTab('PPOB');
     }
-  }
-
-  function closeNonPhysicalModal() {
-    const modal = document.getElementById('modal-non-physical');
-    if (modal) modal.style.display = 'none';
-    focusScanner();
   }
 
   function switchNonPhysicalTab(mode) {
@@ -440,7 +586,7 @@ let CART = [];
     document.getElementById('ppob-target').value = '';
     document.getElementById('ppob-cost').value = '';
     document.getElementById('ppob-price').value = '';
-    closeNonPhysicalModal();
+    closeModals();
   }
 
   async function submitCashOutTransaction() {
@@ -472,6 +618,7 @@ let CART = [];
       shift_id: shiftId,
       timestamp: new Date().toISOString(),
       cashier_id: SESSION.user.userId,
+      member_id: ACTIVE_MEMBER.member_id,
       items_json: itemsJson,
       promo_applied_json: '[]',
       subtotal: totalNonTunaiMasuk,
@@ -487,11 +634,11 @@ let CART = [];
     };
 
     await LocalDB.saveTransaction(trxRecord);
-    printThermalReceipt(trxRecord, itemsList, 0, totalNonTunaiMasuk, 0, false);
+    printThermalReceipt(trxRecord, itemsList, { cash: 0, qris: totalNonTunaiMasuk, edc: 0, tempo: 0, change: 0 }, false);
 
     document.getElementById('cashout-amount').value = '';
     document.getElementById('cashout-ref').value = '';
-    closeNonPhysicalModal();
+    closeModals();
     ApiClient.syncQueue();
   }
 
@@ -500,12 +647,13 @@ let CART = [];
     focusScanner();
   }
 
-  // Global Keyboard Shortcuts sesuai PRD v3.1 Bagian 6.3
+  // Global Keyboard Shortcuts sesuai PRD v3.1 & RENE POS
   document.addEventListener('keydown', function(e) {
-    if (e.key === 'F8') { e.preventDefault(); openCheckoutModal('CASH'); }
+    if (e.key === 'F1') { e.preventDefault(); openMemberModal(); }
+    else if (e.key === 'F8') { e.preventDefault(); openCheckoutModal('CASH'); }
     else if (e.key === 'F10') { e.preventDefault(); openCheckoutModal('QRIS'); }
     else if (e.key === 'F2') { e.preventDefault(); openSearchModal(); }
-    else if (e.key === 'F5') { e.preventDefault(); openNonPhysicalModal(); }
+    else if (e.key === 'F5' || e.key === 'F7') { e.preventDefault(); openNonPhysicalModal(); }
     else if (e.key === 'F6') { e.preventDefault(); handleHoldRecall(); }
     else if (e.key === 'F3') { e.preventDefault(); reprintLastReceipt(); }
     else if (e.key === 'F9') { e.preventDefault(); openCashDropModal(); }
