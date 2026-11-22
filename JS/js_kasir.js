@@ -1,12 +1,11 @@
-
-  let CART = [];
+let CART = [];
   let SELECTED_INDEX = -1;
   let ACTIVE_PROMOS = [];
   let LAST_RECEIPT_HTML = '';
   let LAST_REPRINT_COUNT = 0;
   let ACTIVE_SHIFT = JSON.parse(localStorage.getItem('POS_ACTIVE_SHIFT') || 'null');
 
-  // Saluran Layar Pelanggan Tanpa Internet (0ms)[cite: 2]
+  // Saluran Layar Pelanggan Tanpa Internet (0ms)
   const customerChannel = new BroadcastChannel('POS_CUSTOMER_DISPLAY');
 
   // Inisialisasi Awal Kasir
@@ -19,7 +18,7 @@
       document.getElementById('hdrClock').textContent = new Date().toLocaleTimeString('id-ID');
     }, 1000);
 
-    // Pastikan Shift Kasir sudah dibuka[cite: 1]
+    // Pastikan Shift Kasir sudah dibuka
     if (!ACTIVE_SHIFT || ACTIVE_SHIFT.cashierId !== SESSION.user.userId) {
       await promptOpenShift();
     } else {
@@ -63,7 +62,7 @@
     if (inp) inp.focus();
   }
 
-  // Pemindaian Barcode Instan (< 50ms dari IndexedDB)[cite: 1, 2]
+  // Pemindaian Barcode Instan (< 50ms dari IndexedDB)
   document.getElementById('barcodeInput').addEventListener('keydown', async function(e) {
     if (e.key === 'Enter') {
       e.preventDefault();
@@ -99,11 +98,12 @@
         barcode: product.barcode,
         sku_code: product.sku_code,
         name: product.name,
-        unit: product.unit,
+        unit: product.unit || 'PCS',
+        conversion_qty: product.conversion_qty || 1,
         price: product.price,
-        qty: qty,
-        discount: 0,
-        promoLabel: ''
+        cost_price: product.cost_price || 0,
+        is_non_physical: product.is_non_physical || false,
+        qty: qty
       });
       SELECTED_INDEX = CART.length - 1;
     }
@@ -116,15 +116,16 @@
 
     tbody.innerHTML = CART.map((item, idx) => {
       const lineTotal = (item.price * item.qty) - item.discount;
+      const unitBadge = `<span style="background:#E2E8F0;color:#334155;font-size:11px;font-weight:700;padding:2px 6px;border-radius:6px;margin-left:4px;">${item.unit || 'PCS'}</span>`;
       return `
         <tr class="cart-row ${idx === SELECTED_INDEX ? 'selected' : ''}" onclick="SELECTED_INDEX=${idx}; renderCart();">
           <td>${idx + 1}</td>
           <td>
-            <strong>${item.name}</strong><br>
+            <strong>${item.name}</strong>${unitBadge}<br>
             <small style="color:var(--text-muted);">${item.barcode} ${item.promoLabel ? '• <span style="color:#7C3AED;font-weight:700;">' + item.promoLabel + '</span>' : ''}</small>
           </td>
           <td class="num">${item.price.toLocaleString('id-ID')}</td>
-          <td class="num"><strong>${item.qty}</strong> ${item.unit}</td>
+          <td class="num"><strong>${item.qty}</strong> ${item.unit || 'PCS'}</td>
           <td class="num" style="color:#DC2626;">${item.discount > 0 ? '-' + item.discount.toLocaleString('id-ID') : '0'}</td>
           <td class="num"><strong>${lineTotal.toLocaleString('id-ID')}</strong></td>
         </tr>
@@ -135,7 +136,7 @@
     document.getElementById('lblDiscount').textContent = 'Rp ' + evalResult.totalDiscount.toLocaleString('id-ID');
     document.getElementById('lblGrandTotal').textContent = 'Rp ' + evalResult.grandTotal.toLocaleString('id-ID');
 
-    // Notifikasi PWP (Tebus Murah)[cite: 2]
+    // Notifikasi PWP (Tebus Murah)
     const pwpBox = document.getElementById('pwpAlertBox');
     if (evalResult.pwpOffers.length > 0) {
       pwpBox.style.display = 'block';
@@ -144,7 +145,7 @@
       pwpBox.style.display = 'none';
     }
 
-    // Kirim pembaruan real-time ke Layar Pelanggan (display.html)[cite: 2]
+    // Kirim pembaruan real-time ke Layar Pelanggan (display.html)
     customerChannel.postMessage({
       type: CART.length > 0 ? 'CART_UPDATE' : 'IDLE',
       storeName: SESSION.store.namaToko,
@@ -153,7 +154,7 @@
     });
   }
 
-  // Void Item Terpilih (Wajib PIN Supervisor)[cite: 4, 6]
+  // Void Item Terpilih (Wajib PIN Supervisor)
   async function voidSelectedItem() {
     if (CART.length === 0 || SELECTED_INDEX < 0) return;
     const pin = prompt('OTORISASI VOID ITEM\nMasukkan PIN Kepala Toko / Supervisor:');
@@ -165,7 +166,7 @@
       SELECTED_INDEX = CART.length - 1;
       renderCart();
 
-      // Catat ke Audit Trail[cite: 1, 5]
+      // Catat ke Audit Trail
       await db.audit_logs.add({
         timestamp: new Date().toISOString(),
         user_id: SESSION.user.userId,
@@ -180,7 +181,7 @@
     focusScanner();
   }
 
-  // Pending / Recall Struk [F6][cite: 2, 4]
+  // Pending / Recall Struk [F6]
   async function handleHoldRecall() {
     if (CART.length > 0) {
       const note = prompt('Simpan Transaksi Sementara (Hold)\nCatatan nama/ciri pembeli:', 'Antrean 1');
@@ -207,7 +208,7 @@
     focusScanner();
   }
 
-  // Pembayaran & Split Payment [F8 / F10][cite: 2, 4]
+  // Pembayaran & Split Payment [F8 / F10]
   function openCheckoutModal(defaultMode) {
     if (CART.length === 0) return;
     const evalResult = PromoEngine.evaluateCart(CART, ACTIVE_PROMOS);
@@ -247,11 +248,14 @@
     if (cash > 0) payments.push({ method: 'CASH', amount: cash - Math.max(0, (cash + qris) - evalResult.grandTotal) });
     if (qris > 0) payments.push({ method: 'QRIS', amount: qris });
 
+    const isPurePpob = CART.every(it => it.is_non_physical === true);
+    const trxType = isPurePpob ? 'PPOB' : 'SALE';
+
     const trxId = `TRX-${SESSION.store.kodeToko}-${Date.now()}`;
     const shiftId = ACTIVE_SHIFT ? ACTIVE_SHIFT.shiftId : 'SHF-OFFLINE';
     const itemsJson = JSON.stringify(CART);
 
-    // Hitung SHA-256 Checksum lokal untuk anti-tampering[cite: 5, 6]
+    // Hitung SHA-256 Checksum lokal untuk anti-tampering
     const checksum = await SecurityModule.sha256(`${trxId}|${shiftId}|${evalResult.grandTotal}|${itemsJson}`);
 
     const trxRecord = {
@@ -265,7 +269,7 @@
       discount_total: evalResult.totalDiscount,
       grand_total: evalResult.grandTotal,
       payments_json: JSON.stringify(payments),
-      trx_type: 'SALE',
+      trx_type: trxType,
       sync_status: 'PENDING',
       checksum: checksum
     };
@@ -287,7 +291,7 @@
   function printThermalReceipt(trx, items, cash, qris, change, isCopy) {
     const paperClass = SESSION.store.ukuranKertas === '58mm' ? 'paper-58' : 'paper-80';
     const copyBanner = isCopy ? '<div style="text-align:center;font-weight:bold;border:1px dashed #000;margin:4px 0;">*** COPY STRUK ***</div>' : '';
-    
+
     const html = `
       <div class="receipt ${paperClass}">
         <div style="text-align:center;">
@@ -301,8 +305,8 @@
         ${items.map(i => `
           <div>${i.name}</div>
           <div style="display:flex;justify-content:space-between;">
-            <span>${i.qty} x ${i.price.toLocaleString('id-ID')}</span>
-            <span>${((i.price * i.qty) - i.discount).toLocaleString('id-ID')}</span>
+            <span>${i.qty} ${i.unit || ''} x ${i.price.toLocaleString('id-ID')}</span>
+            <span>${((i.price * i.qty) - (i.discount || 0)).toLocaleString('id-ID')}</span>
           </div>
         `).join('')}
         <hr>
@@ -323,7 +327,7 @@
     window.print();
   }
 
-  // Kontrol Cetak Ulang Maksimal 1x dengan Label Wajib COPY STRUK[cite: 2]
+  // Kontrol Cetak Ulang Maksimal 1x dengan Label Wajib COPY STRUK
   function reprintLastReceipt() {
     if (!LAST_RECEIPT_HTML) return alert('Belum ada transaksi untuk dicetak ulang.');
     if (LAST_REPRINT_COUNT >= 1) return alert('Batas cetak ulang (maksimal 1x) sudah tercapai!');
@@ -354,7 +358,7 @@
         actionType: 'MANUAL_OPEN_DRAWER',
         detail: 'Pembukaan laci uang manual via F11'
       });
-      // Cetak karakter kosong untuk memicu kick RJ11 printer thermal[cite: 3]
+      // Cetak karakter kosong untuk memicu kick RJ11 printer thermal
       document.getElementById('thermalReceiptArea').innerHTML = '<div class="receipt">&nbsp;</div>';
       window.print();
     } catch (e) {
@@ -376,26 +380,132 @@
     document.getElementById('searchResultBody').innerHTML = results.map(p => `
       <tr style="cursor:pointer;" onclick='addToCart(${JSON.stringify(p)}, 1); closeModals();'>
         <td>${p.barcode}</td>
-        <td><strong>${p.name}</strong></td>
+        <td><strong>${p.name}</strong> <small style="color:#64748B;">(${p.unit || 'PCS'})</small></td>
         <td class="num">Rp ${p.price.toLocaleString('id-ID')}</td>
       </tr>
     `).join('');
   }
 
-function openCustomerDisplay() {
-  window.open('display.html', 'POSCustomerDisplay', 'width=1024,height=768');
-}
+  function openCustomerDisplay() {
+    window.open('display.html', 'POSCustomerDisplay', 'width=1024,height=768');
+  }
+
+  // === MODUL TRANSAKSI NON-FISIK: PPOB & TARIK TUNAI [F5] ===
+  function openNonPhysicalModal() {
+    const modal = document.getElementById('modal-non-physical');
+    if (modal) {
+      modal.style.display = 'flex';
+      switchNonPhysicalTab('PPOB');
+    }
+  }
+
+  function closeNonPhysicalModal() {
+    const modal = document.getElementById('modal-non-physical');
+    if (modal) modal.style.display = 'none';
+    focusScanner();
+  }
+
+  function switchNonPhysicalTab(mode) {
+    const isPpob = mode === 'PPOB';
+    document.getElementById('form-ppob').style.display = isPpob ? 'block' : 'none';
+    document.getElementById('form-cashout').style.display = isPpob ? 'none' : 'block';
+
+    document.getElementById('tab-btn-ppob').style.background = isPpob ? '#2563EB' : '#F8FAFC';
+    document.getElementById('tab-btn-ppob').style.color = isPpob ? '#FFFFFF' : '#0F172A';
+    document.getElementById('tab-btn-cashout').style.background = !isPpob ? '#2563EB' : '#F8FAFC';
+    document.getElementById('tab-btn-cashout').style.color = !isPpob ? '#FFFFFF' : '#0F172A';
+  }
+
+  function addPpobToCart() {
+    const category = document.getElementById('ppob-category').value;
+    const target = document.getElementById('ppob-target').value.trim();
+    const costPrice = Number(document.getElementById('ppob-cost').value) || 0;
+    const sellPrice = Number(document.getElementById('ppob-price').value) || 0;
+
+    if (!target || sellPrice <= 0) {
+      return alert('Nomor tujuan dan harga jual pelanggan wajib diisi.');
+    }
+
+    addToCart({
+      barcode: 'PPOB-' + category + '-' + Date.now(),
+      sku_code: 'PPOB-' + category,
+      name: `[PPOB ${category}] ${target}`,
+      unit: 'TRX',
+      conversion_qty: 1,
+      price: sellPrice,
+      cost_price: costPrice || sellPrice,
+      is_non_physical: true
+    }, 1);
+
+    document.getElementById('ppob-target').value = '';
+    document.getElementById('ppob-cost').value = '';
+    document.getElementById('ppob-price').value = '';
+    closeNonPhysicalModal();
+  }
+
+  async function submitCashOutTransaction() {
+    const amount = Number(document.getElementById('cashout-amount').value) || 0;
+    const fee = Number(document.getElementById('cashout-fee').value) || 0;
+    const ref = document.getElementById('cashout-ref').value.trim();
+
+    if (amount <= 0 || !ref) {
+      return alert('Nominal tarik tunai dan nomor referensi transfer/QRIS wajib diisi.');
+    }
+
+    const totalNonTunaiMasuk = amount + fee;
+    const trxId = `CO-${SESSION.store.kodeToko}-${Date.now()}`;
+    const shiftId = ACTIVE_SHIFT ? ACTIVE_SHIFT.shiftId : 'SHF-OFFLINE';
+    const itemsList = [{
+      sku_code: 'CASH-OUT',
+      name: `Tarik Tunai Rp ${amount.toLocaleString('id-ID')} (Ref: ${ref})`,
+      unit: 'TRX',
+      qty: 1,
+      price: fee,
+      discount: 0,
+      cash_out_principal: amount
+    }];
+    const itemsJson = JSON.stringify(itemsList);
+    const checksum = await SecurityModule.sha256(`${trxId}|${shiftId}|${totalNonTunaiMasuk}|${itemsJson}`);
+
+    const trxRecord = {
+      trx_id: trxId,
+      shift_id: shiftId,
+      timestamp: new Date().toISOString(),
+      cashier_id: SESSION.user.userId,
+      items_json: itemsJson,
+      promo_applied_json: '[]',
+      subtotal: totalNonTunaiMasuk,
+      discount_total: 0,
+      grand_total: totalNonTunaiMasuk,
+      payments_json: JSON.stringify([
+        { method: 'QRIS_IN', amount: totalNonTunaiMasuk },
+        { method: 'CASH_OUT_DRAWER', amount: -amount }
+      ]),
+      trx_type: 'CASH_OUT',
+      sync_status: 'PENDING',
+      checksum: checksum
+    };
+
+    await LocalDB.saveTransaction(trxRecord);
+    printThermalReceipt(trxRecord, itemsList, 0, totalNonTunaiMasuk, 0, false);
+
+    document.getElementById('cashout-amount').value = '';
+    document.getElementById('cashout-ref').value = '';
+    closeNonPhysicalModal();
+    ApiClient.syncQueue();
+  }
 
   function closeModals() {
     document.querySelectorAll('.modal-backdrop').forEach(m => m.style.display = 'none');
     focusScanner();
   }
 
-  // Global Keyboard Shortcuts sesuai PRD v3.1 Bagian 6.3[cite: 4]
+  // Global Keyboard Shortcuts sesuai PRD v3.1 Bagian 6.3
   document.addEventListener('keydown', function(e) {
     if (e.key === 'F8') { e.preventDefault(); openCheckoutModal('CASH'); }
     else if (e.key === 'F10') { e.preventDefault(); openCheckoutModal('QRIS'); }
     else if (e.key === 'F2') { e.preventDefault(); openSearchModal(); }
+    else if (e.key === 'F5') { e.preventDefault(); openNonPhysicalModal(); }
     else if (e.key === 'F6') { e.preventDefault(); handleHoldRecall(); }
     else if (e.key === 'F3') { e.preventDefault(); reprintLastReceipt(); }
     else if (e.key === 'F9') { e.preventDefault(); openCashDropModal(); }
