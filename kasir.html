@@ -3,8 +3,8 @@
 <head>
   <meta charset="UTF-8">
   <title>Terminal Kasir - Enterprise Retail POS v3.1</title>
-  <?!= include('css_global'); ?>
-  <?!= include('css_thermal'); ?>
+ <link rel="stylesheet" href="CSS/css_global.css">
+ <link rel="stylesheet" href="CSS/css_thermal.css">
 </head>
 <body>
   <div class="pos-wrapper">
@@ -147,14 +147,12 @@
   <!-- AREA CETAK STRUK THERMAL (58mm / 80mm)[cite: 3, 6] -->
   <div id="thermalReceiptArea" class="thermal-only"></div>
 
-    <?!= include('CSS/css_global'); ?>
-    <?!= include('CSS/css_thermal'); ?>
-    <?!= include('JS/js_db'); ?>
-    <?!= include('JS/js_api'); ?>
-    <?!= include('JS/js_promo'); ?>
-    <?!= include('JS/js_kasir'); ?>
-    <?!= include('JS/js_display'); ?>
-    <?!= include('JS/js_admin'); ?>
-    <?!= include('JS/js_security'); ?>
+<script src="https://unpkg.com/dexie@3.2.4/dist/dexie.min.js"></script>
+<script src="JS/js_db.js"></script>
+<script src="JS/js_api.js"></script>
+<script src="JS/js_promo.js"></script>
+<script src="JS/js_kasir.js"></script>
+<script src="JS/js_security.js"></script>
+
 </body>
 </html>
