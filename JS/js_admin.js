@@ -1,4 +1,4 @@
-// JS/js_admin.js - Logika Backoffice & Admin SIS v3.1 (RENE POS Edition)
+// JS/js_admin.js - Logika Backoffice & Admin SIS v3.1 (RENE POS Edition Lengkap)
 if (SESSION) {
   document.getElementById('storeTitle').textContent = `${SESSION.store.namaToko} (${SESSION.store.kodeToko})`;
   document.getElementById('userBadge').textContent = `${SESSION.user.nama} [${SESSION.user.role}]`;
@@ -22,6 +22,8 @@ function switchTab(tabName, btn) {
   if (tabName === 'dashboard') loadDashboard();
   if (tabName === 'master') loadMasterCatalog();
   if (tabName === 'members') loadMembersTable();
+  if (tabName === 'suppliers') loadSuppliersTable();
+  if (tabName === 'reports') initAndLoadReport();
   if (tabName === 'so') loadBlindSOItems();
   if (tabName === 'users') loadUsersTable();
 }
@@ -182,6 +184,124 @@ function payDebtModal(memberId, memberName, currentDebt) {
   callAdminApi('member/pay-debt', { memberId, amountPaid, note }, res => {
     alert(res.message);
     loadMembersTable();
+  });
+}
+
+// === SUPPLIER, PEMBELIAN LPB & HUTANG USAHA (RENE POS TAHAP 3) ===
+function loadSuppliersTable() {
+  callAdminApi('supplier/list', {}, suppliers => {
+    const sel = document.getElementById('purSupplierId');
+    if (sel) {
+      sel.innerHTML = suppliers.map(s => `<option value="${s.supplier_id}">${s.supplier_id} - ${s.nama_supplier}</option>`).join('');
+    }
+
+    const tbody = document.getElementById('suppliersTableBody');
+    if (tbody) {
+      tbody.innerHTML = suppliers.map(s => `
+        <tr>
+          <td><strong>${s.supplier_id}</strong></td>
+          <td>${s.nama_supplier}<br><small style="color:#64748B;">${s.alamat}</small></td>
+          <td>${s.kontak_hp}</td>
+          <td>${s.termin_hari} Hari</td>
+          <td style="color:${s.saldo_hutang > 0 ? '#DC2626' : '#0F172A'}; font-weight:700;">
+            Rp ${s.saldo_hutang.toLocaleString('id-ID')}
+          </td>
+          <td style="display:flex; gap:6px;">
+            <button class="btn btn-blue btn-sm" onclick='fillSupplierForm(${JSON.stringify(s)})'>Edit</button>
+            ${s.saldo_hutang > 0 ? `<button class="btn btn-amber btn-sm" onclick="paySupplierDebtModal('${s.supplier_id}', '${s.nama_supplier}', ${s.saldo_hutang})">Bayar Hutang</button>` : ''}
+          </td>
+        </tr>
+      `).join('');
+    }
+  });
+}
+
+function fillSupplierForm(s) {
+  document.getElementById('supId').value = s.supplier_id;
+  document.getElementById('supNama').value = s.nama_supplier;
+  document.getElementById('supHp').value = s.kontak_hp;
+  document.getElementById('supAlamat').value = s.alamat;
+  document.getElementById('supTermin').value = s.termin_hari;
+}
+
+function submitSupplier() {
+  callAdminApi('supplier/save', {
+    supplierId: document.getElementById('supId').value,
+    namaSupplier: document.getElementById('supNama').value,
+    kontakHp: document.getElementById('supHp').value,
+    alamat: document.getElementById('supAlamat').value,
+    terminHari: Number(document.getElementById('supTermin').value) || 0
+  }, res => {
+    alert(res.message);
+    document.getElementById('supId').value = '';
+    document.getElementById('supNama').value = '';
+    loadSuppliersTable();
+  });
+}
+
+function submitPurchaseInvoice() {
+  callAdminApi('supplier/purchase', {
+    supplierId: document.getElementById('purSupplierId').value,
+    noFaktur: document.getElementById('purNoFaktur').value,
+    paymentMethod: document.getElementById('purPayMethod').value,
+    sku: document.getElementById('purSku').value,
+    qty: Number(document.getElementById('purQty').value) || 0,
+    buyPrice: Number(document.getElementById('purBuyPrice').value) || 0
+  }, res => {
+    alert(res.message);
+    document.getElementById('purNoFaktur').value = '';
+    document.getElementById('purSku').value = '';
+    document.getElementById('purQty').value = '';
+    document.getElementById('purBuyPrice').value = '';
+    loadSuppliersTable();
+  });
+}
+
+function paySupplierDebtModal(supplierId, supplierName, curDebt) {
+  const amtStr = prompt(`PELUNASAN HUTANG SUPPLIER\nSupplier: ${supplierName}\nSisa Hutang: Rp ${curDebt.toLocaleString('id-ID')}\n\nNominal dibayarkan (Rp):`, curDebt);
+  if (!amtStr) return;
+  const amountPaid = Number(amtStr) || 0;
+  if (amountPaid <= 0) return alert('Nominal pembayaran tidak valid.');
+
+  const note = prompt('Nomor Referensi Transfer / Bukti Kas Keluar:', 'Transfer Bank') || '-';
+  callAdminApi('supplier/pay-debt', { supplierId, amountPaid, note }, res => {
+    alert(res.message);
+    loadSuppliersTable();
+  });
+}
+
+// === LAPORAN PENJUALAN & LABA RUGI (X/Z-REPORT) ===
+function initAndLoadReport() {
+  const today = new Date().toISOString().slice(0, 10);
+  const startEl = document.getElementById('repStartDate');
+  const endEl = document.getElementById('repEndDate');
+  if (startEl && !startEl.value) startEl.value = today;
+  if (endEl && !endEl.value) endEl.value = today;
+  loadSalesProfitReport();
+}
+
+function loadSalesProfitReport() {
+  const startDate = document.getElementById('repStartDate').value;
+  const endDate = document.getElementById('repEndDate').value;
+
+  callAdminApi('finance/sales-report', { startDate, endDate }, rep => {
+    document.getElementById('repNetSales').textContent = 'Rp ' + rep.netSales.toLocaleString('id-ID');
+    document.getElementById('repReturnInfo').textContent = `Retur: Rp ${rep.totalReturn.toLocaleString('id-ID')} (${rep.trxCount} Trx)`;
+    document.getElementById('repTotalHpp').textContent = 'Rp ' + rep.totalHpp.toLocaleString('id-ID');
+    document.getElementById('repGrossProfit').textContent = 'Rp ' + rep.grossProfit.toLocaleString('id-ID');
+    document.getElementById('repPaymentBreakdown').innerHTML =
+      `Tunai: <strong>Rp ${rep.payCash.toLocaleString('id-ID')}</strong> | QRIS: <strong>Rp ${rep.payQris.toLocaleString('id-ID')}</strong><br>` +
+      `EDC: <strong>Rp ${rep.payEdc.toLocaleString('id-ID')}</strong> | Tempo: <strong>Rp ${rep.payTempo.toLocaleString('id-ID')}</strong>`;
+
+    document.getElementById('repTrxTableBody').innerHTML = rep.transactions.map(t => `
+      <tr>
+        <td><strong>${t.trxId}</strong></td>
+        <td>${t.waktu}</td>
+        <td>${t.kasir}</td>
+        <td><span class="badge ${t.tipe === 'RETURN' ? 'badge-danger' : 'badge-ok'}">${t.tipe}</span></td>
+        <td><strong>Rp ${Number(t.total).toLocaleString('id-ID')}</strong></td>
+      </tr>
+    `).join('') || '<tr><td colspan="5">Tidak ada transaksi pada periode ini.</td></tr>';
   });
 }
 

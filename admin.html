@@ -74,6 +74,8 @@
       <button class="tab-btn" onclick="switchTab('so', this)">Blind Stock Opname</button>
       <button class="tab-btn" onclick="switchTab('brankas', this)">Brankas & Setoran</button>
       <button class="tab-btn" onclick="switchTab('users', this)">User & Device</button>
+      <button class="tab-btn" onclick="switchTab('suppliers', this)">Supplier & Beli</button>
+      <button class="tab-btn" onclick="switchTab('reports', this)">Laporan Laba Rugi</button> 
       <button class="btn btn-blue" onclick="goKasir()">Buka Layar Kasir</button>
       <button class="btn btn-red" onclick="logout()">Keluar</button>
     </div>
@@ -306,6 +308,96 @@
         </div>
         <button class="btn btn-green" onclick="submitNewUser()">Simpan User Baru</button>
       </div>
+
+      <!-- TAB: SUPPLIER, PEMBELIAN LPB & HUTANG USAHA -->
+    <div id="tab-suppliers" class="section">
+      <div class="bento-2col">
+        <div class="card">
+          <h3 style="margin-top:0;">Master Pemasok (Supplier)</h3>
+          <div class="form-row">
+            <input type="text" id="supId" placeholder="Kode (Otomatis jika kosong)">
+            <input type="text" id="supNama" placeholder="Nama PT / Supplier">
+            <input type="text" id="supHp" placeholder="No. HP / Sales">
+          </div>
+          <div class="form-row">
+            <input type="text" id="supAlamat" placeholder="Alamat / Kota">
+            <input type="number" id="supTermin" placeholder="Termin Tempo (Hari)" value="14">
+            <button class="btn btn-green" onclick="submitSupplier()">Simpan Supplier</button>
+          </div>
+        </div>
+
+        <div class="card">
+          <h3 style="margin-top:0;">Faktur Pembelian Barang (Update Stok & HPP)</h3>
+          <div class="form-row">
+            <select id="purSupplierId"></select>
+            <input type="text" id="purNoFaktur" placeholder="No. Faktur Supplier">
+            <select id="purPayMethod">
+              <option value="TUNAI">Bayar Lunas / Tunai</option>
+              <option value="TEMPO">Kredit / Tempo Supplier</option>
+            </select>
+          </div>
+          <div class="form-row">
+            <input type="text" id="purSku" placeholder="Kode SKU (misal: SKU-1001)">
+            <input type="number" id="purQty" placeholder="Qty Beli (Pcs)">
+            <input type="number" id="purBuyPrice" placeholder="Harga Beli Satuan (Rp)">
+          </div>
+          <button class="btn btn-blue" onclick="submitPurchaseInvoice()">Simpan Faktur Pembelian</button>
+        </div>
+      </div>
+
+      <div class="card">
+        <h3 style="margin-top:0;">Daftar Supplier & Kartu Hutang Usaha</h3>
+        <table>
+          <thead>
+            <tr><th>Kode</th><th>Nama Supplier</th><th>Kontak</th><th>Termin</th><th>Sisa Hutang Toko</th><th>Aksi</th></tr>
+          </thead>
+          <tbody id="suppliersTableBody"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- TAB: LAPORAN PENJUALAN & LABA RUGI (X/Z-REPORT) -->
+    <div id="tab-reports" class="section">
+      <div class="card" style="margin-bottom:16px; display:flex; gap:12px; align-items:center; flex-wrap:wrap;">
+        <strong>Periode Laporan:</strong>
+        <input type="date" id="repStartDate" style="width:170px;">
+        <span>s/d</span>
+        <input type="date" id="repEndDate" style="width:170px;">
+        <button class="btn btn-blue" onclick="loadSalesProfitReport()">Tampilkan Laporan</button>
+      </div>
+
+      <div class="bento-kpi">
+        <div class="card">
+          <div class="kpi-label">Penjualan Bersih (Net Sales)</div>
+          <div class="kpi-val" id="repNetSales">Rp 0</div>
+          <small id="repReturnInfo" style="color:var(--red);">Retur: Rp 0</small>
+        </div>
+        <div class="card">
+          <div class="kpi-label">Total HPP Terjual</div>
+          <div class="kpi-val" id="repTotalHpp" style="color:var(--text-muted);">Rp 0</div>
+        </div>
+        <div class="card">
+          <div class="kpi-label">Estimasi Laba Kotor (Gross Profit)</div>
+          <div class="kpi-val" id="repGrossProfit" style="color:var(--primary);">Rp 0</div>
+        </div>
+        <div class="card">
+          <div class="kpi-label">Rincian Pembayaran</div>
+          <div style="font-size:12px; margin-top:6px; line-height:1.6;" id="repPaymentBreakdown">
+            Tunai: Rp 0 | QRIS: Rp 0<br>EDC: Rp 0 | Tempo: Rp 0
+          </div>
+        </div>
+      </div>
+
+      <div class="card">
+        <h3 style="margin-top:0;">Rincian Transaksi Periode Terpilih (Maks. 50 Terbaru)</h3>
+        <table>
+          <thead>
+            <tr><th>No. Struk</th><th>Waktu</th><th>Kasir</th><th>Tipe</th><th>Total</th></tr>
+          </thead>
+          <tbody id="repTrxTableBody"></tbody>
+        </table>
+      </div>
+    </div>
 
       <div class="card">
         <h3 style="margin-top:0;">Daftar Pengguna & Kontrol Device Binding</h3>
