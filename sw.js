@@ -2,6 +2,7 @@
 const CACHE_NAME = 'danish-pos-sis-v3.1';
 const ASSETS_TO_CACHE = [
   './',
+  './index.html',
   './login.html',
   './kasir.html',
   './display.html',
