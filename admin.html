@@ -6,49 +6,52 @@
   <style>
     :root {
       --bg-canvas: #F4F6F9; --surface: #FFFFFF; --border: #E2E8F0;
-      --primary: #10B981; --blue: #2563EB; --amber: #F59E0B; --red: #DC2626;
+      --primary: #10B981; --blue: #2563EB; --amber: #F59E0B; --red: #DC2626; --violet: #7C3AED;
       --text-main: #0F172A; --text-muted: #64748B;
     }
     * { box-sizing: border-box; font-family: 'Inter', system-ui, sans-serif; }
     body { margin: 0; background: var(--bg-canvas); color: var(--text-main); }
-    
+
     /* Top Navbar */
     .topbar {
       height: 64px; background: var(--surface); border-bottom: 1px solid var(--border);
       padding: 0 24px; display: flex; align-items: center; justify-content: space-between;
       position: sticky; top: 0; z-index: 10;
     }
-    .nav-tabs { display: flex; gap: 8px; }
+    .nav-tabs { display: flex; gap: 6px; flex-wrap: wrap; }
     .tab-btn {
-      padding: 8px 16px; border-radius: 10px; border: 1px solid transparent;
-      background: transparent; font-weight: 600; cursor: pointer; color: var(--text-muted);
+      padding: 8px 12px; border-radius: 10px; border: 1px solid transparent;
+      background: transparent; font-weight: 600; cursor: pointer; color: var(--text-muted); font-size: 13px;
     }
     .tab-btn.active { background: #ECFDF5; color: var(--primary); border-color: #A7F3D0; }
-    
-    /* Bento Grid Layout[cite: 4] */
-    .container { max-width: 1360px; margin: 20px auto; padding: 0 20px; }
+
+    /* Bento Grid Layout */
+    .container { max-width: 1380px; margin: 20px auto; padding: 0 20px; }
     .bento-kpi { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; margin-bottom: 20px; }
     .card {
       background: var(--surface); border-radius: 16px; border: 1px solid var(--border);
       box-shadow: 0 4px 12px rgba(15, 23, 42, 0.04); padding: 20px;
     }
     .kpi-label { font-size: 13px; color: var(--text-muted); font-weight: 600; }
-    .kpi-val { font-size: 26px; font-weight: 800; margin-top: 8px; font-variant-numeric: tabular-nums; }
+    .kpi-val { font-size: 24px; font-weight: 800; margin-top: 8px; font-variant-numeric: tabular-nums; }
     .bento-main { display: grid; grid-template-columns: 2fr 1fr; gap: 16px; }
-    
+    .bento-2col { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 16px; }
+
     table { width: 100%; border-collapse: collapse; font-size: 13px; }
     th, td { padding: 10px 12px; text-align: left; border-bottom: 1px solid var(--border); }
     th { background: #F8FAFC; font-weight: 700; color: var(--text-muted); }
-    
+
     .btn {
-      padding: 10px 16px; border-radius: 10px; border: none; font-weight: 600;
+      padding: 9px 14px; border-radius: 10px; border: none; font-weight: 600;
       cursor: pointer; color: #fff; font-size: 13px;
     }
     .btn-green { background: var(--primary); }
     .btn-blue { background: var(--blue); }
+    .btn-violet { background: var(--violet); }
     .btn-red { background: var(--red); }
+    .btn-sm { padding: 5px 10px; font-size: 12px; border-radius: 8px; }
     .form-row { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin-bottom: 12px; }
-    input, select { padding: 10px; border-radius: 8px; border: 1px solid var(--border); width: 100%; }
+    input, select { padding: 10px; border-radius: 8px; border: 1px solid var(--border); width: 100%; font-size: 13px; }
     .section { display: none; }
     .section.active { display: block; }
     .badge { padding: 4px 8px; border-radius: 6px; font-size: 11px; font-weight: 700; }
@@ -59,14 +62,16 @@
 <body>
   <header class="topbar">
     <div>
-      <strong id="storeTitle">SIS Backoffice</strong> • 
+      <strong id="storeTitle">SIS Backoffice</strong> •
       <span id="userBadge" style="font-size: 13px; color: var(--text-muted);">Loading...</span>
     </div>
     <div class="nav-tabs">
       <button class="tab-btn active" onclick="switchTab('dashboard', this)">Dashboard KPI</button>
-      <button class="tab-btn" onclick="switchTab('gudang', this)">Gudang (LPB/NRB)</button>
+      <button class="tab-btn" onclick="switchTab('master', this)">Master & Promo</button>
+      <button class="tab-btn" onclick="switchTab('gudang', this)">Gudang & Mutasi</button>
       <button class="tab-btn" onclick="switchTab('so', this)">Blind Stock Opname</button>
       <button class="tab-btn" onclick="switchTab('brankas', this)">Brankas & Setoran</button>
+      <button class="tab-btn" onclick="switchTab('users', this)">User & Device</button>
       <button class="btn btn-blue" onclick="goKasir()">Buka Layar Kasir</button>
       <button class="btn btn-red" onclick="logout()">Keluar</button>
     </div>
@@ -116,29 +121,91 @@
       </div>
     </div>
 
-    <!-- TAB 2: GUDANG LPB & NRB -->
+    <!-- TAB 2: MASTER BARANG & PROMO -->
+    <div id="tab-master" class="section">
+      <div class="bento-2col">
+        <div class="card">
+          <h3 style="margin-top:0;">Tambah / Ubah Master Barang</h3>
+          <div class="form-row">
+            <input type="text" id="prdSku" placeholder="SKU (misal: SKU-1005)">
+            <input type="text" id="prdBarcode" placeholder="Barcode (pisah koma jika >1)">
+            <input type="text" id="prdNama" placeholder="Nama Barang">
+          </div>
+          <div class="form-row">
+            <input type="text" id="prdKategori" placeholder="Kategori (Minuman/Snack)">
+            <input type="text" id="prdSatuan" placeholder="Satuan (PCS / PACK:12 / DUS:40)">
+            <select id="prdHighRisk">
+              <option value="false">Risiko Normal</option>
+              <option value="true">High-Risk Item (SO Harian)</option>
+            </select>
+          </div>
+          <div class="form-row">
+            <input type="number" id="prdModal" placeholder="Harga Modal / HPP (Rp)">
+            <input type="number" id="prdJual" placeholder="Harga Jual Toko (Rp)">
+            <button class="btn btn-green" onclick="submitProduct()">Simpan Barang</button>
+          </div>
+        </div>
+
+        <div class="card">
+          <h3 style="margin-top:0;">Buat Promo Otomatis (Tiered / Bundling / PWP)</h3>
+          <div class="form-row">
+            <select id="prmJenis">
+              <option value="DISCOUNT">DISCOUNT - Potongan Langsung</option>
+              <option value="TIERED">TIERED - Harga Grosir Bertingkat</option>
+              <option value="BUNDLING">BUNDLING - Paket Mix & Match</option>
+              <option value="PWP">PWP - Tebus Murah</option>
+            </select>
+            <input type="text" id="prmBarcodeSyarat" placeholder="Barcode Syarat">
+            <input type="number" id="prmMinQty" placeholder="Min Qty / Min Belanja">
+          </div>
+          <div class="form-row">
+            <input type="text" id="prmBarcodeHadiah" placeholder="Barcode Hadiah (Khusus PWP)">
+            <input type="number" id="prmHarga" placeholder="Harga Promo / Potongan (Rp)">
+            <button class="btn btn-violet" onclick="submitPromo()">Simpan Promo</button>
+          </div>
+          <div class="form-row">
+            <input type="date" id="prmMulai" title="Tanggal Mulai">
+            <input type="date" id="prmSelesai" title="Tanggal Selesai">
+            <div></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="card">
+        <h3 style="margin-top:0;">Katalog Master Barang</h3>
+        <table>
+          <thead>
+            <tr><th>SKU</th><th>Barcode</th><th>Nama Barang</th><th>Kategori</th><th>Satuan</th><th>HPP</th><th>Harga Jual</th><th>Aksi</th></tr>
+          </thead>
+          <tbody id="masterCatalogBody"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- TAB 3: GUDANG LPB, NRB & MUTASI ANTAR TOKO -->
     <div id="tab-gudang" class="section">
       <div class="card" style="margin-bottom: 16px;">
-        <h3 style="margin-top:0;">Input Penerimaan (LPB) / Retur Rusak (NRB) / Mutasi</h3>
+        <h3 style="margin-top:0;">Input Penerimaan (LPB) / Retur Rusak (NRB) / Mutasi Antar Toko</h3>
         <div class="form-row">
           <select id="docTipe">
             <option value="LPB">LPB - Penerimaan Barang Masuk</option>
             <option value="NRB">NRB - Retur Barang Rusak / Kedaluwarsa</option>
-            <option value="MUTASI_OUT">Mutasi Keluar Antar Toko</option>
+            <option value="MUTASI_OUT">Mutasi Keluar Antar Toko (Transfer Out)</option>
+            <option value="MUTASI_IN">Mutasi Masuk Antar Toko (Transfer In)</option>
           </select>
-          <input type="text" id="docAsal" placeholder="Asal Gudang / Supplier / Toko Tujuan">
+          <input type="text" id="docAsal" placeholder="Asal Gudang / Supplier / Kode Toko Tujuan">
           <input type="password" id="docPin" placeholder="PIN Supervisor (Jika Pramuniaga)">
         </div>
         <div class="form-row">
           <input type="text" id="docSku" placeholder="Kode SKU (misal: SKU-1001)">
-          <input type="number" id="docQty" placeholder="Jumlah Fisik (Qty)">
+          <input type="number" id="docQty" placeholder="Jumlah Fisik Pcs (Qty)">
           <input type="date" id="docExpired" title="Tanggal Kedaluwarsa (FEFO)">
         </div>
         <button class="btn btn-green" onclick="submitGudangDoc()">Simpan & Proses Stok</button>
       </div>
     </div>
 
-    <!-- TAB 3: BLIND STOCK OPNAME -->
+    <!-- TAB 4: BLIND STOCK OPNAME -->
     <div id="tab-so" class="section">
       <div class="card">
         <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
@@ -164,7 +231,7 @@
       </div>
     </div>
 
-    <!-- TAB 4: BRANKAS & SETORAN -->
+    <!-- TAB 5: BRANKAS & SETORAN -->
     <div id="tab-brankas" class="section">
       <div class="card" style="max-width: 600px;">
         <h3 style="margin-top:0;">Pencatatan Kas Brankas & Setoran Bank</h3>
@@ -178,6 +245,39 @@
           <input type="text" id="kasKet" placeholder="Keterangan / Nomor Referensi Bukti Setor">
           <button class="btn btn-green" onclick="submitKasBrankas()">Catat Transaksi Brankas</button>
         </div>
+      </div>
+    </div>
+
+    <!-- TAB 6: MANAJEMEN USER & DEVICE BINDING -->
+    <div id="tab-users" class="section">
+      <div class="card" style="margin-bottom:16px;">
+        <h3 style="margin-top:0;">Tambah Pengguna Baru (RBAC)</h3>
+        <div class="form-row">
+          <input type="text" id="usrNama" placeholder="Nama Lengkap Karyawan">
+          <input type="text" id="usrUsername" placeholder="Username Login">
+          <input type="password" id="usrPassword" placeholder="Password Login">
+        </div>
+        <div class="form-row">
+          <input type="password" id="usrPin" placeholder="PIN Otorisasi (Kosongkan untuk Kasir)">
+          <select id="usrRole">
+            <option value="Kasir">Kasir</option>
+            <option value="Pramuniaga">Pramuniaga</option>
+            <option value="Kepala Toko">Kepala Toko</option>
+            <option value="Korwil">Korwil</option>
+          </select>
+          <input type="text" id="usrToko" placeholder="Kode Toko (misal: TK-001 atau ALL)">
+        </div>
+        <button class="btn btn-green" onclick="submitNewUser()">Simpan User Baru</button>
+      </div>
+
+      <div class="card">
+        <h3 style="margin-top:0;">Daftar Pengguna & Kontrol Device Binding</h3>
+        <table>
+          <thead>
+            <tr><th>ID</th><th>Nama</th><th>Username</th><th>Role</th><th>Akses Toko</th><th>Registered Device ID</th><th>Aksi Device</th></tr>
+          </thead>
+          <tbody id="usersTableBody"></tbody>
+        </table>
       </div>
     </div>
   </main>
