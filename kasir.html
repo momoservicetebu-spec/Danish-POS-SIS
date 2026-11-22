@@ -1,0 +1,156 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <title>Terminal Kasir - Enterprise Retail POS v3.1</title>
+  <?!= include('css_global'); ?>
+  <?!= include('css_thermal'); ?>
+</head>
+<body>
+  <div class="pos-wrapper">
+    <!-- TOP HEADER BAR -->
+    <header class="pos-header">
+      <div style="display:flex; align-items:center; gap:14px;">
+        <strong style="font-size:16px;" id="hdrStoreName">Gerai Ritel</strong>
+        <span style="color:var(--text-muted); font-size:13px;" id="hdrCashierInfo">Kasir: -</span>
+        <span style="font-size:12px; background:#F1F5F9; padding:4px 10px; border-radius:8px;" id="hdrShiftId">Shift: Belum Buka</span>
+      </div>
+      <div style="display:flex; align-items:center; gap:14px;">
+        <span id="hdrClock" style="font-weight:700; font-variant-numeric:tabular-nums;">00:00:00</span>
+        <span id="syncStatusPill" class="status-pill status-online">● ONLINE & SYNCED</span>
+        <button onclick="openCustomerDisplay()" style="padding:6px 12px; border-radius:8px; border:1px solid var(--border); cursor:pointer; font-weight:600;">Layar Pelanggan</button>
+      </div>
+    </header>
+
+    <!-- BENTO GRID WORKSPACE -->
+    <div class="pos-bento">
+      <!-- KOLOM KIRI (65%): Scan Input & Tabel Daftar Belanja[cite: 4] -->
+      <div class="col-left">
+        <div class="card scan-card">
+          <input type="text" id="barcodeInput" class="scan-input" placeholder="Scan Barcode atau Ketik Kode Barang lalu Enter..." autofocus autocomplete="off">
+          <button onclick="syncMasterNow()" style="padding:14px 16px; border-radius:12px; border:1px solid var(--border); background:#F8FAFC; font-weight:700; cursor:pointer;">Sync Master</button>
+        </div>
+
+        <div class="card cart-card">
+          <div class="cart-scroll">
+            <table class="cart-table">
+              <thead>
+                <tr>
+                  <th style="width:40px;">#</th>
+                  <th>Barcode / Nama Barang</th>
+                  <th class="num">Harga</th>
+                  <th class="num" style="width:80px;">Qty</th>
+                  <th class="num">Diskon</th>
+                  <th class="num">Subtotal</th>
+                </tr>
+              </thead>
+              <tbody id="cartTableBody"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <!-- KOLOM KANAN (35%): Grand Total, Action Tiles & Checkout[cite: 4] -->
+      <div class="col-right">
+        <div class="total-card">
+          <div style="display:flex; justify-content:space-between; font-size:13px; color:#94A3B8;">
+            <span>Subtotal: <strong id="lblSubtotal" style="color:#fff;">Rp 0</strong></span>
+            <span>Hemat Promo: <strong id="lblDiscount" style="color:#FBBF24;">Rp 0</strong></span>
+          </div>
+          <div class="grand-total-val" id="lblGrandTotal">Rp 0</div>
+          <div id="pwpAlertBox" class="promo-alert"></div>
+        </div>
+
+        <!-- Color-Coded Action Tiles[cite: 4] -->
+        <div class="action-grid">
+          <button class="tile-btn bg-royal" onclick="openCheckoutModal('QRIS')">
+            <span class="kbd-badge">[F10]</span>
+            <span>Bayar QRIS / Split</span>
+          </button>
+          <button class="tile-btn bg-sky" onclick="openSearchModal()">
+            <span class="kbd-badge">[F2] / [F4]</span>
+            <span>Cari Barang / Ubah Qty</span>
+          </button>
+          <button class="tile-btn bg-amber" onclick="handleHoldRecall()">
+            <span class="kbd-badge">[F6]</span>
+            <span>Pending / Recall Struk</span>
+          </button>
+          <button class="tile-btn bg-violet" onclick="openPpobModal()">
+            <span class="kbd-badge">[F7]</span>
+            <span>PPOB / Tarik Tunai</span>
+          </button>
+          <button class="tile-btn bg-slate" onclick="reprintLastReceipt()">
+            <span class="kbd-badge">[F3]</span>
+            <span>Cetak Ulang Struk (1x)</span>
+          </button>
+          <button class="tile-btn bg-teal" onclick="openCashDropModal()">
+            <span class="kbd-badge">[F9]</span>
+            <span>Cash Drop Brankas</span>
+          </button>
+          <button class="tile-btn bg-teal" onclick="manualKickDrawer()">
+            <span class="kbd-badge">[F11]</span>
+            <span>Buka Laci Manual</span>
+          </button>
+          <button class="tile-btn bg-crimson" onclick="voidSelectedItem()">
+            <span class="kbd-badge">[ESC] / [Del]</span>
+            <span>Void Item / Batal</span>
+          </button>
+        </div>
+
+        <button class="btn-checkout" onclick="openCheckoutModal('CASH')">
+          <span>BAYAR / CHECKOUT</span>
+          <span class="kbd-badge" style="font-size:14px;">[F8]</span>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL PEMBAYARAN & SPLIT PAYMENT[cite: 2] -->
+  <div id="checkoutModal" class="modal-backdrop">
+    <div class="modal-box">
+      <h3 style="margin-top:0;">Penyelesaian Pembayaran</h3>
+      <div style="font-size:28px; font-weight:800; color:var(--emerald); margin-bottom:16px;" id="modalTotalDue">Rp 0</div>
+      
+      <label style="font-size:13px; font-weight:600;">Tunai Diterima (Rp)</label>
+      <input type="number" id="payCashInput" placeholder="0" oninput="calcChange()">
+
+      <label style="font-size:13px; font-weight:600;">Pembayaran QRIS / Non-Tunai (Opsional untuk Split Payment)</label>
+      <input type="number" id="payQrisInput" placeholder="0" oninput="calcChange()">
+
+      <div style="padding:12px; background:#F8FAFC; border-radius:10px; margin-bottom:16px; display:flex; justify-content:space-between;">
+        <span>Kembalian:</span>
+        <strong id="modalChangeVal" style="font-size:18px; color:var(--royal-blue);">Rp 0</strong>
+      </div>
+
+      <div style="display:flex; gap:10px;">
+        <button onclick="closeModals()" style="flex:1; padding:12px; border-radius:10px; border:1px solid var(--border); cursor:pointer;">Batal</button>
+        <button onclick="processFinalPayment()" style="flex:2; padding:12px; border-radius:10px; border:none; background:var(--emerald); color:#fff; font-weight:700; cursor:pointer;">Selesaikan & Cetak Struk</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL PENCARIAN BARANG LOKAL [F2] -->
+  <div id="searchModal" class="modal-backdrop">
+    <div class="modal-box" style="max-width:600px;">
+      <h3 style="margin-top:0;">Pencarian Katalog Lokal (< 50ms)</h3>
+      <input type="text" id="localSearchInput" placeholder="Ketik nama barang atau barcode..." oninput="runLocalSearch()">
+      <div style="max-height:280px; overflow-y:auto; border:1px solid var(--border); border-radius:10px;">
+        <table class="cart-table">
+          <thead><tr><th>Barcode</th><th>Nama Barang</th><th class="num">Harga</th></tr></thead>
+          <tbody id="searchResultBody"></tbody>
+        </table>
+      </div>
+      <button onclick="closeModals()" style="margin-top:12px; width:100%; padding:10px; border-radius:10px; border:1px solid var(--border);">Tutup</button>
+    </div>
+  </div>
+
+  <!-- AREA CETAK STRUK THERMAL (58mm / 80mm)[cite: 3, 6] -->
+  <div id="thermalReceiptArea" class="thermal-only"></div>
+
+  <?!= include('js_db'); ?>
+  <?!= include('js_api'); ?>
+  <?!= include('js_promo'); ?>
+  <?!= include('js_kasir'); ?>
+  <?!= include('js_security'); ?>
+</body>
+</html>
