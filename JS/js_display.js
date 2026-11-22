@@ -1,5 +1,4 @@
-<script>
-  const channel = new BroadcastChannel('POS_CUSTOMER_DISPLAY');
+const channel = new BroadcastChannel('POS_CUSTOMER_DISPLAY');
   let idleResetTimer = null;
 
   // Slideshow Promo Otomatis saat Kasir Kosong[cite: 2]
@@ -101,4 +100,3 @@
       idleResetTimer = setTimeout(() => switchToIdle(), 8000);
     }
   };
-</script>

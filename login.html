@@ -5,14 +5,9 @@
   <title>Login - Enterprise Retail POS & SIS v3.1</title>
   <style>
     :root {
-      --bg-canvas: #F4F6F9;
-      --surface: #FFFFFF;
-      --border: #E2E8F0;
-      --primary: #10B981;
-      --primary-dark: #059669;
-      --text-main: #0F172A;
-      --text-muted: #64748B;
-      --danger: #DC2626;
+      --bg-canvas: #F4F6F9; --surface: #FFFFFF; --border: #E2E8F0;
+      --primary: #10B981; --primary-dark: #059669;
+      --text-main: #0F172A; --text-muted: #64748B; --danger: #DC2626;
     }
     * { box-sizing: border-box; font-family: 'Inter', system-ui, -apple-system, sans-serif; }
     body {
@@ -96,8 +91,8 @@
     </div>
   </div>
 
+  <script src="JS/js_api.js"></script>
   <script>
-    // Generate atau ambil Hardware Device ID permanen di browser ini
     function getOrCreateDeviceId() {
       let devId = localStorage.getItem('POS_DEVICE_ID');
       if (!devId) {
@@ -107,10 +102,10 @@
       return devId;
     }
 
-    const deviceId = getOrCreateDeviceId();
-    document.getElementById('deviceLabel').textContent = deviceId;
+    const currentDeviceId = getOrCreateDeviceId();
+    document.getElementById('deviceLabel').textContent = currentDeviceId;
 
-    document.getElementById('loginForm').addEventListener('submit', function(e) {
+    document.getElementById('loginForm').addEventListener('submit', async function(e) {
       e.preventDefault();
       const btn = document.getElementById('btnSubmit');
       const errBox = document.getElementById('errorBox');
@@ -118,39 +113,22 @@
       btn.disabled = true;
       btn.textContent = 'Memverifikasi Perangkat & Sesi...';
 
-      const reqPayload = {
-        endpoint: 'auth/login',
-        deviceId: deviceId,
-        clientTimestamp: new Date().toISOString(),
-        payload: {
+      try {
+        const data = await ApiClient.call('auth/login', {
           storeCode: document.getElementById('storeCode').value.trim().toUpperCase(),
           username: document.getElementById('username').value.trim(),
           password: document.getElementById('password').value
-        }
-      };
+        }, true);
 
-      google.script.run
-        .withSuccessHandler(function(res) {
-          btn.disabled = false;
-          btn.textContent = 'Masuk ke Sistem';
-          if (res.status !== 200) {
-            errBox.textContent = res.error || 'Gagal login.';
-            errBox.style.display = 'block';
-            return;
-          }
-          // Simpan sesi lokal untuk digunakan oleh Kasir / Admin
-          localStorage.setItem('POS_SESSION', JSON.stringify(res.data));
-          const mode = document.getElementById('targetTerminal').value;
-          const baseUrl = window.location.href.split('?')[0];
-          window.top.location.href = `${baseUrl}?page=${mode}`;
-        })
-        .withFailureHandler(function(err) {
-          btn.disabled = false;
-          btn.textContent = 'Masuk ke Sistem';
-          errBox.textContent = 'Koneksi server gagal: ' + err.message;
-          errBox.style.display = 'block';
-        })
-        .apiRouter(reqPayload);
+        localStorage.setItem('POS_SESSION', JSON.stringify(data));
+        const mode = document.getElementById('targetTerminal').value;
+        window.location.href = `${mode}.html`;
+      } catch (err) {
+        btn.disabled = false;
+        btn.textContent = 'Masuk ke Sistem';
+        errBox.textContent = err.message || 'Gagal login ke server.';
+        errBox.style.display = 'block';
+      }
     });
   </script>
 </body>

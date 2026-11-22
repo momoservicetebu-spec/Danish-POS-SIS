@@ -1,5 +1,4 @@
-<script>
-  const SecurityModule = {
+const SecurityModule = {
     IDLE_LIMIT_MS: 3 * 60 * 1000, // Auto-lock layar setelah 3 menit tanpa aktivitas
     idleTimer: null,
     isLocked: false,
@@ -115,4 +114,3 @@
   };
 
   window.addEventListener('DOMContentLoaded', () => SecurityModule.init());
-</script>

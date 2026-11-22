@@ -1,4 +1,4 @@
-<script>
+
   let CART = [];
   let SELECTED_INDEX = -1;
   let ACTIVE_PROMOS = [];
@@ -382,10 +382,9 @@
     `).join('');
   }
 
-  function openCustomerDisplay() {
-    const url = window.location.href.split('?')[0] + '?page=display';
-    window.open(url, 'POSCustomerDisplay', 'width=1024,height=768');
-  }
+function openCustomerDisplay() {
+  window.open('display.html', 'POSCustomerDisplay', 'width=1024,height=768');
+}
 
   function closeModals() {
     document.querySelectorAll('.modal-backdrop').forEach(m => m.style.display = 'none');
@@ -404,4 +403,3 @@
     else if (e.key === 'Delete') { e.preventDefault(); voidSelectedItem(); }
     else if (e.key === 'Escape') { closeModals(); }
   });
-</script>

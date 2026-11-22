@@ -1,5 +1,4 @@
-<script>
-  const PromoEngine = {
+ const PromoEngine = {
     /**
      * Menghitung diskon item & mendeteksi kelayakan Tebus Murah (PWP) secara instan (< 5ms)[cite: 1, 2]
      */
@@ -90,4 +89,3 @@
       };
     }
   };
-</script>
