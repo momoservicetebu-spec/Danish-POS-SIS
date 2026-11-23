@@ -19,6 +19,7 @@
         <span id="hdrClock" style="font-weight:700; font-variant-numeric:tabular-nums;">00:00:00</span>
         <span id="syncStatusPill" class="status-pill status-online">● ONLINE & SYNCED</span>
         <button onclick="openCustomerDisplay()" style="padding:6px 12px; border-radius:8px; border:1px solid var(--border); cursor:pointer; font-weight:600;">Layar Pelanggan</button>
+        <button onclick="openCloseShiftModal()" style="padding:6px 12px; border-radius:8px; border:1px solid #FECACA; background:#FEF2F2; color:#DC2626; cursor:pointer; font-weight:700;">Tutup Shift</button>
       </div>
     </header>
 
@@ -345,6 +346,26 @@
         <label style="font-size:12px; font-weight:600;">Referensi Transfer / QRIS Pelanggan</label>
         <input type="text" id="cashout-ref" placeholder="No. Ref QRIS / Transfer Masuk">
         <button type="button" onclick="submitCashOutTransaction()" style="width:100%; padding:12px; border-radius:10px; border:none; background:#0D9488; color:#FFF; font-weight:700; cursor:pointer;">Proses Tarik Tunai & Buka Laci</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL TUTUP SHIFT / BLIND DROP CLEREK -->
+  <div id="closeShiftModal" class="modal-backdrop">
+    <div class="modal-box" style="max-width:420px;">
+      <h3 style="margin-top:0; color:#DC2626;">Tutup Shift & Blind Drop Clerek</h3>
+      <p style="font-size:13px; color:var(--text-muted); margin-top:0;">
+        Hitung seluruh uang tunai fisik di laci kasir sekarang (di luar Cash Drop brankas & Tarik Tunai keluar).
+      </p>
+      <label style="font-size:12px; font-weight:700;">Total Uang Tunai Fisik di Laci (Rp)</label>
+      <input type="number" id="closeShiftPhysicalCash" placeholder="Contoh: 1250000" min="0">
+
+      <label style="font-size:12px; font-weight:700; color:#DC2626;">PIN Otorisasi Kepala Toko / Supervisor</label>
+      <input type="password" id="closeShiftSpvPin" placeholder="Masukkan PIN Supervisor">
+
+      <div style="display:flex; gap:10px; margin-top:8px;">
+        <button onclick="closeModals()" style="flex:1; padding:10px; border-radius:10px; border:1px solid var(--border); cursor:pointer;">Batal</button>
+        <button onclick="submitCloseShift()" style="flex:2; padding:10px; border-radius:10px; border:none; background:var(--crimson); color:#fff; font-weight:700; cursor:pointer;">Tutup Shift & Cetak Z-Report</button>
       </div>
     </div>
   </div>

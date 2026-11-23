@@ -1,4 +1,6 @@
 // JS/js_admin.js - Logika Backoffice & Admin SIS v3.1 (RENE POS Edition Lengkap)
+let PENDING_TAGS_CACHE = [];
+
 if (SESSION) {
   document.getElementById('storeTitle').textContent = `${SESSION.store.namaToko} (${SESSION.store.kodeToko})`;
   document.getElementById('userBadge').textContent = `${SESSION.user.nama} [${SESSION.user.role}]`;
@@ -48,11 +50,42 @@ function loadDashboard() {
       </tr>
     `).join('');
 
+    PENDING_TAGS_CACHE = data.pendingPriceTags || [];
     const tagBody = document.getElementById('priceTagBody');
-    tagBody.innerHTML = data.pendingPriceTags.map(t => `
+    tagBody.innerHTML = PENDING_TAGS_CACHE.map(t => `
       <tr><td>${t.sku} - ${t.nama}</td><td><strong>Rp ${Number(t.hargaBaru).toLocaleString('id-ID')}</strong></td></tr>
     `).join('') || '<tr><td colspan="2">Semua label harga sudah terbaru.</td></tr>';
   });
+}
+
+function printPendingPriceTags() {
+  if (!PENDING_TAGS_CACHE || PENDING_TAGS_CACHE.length === 0) {
+    return alert('Tidak ada antrean label harga baru untuk dicetak.');
+  }
+  const today = new Date().toLocaleDateString('id-ID');
+  const area = document.getElementById('priceTagPrintArea');
+  area.style.display = 'grid';
+  area.innerHTML = PENDING_TAGS_CACHE.map(t => `
+    <div style="border:2px solid #000; padding:10px; border-radius:6px; font-family:sans-serif; background:#fff;">
+      <div style="font-size:11px; font-weight:700; border-bottom:1px solid #000; padding-bottom:4px;">${SESSION.store.namaToko}</div>
+      <div style="font-size:13px; font-weight:700; margin:6px 0; min-height:32px;">${t.nama}</div>
+      <div style="font-size:22px; font-weight:900; text-align:right;">Rp ${Number(t.hargaBaru).toLocaleString('id-ID')}</div>
+      <div style="display:flex; justify-content:space-between; font-size:10px; margin-top:6px; color:#333;">
+        <span>SKU: ${t.sku}</span>
+        <span>Upd: ${today}</span>
+      </div>
+    </div>
+  `).join('');
+
+  window.print();
+  area.style.display = 'none';
+
+  if (confirm('Tandai semua label harga ini sudah dicetak (hapus dari antrean)?')) {
+    callAdminApi('admin/mark-tags-printed', {}, res => {
+      alert(res.message);
+      loadDashboard();
+    });
+  }
 }
 
 // === MASTER BARANG & PROMO ===
