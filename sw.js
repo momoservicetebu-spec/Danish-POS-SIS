@@ -1,5 +1,5 @@
-// sw.js - Service Worker untuk Caching Aset Offline-First
-const CACHE_NAME = 'danish-pos-sis-v3.1';
+// sw.js - Service Worker untuk Caching Aset Offline-First (Network-First Update)
+const CACHE_NAME = 'danish-pos-sis-v3.5';
 const ASSETS_TO_CACHE = [
   './',
   './index.html',
@@ -39,9 +39,16 @@ self.addEventListener('fetch', event => {
   // Jangan cache request POST ke Google Apps Script
   if (event.request.method !== 'GET') return;
 
+  // Network-First: Ambil versi terbaru dari server jika online, fallback ke cache jika offline
   event.respondWith(
-    caches.match(event.request).then(cachedResponse => {
-      return cachedResponse || fetch(event.request);
-    })
+    fetch(event.request)
+      .then(networkResponse => {
+        if (networkResponse && networkResponse.status === 200) {
+          const responseClone = networkResponse.clone();
+          caches.open(CACHE_NAME).then(cache => cache.put(event.request, responseClone));
+        }
+        return networkResponse;
+      })
+      .catch(() => caches.match(event.request))
   );
 });
