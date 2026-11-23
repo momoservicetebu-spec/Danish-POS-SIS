@@ -1,4 +1,4 @@
-// JS/js_admin.js - Logika Backoffice & Admin SIS v3.5 (RENE POS Edition Lengkap)
+// JS/js_admin.js - Logika Backoffice & Admin SIS v3.5 (Enterprise Edition + Loading Screen)
 let PENDING_TAGS_CACHE = [];
 let MASTER_PRODUCTS_CACHE = [];
 let SELECTED_BARCODE_SKUS = new Set();
@@ -9,11 +9,36 @@ if (SESSION) {
   document.getElementById('userBadge').textContent = `${SESSION.user.nama} [${SESSION.user.role}]`;
 }
 
-async function callAdminApi(endpoint, payload, onSuccess) {
+function setLoadingScreen(isShow, titleText, subText) {
+  const overlay = document.getElementById('globalLoadingOverlay');
+  const titleEl = document.getElementById('globalLoadingTitle');
+  const subEl = document.getElementById('globalLoadingSub');
+  if (!overlay) return;
+
+  if (isShow) {
+    if (titleEl) titleEl.textContent = titleText || 'Memproses Data...';
+    if (subEl) subEl.textContent = subText || 'Mohon tunggu, menyinkronkan ke server...';
+    overlay.classList.add('active');
+    document.querySelectorAll('.btn').forEach(b => { b.disabled = true; });
+  } else {
+    overlay.classList.remove('active');
+    document.querySelectorAll('.btn').forEach(b => { b.disabled = false; });
+  }
+}
+
+async function callAdminApi(endpoint, payload, onSuccess, loadingLabel) {
+  const isWriteAction = !endpoint.includes('dashboard') && !endpoint.includes('products') &&
+                        !endpoint.includes('list') && !endpoint.includes('report') &&
+                        !endpoint.includes('stok-toko') && !endpoint.includes('stock-card') &&
+                        !endpoint.includes('users');
+  const title = loadingLabel || (isWriteAction ? 'Menyimpan Data...' : 'Memuat Data...');
+  setLoadingScreen(true, title, 'Mohon tunggu, menghubungi server...');
   try {
     const data = await ApiClient.call(endpoint, payload || {});
+    setLoadingScreen(false);
     onSuccess(data);
   } catch (err) {
+    setLoadingScreen(false);
     alert('Error: ' + err.message);
   }
 }
@@ -26,7 +51,7 @@ function switchTab(tabName, btn) {
   document.querySelectorAll('.section').forEach(el => el.classList.remove('active'));
   document.querySelectorAll('.tab-btn').forEach(el => el.classList.remove('active'));
   document.getElementById('tab-' + tabName).classList.add('active');
-  btn.classList.add('active');
+  if (btn) btn.classList.add('active');
 
   if (tabName === 'dashboard') loadDashboard();
   if (tabName === 'master') loadMasterCatalog();
@@ -49,6 +74,9 @@ function loadDashboard() {
     document.getElementById('kpiLowStock').textContent = data.lowStockCount + ' SKU';
     document.getElementById('kpiFraud').textContent = data.flaggedFraudCount;
 
+    // Render 8 Grafik & Widget Analitik Dashboard
+    renderDashboardAnalytics(data);
+
     const auditBody = document.getElementById('auditTableBody');
     auditBody.innerHTML = data.recentLogs.map(l => `
       <tr>
@@ -64,7 +92,7 @@ function loadDashboard() {
       <tr><td>${t.sku} - ${t.nama}</td><td><strong>Rp ${Number(t.hargaBaru).toLocaleString('id-ID')}</strong></td></tr>
     `).join('') || '<tr><td colspan="2">Semua label harga sudah terbaru.</td></tr>';
 
-    // Render Tabel Stok Menipis + Tombol Auto-PO (di dalam callback data)
+    // Render Tabel Stok Menipis + Tombol Auto-PO
     const lowStockBody = document.getElementById('lowStockTableBody');
     if (lowStockBody) {
       lowStockBody.innerHTML = (data.lowStockItems || []).map(item => `
@@ -95,10 +123,8 @@ function loadDashboard() {
         `;
       }).join('') || '<tr><td colspan="3">Tidak ada barang mendekati tanggal kedaluwarsa.</td></tr>';
     }
-  });
-}
 
-// Render Tabel Monitor Anomali & Investigasi Fraud
+    // Render Tabel Monitor Anomali & Investigasi Fraud
     const fraudBody = document.getElementById('fraudTableBody');
     if (fraudBody) {
       fraudBody.innerHTML = (data.flaggedTransactions || []).map(f => `
@@ -115,6 +141,198 @@ function loadDashboard() {
         </tr>
       `).join('') || '<tr><td colspan="6">Tidak ada transaksi anomali (FLAGGED_FRAUD) yang tertunda.</td></tr>';
     }
+  }, 'Memuat Dashboard KPI...');
+}
+
+function renderDashboardAnalytics(data) {
+  // 1. Sales Overview Line Chart (SVG murni)
+  const chartBox = document.getElementById('salesOverviewChart');
+  const trend = data.dailyTrend || [];
+  if (chartBox && trend.length > 0) {
+    const maxVal = Math.max(10000, ...trend.map(t => Math.max(t.sales, t.profit)));
+    const w = 360, h = 175, padX = 24, padY = 22;
+    const stepX = (w - padX * 2) / Math.max(1, trend.length - 1);
+    const getY = v => h - padY - ((v / maxVal) * (h - padY * 2));
+
+    const salesPts = trend.map((t, idx) => `${padX + idx * stepX},${getY(t.sales)}`).join(' ');
+    const profitPts = trend.map((t, idx) => `${padX + idx * stepX},${getY(t.profit)}`).join(' ');
+    const areaPts = `${padX},${h - padY} ${salesPts} ${padX + (trend.length - 1) * stepX},${h - padY}`;
+
+    chartBox.innerHTML = `
+      <svg viewBox="0 0 ${w} ${h}" style="width:100%; height:100%; overflow:visible;">
+        <defs>
+          <linearGradient id="salesGrad" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stop-color="#3B82F6" stop-opacity="0.28"/>
+            <stop offset="100%" stop-color="#3B82F6" stop-opacity="0.0"/>
+          </linearGradient>
+        </defs>
+        <polygon points="${areaPts}" fill="url(#salesGrad)"/>
+        <polyline fill="none" stroke="#2563EB" stroke-width="2.5" points="${salesPts}"/>
+        <polyline fill="none" stroke="#10B981" stroke-width="2.5" points="${profitPts}"/>
+        ${trend.map((t, idx) => {
+          const x = padX + idx * stepX;
+          return `
+            <circle cx="${x}" cy="${getY(t.sales)}" r="3.5" fill="#fff" stroke="#2563EB" stroke-width="2"/>
+            <circle cx="${x}" cy="${getY(t.profit)}" r="3.5" fill="#fff" stroke="#10B981" stroke-width="2"/>
+            <text x="${x}" y="${h - 4}" font-size="9" fill="#64748B" text-anchor="middle">${t.label}</text>
+          `;
+        }).join('')}
+      </svg>`;
+  }
+
+  // 2. Sales by Category Donut Chart
+  const catBox = document.getElementById('categoryDonutBox');
+  const cats = data.categorySales || [];
+  const catColors = ['#F59E0B', '#2563EB', '#10B981', '#7C3AED'];
+  if (catBox) {
+    const totalCat = cats.reduce((s, c) => s + c.total, 0) || 1;
+    let offset = 0;
+    const circles = cats.map((c, idx) => {
+      const pct = (c.total / totalCat) * 100;
+      const el = `<circle r="15.9" cx="21" cy="21" fill="transparent" stroke="${catColors[idx % 4]}" stroke-width="6.5" stroke-dasharray="${pct} ${100 - pct}" stroke-dashoffset="${-offset}"/>`;
+      offset += pct;
+      return el;
+    }).join('');
+
+    catBox.innerHTML = cats.length === 0
+      ? '<small style="color:var(--text-muted);">Belum ada data penjualan kategori bulan ini.</small>'
+      : `
+        <svg viewBox="0 0 42 42" style="width:120px; height:120px; transform:rotate(-90deg); flex-shrink:0;">
+          <circle r="15.9" cx="21" cy="21" fill="transparent" stroke="#F1F5F9" stroke-width="6.5"/>
+          ${circles}
+        </svg>
+        <div style="flex:1; display:flex; flex-direction:column; gap:8px; font-size:12px;">
+          ${cats.map((c, idx) => `
+            <div style="display:flex; justify-content:space-between; align-items:center;">
+              <div>
+                <span style="color:${catColors[idx % 4]};">&#9679;</span> <strong>${c.kategori}</strong>
+                <div style="color:var(--text-muted); font-size:11px;">Rp ${c.total.toLocaleString('id-ID')}</div>
+              </div>
+              <strong>${Math.round((c.total / totalCat) * 100)}%</strong>
+            </div>
+          `).join('')}
+        </div>`;
+  }
+
+  // 3. Collection Summary (Today)
+  const colBox = document.getElementById('collectionSummaryBox');
+  const col = data.collection || { CASH: 0, QRIS: 0, EDC: 0, TEMPO: 0 };
+  if (colBox) {
+    const totalCol = (col.CASH + col.QRIS + col.EDC + col.TEMPO) || 0;
+    const divTotal = totalCol || 1;
+    const rows = [
+      { label: 'Tunai (Cash)', val: col.CASH, bg: '#ECFDF5', color: '#10B981', icon: '&#128181;' },
+      { label: 'QRIS / E-Wallet', val: col.QRIS, bg: '#EFF6FF', color: '#2563EB', icon: '&#128241;' },
+      { label: 'Kartu Debit / EDC', val: col.EDC, bg: '#FFFBEB', color: '#F59E0B', icon: '&#128179;' },
+      { label: 'Kredit / Tempo', val: col.TEMPO, bg: '#F5F3FF', color: '#7C3AED', icon: '&#127974;' }
+    ];
+    colBox.innerHTML = rows.map(r => `
+      <div style="display:flex; justify-content:space-between; align-items:center; padding:6px 8px; border-radius:10px; background:#F8FAFC;">
+        <div style="display:flex; align-items:center; gap:8px;">
+          <span style="width:28px; height:28px; border-radius:8px; background:${r.bg}; color:${r.color}; display:flex; align-items:center; justify-content:center;">${r.icon}</span>
+          <span style="font-size:12px; font-weight:600;">${r.label}</span>
+        </div>
+        <div style="text-align:right; font-size:12px;">
+          <strong>Rp ${r.val.toLocaleString('id-ID')}</strong>
+          <span style="color:var(--text-muted); margin-left:6px;">${totalCol ? Math.round((r.val / divTotal) * 100) : 0}%</span>
+        </div>
+      </div>
+    `).join('') + `
+      <div style="display:flex; justify-content:space-between; padding-top:6px; border-top:1px dashed var(--border); font-size:13px;">
+        <strong>Total Collection</strong>
+        <strong style="color:var(--primary);">Rp ${totalCol.toLocaleString('id-ID')}</strong>
+      </div>`;
+  }
+
+  // 4. Top 5 Best Selling Items
+  const topBody = document.getElementById('topSellingBody');
+  if (topBody) {
+    topBody.innerHTML = (data.topSellingItems || []).map((it, i) => `
+      <tr>
+        <td><strong>${i + 1}</strong></td>
+        <td>${it.nama}</td>
+        <td>${it.qty.toLocaleString('id-ID')} Pcs</td>
+        <td><strong>Rp ${it.total.toLocaleString('id-ID')}</strong></td>
+      </tr>
+    `).join('') || '<tr><td colspan="4">Belum ada data penjualan bulan ini.</td></tr>';
+  }
+
+  // 5. Stock Summary
+  const stkBox = document.getElementById('stockSummaryBox');
+  const stk = data.stockSummary || { totalSkuCount: 0, totalStockQty: 0, totalStockValue: 0 };
+  if (stkBox) {
+    stkBox.innerHTML = `
+      <div style="display:flex; justify-content:space-between; padding:10px; background:#EFF6FF; border-radius:10px;">
+        <span style="font-size:12px; font-weight:600; color:#1E40AF;">&#128230; Total SKU Aktif</span>
+        <strong>${stk.totalSkuCount.toLocaleString('id-ID')} SKU</strong>
+      </div>
+      <div style="display:flex; justify-content:space-between; padding:10px; background:#ECFDF5; border-radius:10px;">
+        <span style="font-size:12px; font-weight:600; color:#065F46;">&#128202; Total Fisik Stok</span>
+        <strong>${stk.totalStockQty.toLocaleString('id-ID')} Pcs</strong>
+      </div>
+      <div style="display:flex; justify-content:space-between; padding:10px; background:#FFFBEB; border-radius:10px;">
+        <span style="font-size:12px; font-weight:600; color:#92400E;">&#128176; Valuasi Aset (HPP)</span>
+        <strong>Rp ${stk.totalStockValue.toLocaleString('id-ID')}</strong>
+      </div>`;
+  }
+
+  // 6. Monthly Profit Trend Bar Chart
+  const mChart = document.getElementById('monthlyProfitChart');
+  const mArr = data.monthlyProfitArr || [];
+  if (mChart && mArr.length === 12) {
+    const months = ['Jan', 'Feb', 'Mar', 'Apr', 'Mei', 'Jun', 'Jul', 'Agu', 'Sep', 'Okt', 'Nov', 'Des'];
+    const maxM = Math.max(10000, ...mArr);
+    mChart.innerHTML = `
+      <div style="display:flex; align-items:flex-end; justify-content:space-between; height:175px; padding-top:16px; gap:6px;">
+        ${mArr.map((val, idx) => {
+          const pct = Math.max(6, Math.round((val / maxM) * 100));
+          return `
+            <div style="flex:1; display:flex; flex-direction:column; align-items:center; height:100%; justify-content:flex-end;">
+              <div title="${months[idx]}: Rp ${val.toLocaleString('id-ID')}" style="width:100%; max-width:18px; height:${pct}%; background:linear-gradient(180deg, #10B981, #059669); border-radius:6px 6px 2px 2px;"></div>
+              <span style="font-size:9px; color:var(--text-muted); margin-top:4px;">${months[idx]}</span>
+            </div>`;
+        }).join('')}
+      </div>`;
+  }
+
+  // 7. Recent Transactions Feed
+  const rFeed = document.getElementById('recentTrxFeed');
+  if (rFeed) {
+    rFeed.innerHTML = (data.recentTransactions || []).map(t => `
+      <div style="display:flex; justify-content:space-between; align-items:center; padding:8px 10px; border:1px solid var(--border); border-radius:10px;">
+        <div>
+          <strong style="font-size:12px; color:var(--blue);">${t.trxId}</strong>
+          <div style="font-size:11px; color:var(--text-muted);">Kasir: ${t.kasir} • ${t.tipe}</div>
+        </div>
+        <div style="text-align:right;">
+          <strong style="font-size:12px;">Rp ${t.total.toLocaleString('id-ID')}</strong>
+          <div style="font-size:10px; color:var(--text-muted);">${t.waktu}</div>
+        </div>
+      </div>
+    `).join('') || '<small style="color:var(--text-muted);">Belum ada transaksi terbaru.</small>';
+  }
+
+  // 8. Branch Wise Sales Horizontal Bars
+  const bBox = document.getElementById('branchSalesChart');
+  const branches = data.branchSales || [];
+  const bColors = ['#2563EB', '#10B981', '#F59E0B', '#7C3AED', '#E11D48'];
+  if (bBox) {
+    const maxB = Math.max(10000, ...branches.map(b => b.total));
+    bBox.innerHTML = branches.length === 0
+      ? '<small style="color:var(--text-muted);">Belum ada data penjualan cabang bulan ini.</small>'
+      : branches.map((b, idx) => `
+          <div>
+            <div style="display:flex; justify-content:space-between; font-size:12px; margin-bottom:4px;">
+              <strong>${b.toko}</strong>
+              <span>Rp ${b.total.toLocaleString('id-ID')}</span>
+            </div>
+            <div style="width:100%; height:10px; background:#F1F5F9; border-radius:99px; overflow:hidden;">
+              <div style="width:${Math.max(8, Math.round((b.total / maxB) * 100))}%; height:100%; background:${bColors[idx % 5]}; border-radius:99px;"></div>
+            </div>
+          </div>
+        `).join('');
+  }
+}
 
 function quickReorderPO(sku, lastHpp) {
   const supplierTabBtn = Array.from(document.querySelectorAll('.tab-btn'))
@@ -142,7 +360,7 @@ function resolveFraudItem(trxId, resolution) {
   callAdminApi('security/resolve-fraud', { trxId, resolution, note: note || '-' }, res => {
     alert(res.message);
     loadDashboard();
-  });
+  }, 'Menyimpan Hasil Audit...');
 }
 
 function printPendingPriceTags() {
@@ -171,7 +389,7 @@ function printPendingPriceTags() {
     callAdminApi('admin/mark-tags-printed', {}, res => {
       alert(res.message);
       loadDashboard();
-    });
+    }, 'Memperbarui Status Label...');
   }
 }
 
@@ -180,7 +398,7 @@ function loadMasterCatalog() {
   callAdminApi('admin/products', {}, items => {
     MASTER_PRODUCTS_CACHE = items || [];
     renderMasterCatalogTable(MASTER_PRODUCTS_CACHE);
-  });
+  }, 'Memuat Katalog Barang...');
 }
 
 function renderMasterCatalogTable(items) {
@@ -217,7 +435,7 @@ function deleteMasterProduct(sku, nama) {
     SELECTED_BARCODE_SKUS.delete(sku);
     alert(res.message);
     loadMasterCatalog();
-  });
+  }, 'Menghapus Barang...');
 }
 
 function filterMasterCatalog() {
@@ -336,7 +554,7 @@ function openStockCardModal(sku, namaBarang) {
         <td><strong>${r.saldoAkhir}</strong></td>
       </tr>
     `).join('');
-  });
+  }, 'Memuat Kartu Stok...');
 }
 
 function fillProductForm(p) {
@@ -364,7 +582,7 @@ function submitProduct() {
   callAdminApi('admin/save-product', payload, res => {
     alert(res.message);
     loadMasterCatalog();
-  });
+  }, 'Menyimpan Master Barang...');
 }
 
 function submitPromo() {
@@ -381,7 +599,7 @@ function submitPromo() {
     alert(res.message);
     document.getElementById('prmBarcodeSyarat').value = '';
     document.getElementById('prmHarga').value = '';
-  });
+  }, 'Menyimpan Aturan Promo...');
 }
 
 // === MEMBER & PIUTANG PELANGGAN (RENE CRM) ===
@@ -407,7 +625,7 @@ function loadMembersTable() {
         </td>
       </tr>
     `).join('');
-  });
+  }, 'Memuat Data Member...');
 }
 
 function fillMemberForm(m) {
@@ -434,7 +652,7 @@ function submitMemberAdmin() {
     document.getElementById('mbrNama').value = '';
     document.getElementById('mbrPhone').value = '';
     loadMembersTable();
-  });
+  }, 'Menyimpan Data Member...');
 }
 
 function payDebtModal(memberId, memberName, currentDebt) {
@@ -447,7 +665,7 @@ function payDebtModal(memberId, memberName, currentDebt) {
   callAdminApi('member/pay-debt', { memberId, amountPaid, note }, res => {
     alert(res.message);
     loadMembersTable();
-  });
+  }, 'Memproses Pelunasan Piutang...');
 }
 
 // === SUPPLIER, PEMBELIAN LPB & HUTANG USAHA ===
@@ -476,7 +694,7 @@ function loadSuppliersTable() {
         </tr>
       `).join('');
     }
-  });
+  }, 'Memuat Data Supplier...');
 }
 
 function fillSupplierForm(s) {
@@ -499,7 +717,7 @@ function submitSupplier() {
     document.getElementById('supId').value = '';
     document.getElementById('supNama').value = '';
     loadSuppliersTable();
-  });
+  }, 'Menyimpan Data Supplier...');
 }
 
 function submitPurchaseInvoice() {
@@ -517,7 +735,7 @@ function submitPurchaseInvoice() {
     document.getElementById('purQty').value = '';
     document.getElementById('purBuyPrice').value = '';
     loadSuppliersTable();
-  });
+  }, 'Menyimpan Faktur Pembelian...');
 }
 
 function paySupplierDebtModal(supplierId, supplierName, curDebt) {
@@ -530,7 +748,7 @@ function paySupplierDebtModal(supplierId, supplierName, curDebt) {
   callAdminApi('supplier/pay-debt', { supplierId, amountPaid, note }, res => {
     alert(res.message);
     loadSuppliersTable();
-  });
+  }, 'Memproses Pembayaran Hutang...');
 }
 
 // === LAPORAN PENJUALAN, LABA RUGI & EKSPOR EXCEL/PDF ===
@@ -566,7 +784,7 @@ function loadSalesProfitReport() {
         <td><strong>Rp ${Number(t.total).toLocaleString('id-ID')}</strong></td>
       </tr>
     `).join('') || '<tr><td colspan="5">Tidak ada transaksi pada periode ini.</td></tr>';
-  });
+  }, 'Menyusun Laporan Laba Rugi...');
 }
 
 function exportReportToExcel() {
@@ -618,7 +836,7 @@ function submitGudangDoc() {
     alert(res.message);
     document.getElementById('docSku').value = '';
     document.getElementById('docQty').value = '';
-  });
+  }, 'Memproses Dokumen Gudang...');
 }
 
 function updateRepackPreview() {
@@ -644,7 +862,7 @@ function submitRepackUnit() {
     document.getElementById('repQtySrc').value = '';
     document.getElementById('repFactor').value = '';
     updateRepackPreview();
-  });
+  }, 'Memproses Konversi Satuan...');
 }
 
 // === BLIND STOCK OPNAME (DENGAN BARCODE SCANNER) ===
@@ -662,7 +880,7 @@ function loadBlindSOItems() {
     `).join('');
     const scanInp = document.getElementById('soScannerInput');
     if (scanInp) scanInp.focus();
-  });
+  }, 'Memuat Daftar Stock Opname...');
 }
 
 function handleSOScannerKey(e) {
@@ -713,7 +931,7 @@ function submitSO() {
   }, res => {
     alert(res.message);
     loadBlindSOItems();
-  });
+  }, 'Menyimpan Hasil Stock Opname...');
 }
 
 // === BRANKAS ===
@@ -726,7 +944,7 @@ function submitKasBrankas() {
     alert(res.message);
     document.getElementById('kasNominal').value = '';
     document.getElementById('kasKet').value = '';
-  });
+  }, 'Menyimpan Transaksi Brankas...');
 }
 
 // === MANAJEMEN USER & DEVICE BINDING ===
@@ -747,7 +965,7 @@ function loadUsersTable() {
         </td>
       </tr>
     `).join('');
-  });
+  }, 'Memuat Daftar Pengguna...');
 }
 
 function submitNewUser() {
@@ -766,7 +984,7 @@ function submitNewUser() {
     document.getElementById('usrPassword').value = '';
     document.getElementById('usrPin').value = '';
     loadUsersTable();
-  });
+  }, 'Menyimpan Pengguna Baru...');
 }
 
 function bindUserDevice(targetUserId, currentDev) {
@@ -775,7 +993,7 @@ function bindUserDevice(targetUserId, currentDev) {
   callAdminApi('security/device-binding', { targetUserId, newDeviceId: newDev }, () => {
     alert('Device binding berhasil diperbarui.');
     loadUsersTable();
-  });
+  }, 'Memperbarui Device Binding...');
 }
 
 function resetUserDevice(targetUserId) {
@@ -783,7 +1001,7 @@ function resetUserDevice(targetUserId) {
   callAdminApi('security/device-binding', { targetUserId, newDeviceId: 'UNBOUND' }, () => {
     alert('Perangkat user berhasil di-reset ke UNBOUND.');
     loadUsersTable();
-  });
+  }, 'Mereset Device User...');
 }
 
 function goKasir() {
