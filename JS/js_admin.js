@@ -8,6 +8,7 @@ let cachedCategories = [];
 // State untuk Modal Penyesuaian Stok, Set Harga, dan Komisi
 let STOCK_ADJ_ROWS = [];
 let SET_HARGA_ROWS = [];
+let MEMBERS_CACHE = [];
 let KOMISI_ROWS = [];
 
 if (SESSION) {
@@ -1371,70 +1372,255 @@ function submitPromo() {
   }, 'Menyimpan Aturan Promo...');
 }
 
-// === MEMBER & PIUTANG PELANGGAN ===
+// === MEMBER & PIUTANG PELANGGAN (MODAL & FILTER) ===
+function openMemberModal() {
+  resetMemberForm();
+  const titleEl = document.getElementById('memberModalTitle');
+  if (titleEl) titleEl.textContent = 'Tambah Pelanggan Baru';
+  document.getElementById('memberModal').classList.add('open');
+  setTimeout(() => document.getElementById('mbrNama').focus(), 100);
+}
+
+function switchMemberSubTab(subName, btn) {
+  document.querySelectorAll('.mbr-subtab-panel').forEach(el => { el.style.display = 'none'; });
+  document.querySelectorAll('.mbr-subtab-btn').forEach(b => {
+    b.classList.remove('btn-blue');
+    b.classList.add('btn-dark');
+  });
+  const target = document.getElementById('mbr-subtab-' + subName);
+  if (target) target.style.display = 'block';
+  if (btn) {
+    btn.classList.remove('btn-dark');
+    btn.classList.add('btn-blue');
+  }
+}
+
+function promptMemberPhotoUrl() {
+  const cur = document.getElementById('mbrPhotoUrl').value || '';
+  const url = prompt('Masukkan URL Foto Pelanggan (HTTPS):', cur);
+  if (url === null) return;
+  document.getElementById('mbrPhotoUrl').value = url.trim();
+  renderMemberPhotoPreview(url.trim());
+}
+
+function clearMemberPhotoUrl() {
+  document.getElementById('mbrPhotoUrl').value = '';
+  renderMemberPhotoPreview('');
+}
+
+function renderMemberPhotoPreview(url) {
+  const box = document.getElementById('mbrPhotoPreview');
+  if (!box) return;
+  box.innerHTML = url
+    ? `<img src="${url}" alt="Foto" style="max-width:100%; max-height:140px; object-fit:contain;" onerror="this.parentElement.innerHTML='Foto gagal dimuat'">`
+    : 'Tidak ada foto';
+}
+
+function resetMemberForm() {
+  document.getElementById('mbrId').value = '';
+  document.getElementById('mbrKategori').value = 'Umum';
+  document.getElementById('mbrCardCode').value = '';
+  document.getElementById('mbrNama').value = '';
+  document.getElementById('mbrGender').value = '-';
+  document.getElementById('mbrBirthDate').value = '';
+  document.getElementById('mbrKtp').value = '';
+  document.getElementById('mbrContactName').value = '';
+  document.getElementById('mbrPhone').value = '';
+  document.getElementById('mbrEmail').value = '';
+  document.getElementById('mbrAddress1').value = '';
+  document.getElementById('mbrAddress2').value = '';
+  document.getElementById('mbrPostalCode').value = '';
+  document.getElementById('mbrCity').value = '';
+  document.getElementById('mbrProvince').value = '';
+  document.getElementById('mbrLevel').value = 'Reguler';
+  document.getElementById('mbrDiscountPct').value = 0;
+  document.getElementById('mbrCreditLimit').value = 0;
+  document.getElementById('mbrDueDays').value = 14;
+  document.getElementById('mbrNotes').value = '';
+  clearMemberPhotoUrl();
+  const firstTab = document.querySelector('.mbr-subtab-btn');
+  if (firstTab) switchMemberSubTab('info', firstTab);
+}
+
 function loadMembersTable() {
   callAdminApi('member/list', {}, members => {
-    const tbody = document.getElementById('membersTableBody');
-    tbody.innerHTML = members.map(m => `
-      <tr>
-        <td><strong>${m.member_id}</strong></td>
-        <td><code>${m.card_code}</code></td>
-        <td>${m.name}</td>
-        <td>${m.phone}</td>
-        <td><span class="badge badge-ok">${m.price_level}</span></td>
-        <td>${m.member_discount_pct}%</td>
-        <td><strong>${m.points.toLocaleString('id-ID')}</strong> pt</td>
-        <td>Rp ${m.credit_limit.toLocaleString('id-ID')}</td>
-        <td style="color:${m.current_debt > 0 ? '#DC2626' : '#0F172A'}; font-weight:700;">
-          Rp ${m.current_debt.toLocaleString('id-ID')}
-        </td>
-        <td style="display:flex; gap:6px;">
-          <button class="btn btn-blue btn-sm" onclick='fillMemberForm(${JSON.stringify(m)})'>Edit</button>
-          ${m.current_debt > 0 ? `<button class="btn btn-amber btn-sm" onclick="payDebtModal('${m.member_id}', '${m.name}', ${m.current_debt})">Bayar Piutang</button>` : ''}
-        </td>
-      </tr>
-    `).join('');
-  }, 'Memuat Data Member...');
+    MEMBERS_CACHE = members || [];
+    filterMembersTable();
+  }, 'Memuat Data Pelanggan & Piutang...');
+}
+
+function filterMembersTable() {
+  const q = (document.getElementById('memberSearchInput')?.value || '').toLowerCase().trim();
+  const cat = (document.getElementById('memberCategoryFilter')?.value || '').trim();
+  const debtOnly = document.getElementById('memberDebtOnlyFilter')?.checked || false;
+
+  const filtered = MEMBERS_CACHE.filter(m => {
+    const matchText = !q ||
+      String(m.member_id || '').toLowerCase().includes(q) ||
+      String(m.card_code || '').toLowerCase().includes(q) ||
+      String(m.name || '').toLowerCase().includes(q) ||
+      String(m.phone || '').toLowerCase().includes(q);
+    const matchCat = !cat || (m.kategori || 'Umum') === cat;
+    const matchDebt = !debtOnly || (Number(m.current_debt) || 0) > 0;
+    return matchText && matchCat && matchDebt;
+  });
+
+  renderMembersTable(filtered);
+}
+
+function renderMembersTable(members) {
+  const tbody = document.getElementById('membersTableBody');
+  const totalPiutang = members.reduce((sum, m) => sum + (Number(m.current_debt) || 0), 0);
+  const badge = document.getElementById('totalPiutangBadge');
+  if (badge) badge.textContent = 'Rp ' + totalPiutang.toLocaleString('id-ID');
+
+  if (!tbody) return;
+  if (members.length === 0) {
+    tbody.innerHTML = '<tr><td colspan="11" style="text-align:center; color:var(--text-muted); padding:20px;">Data pelanggan tidak ditemukan.</td></tr>';
+    return;
+  }
+
+  tbody.innerHTML = members.map(m => `
+    <tr>
+      <td><strong>${m.member_id}</strong></td>
+      <td><code>${m.card_code}</code></td>
+      <td>${m.name}</td>
+      <td><span class="badge badge-warn">${m.kategori || 'Umum'}</span></td>
+      <td>${m.phone || '-'}</td>
+      <td><span class="badge badge-ok">${m.price_level || 'Reguler'}</span></td>
+      <td>${Number(m.member_discount_pct) || 0}%</td>
+      <td><strong>${(Number(m.points) || 0).toLocaleString('id-ID')}</strong> pt</td>
+      <td>Rp ${(Number(m.credit_limit) || 0).toLocaleString('id-ID')}</td>
+      <td style="color:${Number(m.current_debt) > 0 ? '#DC2626' : '#0F172A'}; font-weight:700;">
+        Rp ${(Number(m.current_debt) || 0).toLocaleString('id-ID')}
+      </td>
+      <td style="display:flex; gap:6px; flex-wrap:wrap;">
+        <button class="btn btn-blue btn-sm" onclick='fillMemberForm(${JSON.stringify(m)})'>Edit</button>
+        ${Number(m.current_debt) > 0 ? `<button class="btn btn-amber btn-sm" onclick="openPayDebtModal('${m.member_id}')">Bayar Piutang</button>` : ''}
+      </td>
+    </tr>
+  `).join('');
 }
 
 function fillMemberForm(m) {
-  document.getElementById('mbrCardCode').value = m.card_code;
-  document.getElementById('mbrNama').value = m.name;
-  document.getElementById('mbrPhone').value = m.phone;
-  document.getElementById('mbrLevel').value = m.price_level;
-  document.getElementById('mbrDiscountPct').value = m.member_discount_pct;
-  document.getElementById('mbrCreditLimit').value = m.credit_limit;
+  resetMemberForm();
+  const titleEl = document.getElementById('memberModalTitle');
+  if (titleEl) titleEl.textContent = `Edit Pelanggan: ${m.name}`;
+
+  document.getElementById('mbrId').value = m.member_id || '';
+  document.getElementById('mbrKategori').value = m.kategori || 'Umum';
+  document.getElementById('mbrCardCode').value = m.card_code || '';
+  document.getElementById('mbrNama').value = m.name || '';
+  document.getElementById('mbrGender').value = m.gender || '-';
+  document.getElementById('mbrBirthDate').value = m.birth_date || '';
+  document.getElementById('mbrKtp').value = m.ktp || '';
+  document.getElementById('mbrContactName').value = m.contact_name || '';
+  document.getElementById('mbrPhone').value = m.phone || '';
+  document.getElementById('mbrEmail').value = m.email || '';
+  document.getElementById('mbrAddress1').value = m.address1 || '';
+  document.getElementById('mbrAddress2').value = m.address2 || '';
+  document.getElementById('mbrPostalCode').value = m.postal_code || '';
+  document.getElementById('mbrCity').value = m.city || '';
+  document.getElementById('mbrProvince').value = m.province || '';
+  document.getElementById('mbrLevel').value = m.price_level || 'Reguler';
+  document.getElementById('mbrDiscountPct').value = Number(m.member_discount_pct) || 0;
+  document.getElementById('mbrCreditLimit').value = Number(m.credit_limit) || 0;
+  document.getElementById('mbrDueDays').value = Number(m.due_days) || 14;
+  document.getElementById('mbrNotes').value = m.notes || '';
+  document.getElementById('mbrPhotoUrl').value = m.photo_url || '';
+  renderMemberPhotoPreview(m.photo_url || '');
+
+  document.getElementById('memberModal').classList.add('open');
+  setTimeout(() => document.getElementById('mbrNama').focus(), 100);
 }
 
-function submitMemberAdmin() {
+function submitMemberAdmin(isSaveAndNew) {
   const payload = {
-    cardCode: document.getElementById('mbrCardCode').value,
-    nama: document.getElementById('mbrNama').value,
-    phone: document.getElementById('mbrPhone').value,
+    memberId: document.getElementById('mbrId').value.trim(),
+    kategori: document.getElementById('mbrKategori').value,
+    cardCode: document.getElementById('mbrCardCode').value.trim(),
+    nama: document.getElementById('mbrNama').value.trim(),
+    gender: document.getElementById('mbrGender').value,
+    birthDate: document.getElementById('mbrBirthDate').value,
+    ktp: document.getElementById('mbrKtp').value.trim(),
+    contactName: document.getElementById('mbrContactName').value.trim(),
+    phone: document.getElementById('mbrPhone').value.trim(),
+    email: document.getElementById('mbrEmail').value.trim(),
+    address1: document.getElementById('mbrAddress1').value.trim(),
+    address2: document.getElementById('mbrAddress2').value.trim(),
+    postalCode: document.getElementById('mbrPostalCode').value.trim(),
+    city: document.getElementById('mbrCity').value.trim(),
+    province: document.getElementById('mbrProvince').value.trim(),
     priceLevel: document.getElementById('mbrLevel').value,
     discountPct: Number(document.getElementById('mbrDiscountPct').value) || 0,
-    creditLimit: Number(document.getElementById('mbrCreditLimit').value) || 0
+    creditLimit: Number(document.getElementById('mbrCreditLimit').value) || 0,
+    dueDays: Number(document.getElementById('mbrDueDays').value) || 14,
+    notes: document.getElementById('mbrNotes').value.trim(),
+    photoUrl: document.getElementById('mbrPhotoUrl').value.trim()
   };
+
+  if (!payload.nama) return alert('Nama Pelanggan wajib diisi!');
+
   callAdminApi('member/save', payload, res => {
-    alert(res.message);
-    document.getElementById('mbrCardCode').value = '';
-    document.getElementById('mbrNama').value = '';
-    document.getElementById('mbrPhone').value = '';
     loadMembersTable();
-  }, 'Menyimpan Data Member...');
+    if (isSaveAndNew) {
+      resetMemberForm();
+      const titleEl = document.getElementById('memberModalTitle');
+      if (titleEl) titleEl.textContent = 'Tambah Pelanggan Baru';
+      document.getElementById('mbrNama').focus();
+    } else {
+      closeModal('memberModal');
+      alert(res.message);
+    }
+  }, 'Menyimpan Data Pelanggan...');
 }
 
-function payDebtModal(memberId, memberName, currentDebt) {
-  const amountStr = prompt(`PELUNASAN PIUTANG MEMBER\nPelanggan: ${memberName}\nSisa Piutang: Rp ${currentDebt.toLocaleString('id-ID')}\n\nMasukkan nominal pembayaran (Rp):`, currentDebt);
-  if (!amountStr) return;
-  const amountPaid = Number(amountStr) || 0;
-  if (amountPaid <= 0) return alert('Nominal pembayaran tidak valid.');
+function openPayDebtModal(preselectMemberId) {
+  const debtors = MEMBERS_CACHE.filter(m => (Number(m.current_debt) || 0) > 0);
+  if (debtors.length === 0) {
+    return alert('Saat ini tidak ada pelanggan yang memiliki tagihan piutang.');
+  }
 
-  const note = prompt('Catatan / No. Referensi Pembayaran (Tunai / Transfer):', 'Pelunasan di toko') || '-';
+  const sel = document.getElementById('debtMemberSelect');
+  sel.innerHTML = debtors.map(m =>
+    `<option value="${m.member_id}" data-debt="${m.current_debt}">${m.member_id} - ${m.name} (Piutang: Rp ${Number(m.current_debt).toLocaleString('id-ID')})</option>`
+  ).join('');
+
+  if (preselectMemberId) sel.value = preselectMemberId;
+  document.getElementById('debtPayDate').value = getTodayIsoDate();
+  document.getElementById('debtPayNote').value = '';
+  onSelectDebtMember();
+
+  document.getElementById('payDebtModal').classList.add('open');
+}
+
+function onSelectDebtMember() {
+  const sel = document.getElementById('debtMemberSelect');
+  const opt = sel.options[sel.selectedIndex];
+  const debt = opt ? (Number(opt.dataset.debt) || 0) : 0;
+  document.getElementById('debtCurrentAmountText').textContent = 'Rp ' + debt.toLocaleString('id-ID');
+  document.getElementById('debtPayAmount').value = debt;
+}
+
+function submitPayMemberDebt() {
+  const memberId = document.getElementById('debtMemberSelect').value;
+  const amountPaid = Number(document.getElementById('debtPayAmount').value) || 0;
+  const payDate = document.getElementById('debtPayDate').value;
+  const method = document.getElementById('debtPayMethod').value;
+  const rawNote = document.getElementById('debtPayNote').value.trim();
+
+  if (amountPaid <= 0) return alert('Nominal pembayaran piutang tidak valid.');
+
+  const note = `[${payDate} | ${method}] ${rawNote || 'Pelunasan Piutang'}`;
   callAdminApi('member/pay-debt', { memberId, amountPaid, note }, res => {
+    closeModal('payDebtModal');
     alert(res.message);
     loadMembersTable();
   }, 'Memproses Pelunasan Piutang...');
+}
+
+function printMemberList() {
+  window.print();
 }
 
 // === SUPPLIER, PEMBELIAN LPB & HUTANG USAHA ===
