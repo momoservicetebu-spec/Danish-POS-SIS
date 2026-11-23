@@ -1,4 +1,4 @@
-// JS/js_admin.js - Logika Backoffice & Admin SIS v3.5 (Enterprise Edition + Loading Screen)
+// JS/js_admin.js - Logika Backoffice & Admin SIS v3.5 (Enterprise Edition + Mobile Responsive + Loading Screen)
 let PENDING_TAGS_CACHE = [];
 let MASTER_PRODUCTS_CACHE = [];
 let SELECTED_BARCODE_SKUS = new Set();
@@ -9,6 +9,40 @@ if (SESSION) {
   document.getElementById('userBadge').textContent = `${SESSION.user.nama} [${SESSION.user.role}]`;
 }
 
+// === KONTROL SIDEBAR RESPONSIF (DESKTOP / TABLET / HP) ===
+function toggleAdminSidebar() {
+  const sidebar = document.getElementById('adminSidebar');
+  const overlay = document.getElementById('sidebarOverlay');
+  if (!sidebar) return;
+
+  if (window.innerWidth <= 1100) {
+    sidebar.classList.toggle('mobile-open');
+    if (overlay) overlay.classList.toggle('open');
+  } else {
+    sidebar.classList.toggle('collapsed');
+  }
+}
+
+function closeMobileSidebar() {
+  if (window.innerWidth <= 1100) {
+    const sidebar = document.getElementById('adminSidebar');
+    const overlay = document.getElementById('sidebarOverlay');
+    if (sidebar) sidebar.classList.remove('mobile-open');
+    if (overlay) overlay.classList.remove('open');
+  }
+}
+
+// Otomatis bungkus semua tabel agar bisa digeser horizontal di HP
+document.querySelectorAll('table').forEach(tbl => {
+  if (!tbl.parentElement.classList.contains('table-responsive')) {
+    const wrap = document.createElement('div');
+    wrap.className = 'table-responsive';
+    tbl.parentNode.insertBefore(wrap, tbl);
+    wrap.appendChild(tbl);
+  }
+});
+
+// === GLOBAL LOADING SCREEN ===
 function setLoadingScreen(isShow, titleText, subText) {
   const overlay = document.getElementById('globalLoadingOverlay');
   const titleEl = document.getElementById('globalLoadingTitle');
@@ -52,6 +86,7 @@ function switchTab(tabName, btn) {
   document.querySelectorAll('.tab-btn').forEach(el => el.classList.remove('active'));
   document.getElementById('tab-' + tabName).classList.add('active');
   if (btn) btn.classList.add('active');
+  closeMobileSidebar();
 
   if (tabName === 'dashboard') loadDashboard();
   if (tabName === 'master') loadMasterCatalog();
@@ -197,7 +232,7 @@ function renderDashboardAnalytics(data) {
     catBox.innerHTML = cats.length === 0
       ? '<small style="color:var(--text-muted);">Belum ada data penjualan kategori bulan ini.</small>'
       : `
-        <svg viewBox="0 0 42 42" style="width:120px; height:120px; transform:rotate(-90deg); flex-shrink:0;">
+        <svg viewBox="0 0 42 42" style="width:110px; height:110px; transform:rotate(-90deg); flex-shrink:0;">
           <circle r="15.9" cx="21" cy="21" fill="transparent" stroke="#F1F5F9" stroke-width="6.5"/>
           ${circles}
         </svg>

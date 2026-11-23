@@ -24,7 +24,7 @@
     }
 
     * { box-sizing: border-box; font-family: 'Inter', system-ui, -apple-system, sans-serif; }
-    body { margin: 0; background: var(--bg-canvas); color: var(--text-main); display: flex; min-height: 100vh; }
+    body { margin: 0; background: var(--bg-canvas); color: var(--text-main); display: flex; min-height: 100vh; overflow-x: hidden; }
 
     /* ========================================================= */
     /* GLOBAL LOADING SCREEN OVERLAY                             */
@@ -56,13 +56,19 @@
     .sidebar {
       width: 250px; background: var(--sidebar-bg); color: #E2E8F0;
       display: flex; flex-direction: column; flex-shrink: 0;
-      position: sticky; top: 0; height: 100vh; z-index: 20;
-      transition: width 0.25s ease;
+      position: sticky; top: 0; height: 100vh; z-index: 30;
+      transition: width 0.25s ease, left 0.25s ease;
     }
     .sidebar.collapsed { width: 74px; }
     .sidebar.collapsed .brand-text,
     .sidebar.collapsed .nav-label,
     .sidebar.collapsed .sidebar-widget { display: none; }
+
+    .sidebar-overlay {
+      display: none; position: fixed; inset: 0; background: rgba(11, 25, 44, 0.55);
+      z-index: 25; backdrop-filter: blur(1px);
+    }
+    .sidebar-overlay.open { display: block; }
 
     .sidebar-brand {
       height: 66px; padding: 0 18px; display: flex; align-items: center; gap: 12px;
@@ -104,34 +110,34 @@
     .sidebar-widget-row { display: flex; justify-content: space-between; margin-top: 4px; color: #CBD5E1; }
 
     /* ========================================================= */
-    /* AREA KANAN: TOPBAR + KONTEN UTAMA                         */
+    /* AREA KANAN: TOPBAR + KONTEN UTAMA (FULL WIDTH TANPA GAP)  */
     /* ========================================================= */
-    .main-wrapper { flex: 1; display: flex; flex-direction: column; min-width: 0; }
+    .main-wrapper { flex: 1; display: flex; flex-direction: column; min-width: 0; width: 100%; }
 
     .topbar {
       height: 66px; background: var(--surface); border-bottom: 1px solid var(--border);
       padding: 0 24px; display: flex; align-items: center; justify-content: space-between;
-      gap: 16px; position: sticky; top: 0; z-index: 10;
+      gap: 16px; position: sticky; top: 0; z-index: 15;
     }
-    .topbar-left { display: flex; align-items: center; gap: 14px; flex: 1; }
+    .topbar-left { display: flex; align-items: center; gap: 14px; flex: 1; min-width: 0; }
     .toggle-btn {
       background: #F8FAFC; border: 1px solid var(--border); border-radius: 8px;
-      padding: 7px 10px; cursor: pointer; font-size: 15px; color: var(--text-main);
+      padding: 7px 11px; cursor: pointer; font-size: 16px; color: var(--text-main); flex-shrink: 0;
     }
     .top-search {
-      max-width: 340px; width: 100%; padding: 8px 14px; border-radius: 99px;
+      max-width: 360px; width: 100%; padding: 8px 14px; border-radius: 99px;
       border: 1px solid var(--border); background: #F8FAFC; font-size: 13px;
     }
 
-    .topbar-right { display: flex; align-items: center; gap: 12px; }
+    .topbar-right { display: flex; align-items: center; gap: 12px; flex-shrink: 0; }
     .date-pill {
       background: #F8FAFC; border: 1px solid var(--border); padding: 6px 12px;
-      border-radius: 8px; font-size: 12px; font-weight: 600; color: var(--text-main);
+      border-radius: 8px; font-size: 12px; font-weight: 600; color: var(--text-main); white-space: nowrap;
     }
     .kasir-shortcut-btn {
       background: linear-gradient(135deg, #2563EB, #1D4ED8); color: #fff;
       border: none; padding: 8px 14px; border-radius: 8px; font-weight: 700;
-      font-size: 12px; cursor: pointer; display: flex; align-items: center; gap: 6px;
+      font-size: 12px; cursor: pointer; display: flex; align-items: center; gap: 6px; white-space: nowrap;
     }
     .user-profile-box {
       display: flex; align-items: center; gap: 10px; padding-left: 10px;
@@ -141,10 +147,11 @@
       width: 36px; height: 36px; border-radius: 50%;
       background: linear-gradient(135deg, #10B981, #059669);
       color: #fff; font-weight: 800; display: flex; align-items: center; justify-content: center;
-      font-size: 14px;
+      font-size: 14px; flex-shrink: 0;
     }
 
-    .container { max-width: 1440px; width: 100%; margin: 20px auto; padding: 0 24px 32px; }
+    /* Full Width tanpa batas max-width 1440px agar tidak ada gap di monitor lebar */
+    .container { width: 100%; max-width: 100%; margin: 0; padding: 20px 24px 32px; }
 
     /* ========================================================= */
     /* KARTU KPI GRADIEN WARNA-WARNI                             */
@@ -174,7 +181,7 @@
     /* Standard Cards & Grids */
     .card {
       background: var(--surface); border-radius: 16px; border: 1px solid var(--border);
-      box-shadow: 0 4px 12px rgba(15, 23, 42, 0.04); padding: 20px;
+      box-shadow: 0 4px 12px rgba(15, 23, 42, 0.04); padding: 20px; min-width: 0;
     }
     .kpi-label { font-size: 13px; color: var(--text-muted); font-weight: 600; }
     .kpi-val { font-size: 24px; font-weight: 800; margin-top: 8px; font-variant-numeric: tabular-nums; }
@@ -183,6 +190,9 @@
     .bento-3col-top { display: grid; grid-template-columns: 1.2fr 1fr 1fr; gap: 16px; margin-bottom: 16px; }
     .bento-3col-mid { display: grid; grid-template-columns: 1.1fr 0.9fr 1fr; gap: 16px; margin-bottom: 16px; }
 
+    .table-responsive {
+      width: 100%; overflow-x: auto; -webkit-overflow-scrolling: touch;
+    }
     table { width: 100%; border-collapse: collapse; font-size: 13px; }
     th, td { padding: 10px 12px; text-align: left; border-bottom: 1px solid var(--border); }
     th { background: #F8FAFC; font-weight: 700; color: var(--text-muted); }
@@ -213,7 +223,7 @@
     /* Modal Overlay (Kartu Stok & Barcode Studio) */
     .modal-backdrop {
       display: none; position: fixed; inset: 0; background: rgba(15, 23, 42, 0.55);
-      z-index: 50; align-items: center; justify-content: center; padding: 20px;
+      z-index: 50; align-items: center; justify-content: center; padding: 16px;
     }
     .modal-backdrop.open { display: flex; }
     .modal-box {
@@ -249,9 +259,49 @@
       .no-print { display: none !important; }
     }
 
+    /* ========================================================= */
+    /* RESPONSIF TABLET & MOBILE (<= 1100px)                     */
+    /* ========================================================= */
     @media (max-width: 1100px) {
       .bento-kpi { grid-template-columns: repeat(2, 1fr); }
       .bento-main, .bento-2col, .bento-3col-top, .bento-3col-mid { grid-template-columns: 1fr; }
+      .form-row { grid-template-columns: repeat(2, 1fr); }
+
+      /* Sidebar menjadi Off-Canvas Drawer tersembunyi di Tablet/HP */
+      .sidebar {
+        position: fixed !important;
+        left: -265px !important;
+        top: 0;
+        bottom: 0;
+        height: 100vh;
+        width: 250px !important;
+        z-index: 30;
+      }
+      .sidebar.mobile-open {
+        left: 0 !important;
+      }
+      .sidebar.collapsed .brand-text,
+      .sidebar.collapsed .nav-label,
+      .sidebar.collapsed .sidebar-widget {
+        display: block;
+      }
+    }
+
+    /* ========================================================= */
+    /* RESPONSIF SMARTPHONE (<= 640px)                           */
+    /* ========================================================= */
+    @media (max-width: 640px) {
+      .container { padding: 12px 12px 24px; }
+      .topbar { padding: 0 12px; height: 58px; gap: 8px; }
+      .top-search { display: none !important; }
+      .date-pill { display: none !important; }
+      .user-profile-box div:last-child { display: none !important; }
+      .bento-kpi { grid-template-columns: 1fr; gap: 10px; }
+      .kpi-grad-card { min-height: 96px; padding: 14px 16px; }
+      .kpi-grad-card .kpi-val { font-size: 22px; }
+      .form-row { grid-template-columns: 1fr; gap: 8px; }
+      .card { padding: 14px; border-radius: 12px; }
+      th, td { padding: 8px 10px; font-size: 12px; white-space: nowrap; }
     }
   </style>
 </head>
@@ -266,6 +316,9 @@
       <div class="loading-sub" id="globalLoadingSub">Mohon tunggu, menyinkronkan ke server...</div>
     </div>
   </div>
+
+  <!-- BACKDROP GELAP UNTUK SIDEBAR DI TABLET / HP -->
+  <div id="sidebarOverlay" class="sidebar-overlay no-print" onclick="toggleAdminSidebar()"></div>
 
   <!-- ========================================================= -->
   <!-- SIDEBAR NAVIGASI KIRI                                     -->
@@ -331,7 +384,7 @@
   <div class="main-wrapper">
     <header class="topbar no-print">
       <div class="topbar-left">
-        <button class="toggle-btn" onclick="document.getElementById('adminSidebar').classList.toggle('collapsed')" title="Perkecil/Perbesar Sidebar">&#9776;</button>
+        <button class="toggle-btn" onclick="toggleAdminSidebar()" title="Menu Navigasi">&#9776;</button>
         <input type="text" class="top-search" placeholder="Cari cepat SKU / Barcode di Katalog..." onkeydown="if(event.key==='Enter'){ const sb = document.querySelectorAll('.sidebar-menu .tab-btn')[1]; switchTab('master', sb); document.getElementById('masterSearchInput').value=this.value; filterMasterCatalog(); }">
       </div>
 
@@ -493,7 +546,7 @@
 
         <!-- PANEL INVESTIGASI ANOMALI & FLAGGED FRAUD -->
         <div class="card" style="margin-top:16px;">
-          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
+          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px; flex-wrap:wrap; gap:8px;">
             <div>
               <h3 style="margin:0;">Monitor Anomali & Investigasi Fraud (Anti-Tampering)</h3>
               <small style="color:var(--text-muted);">Transaksi dengan ketidaksesuaian harga/checksum/promo yang memerlukan verifikasi manajemen.</small>
@@ -565,8 +618,8 @@
               <h3 style="margin:0;">Katalog Master Barang & Studio Cetak Barcode</h3>
               <small style="color:var(--text-muted);">Pilih produk untuk cetak stiker barcode kemasan atau cek Kartu Stok.</small>
             </div>
-            <div style="display:flex; gap:8px; align-items:center;">
-              <input type="text" id="masterSearchInput" onkeyup="filterMasterCatalog()" placeholder="Cari SKU / Barcode / Nama..." style="width:230px;">
+            <div style="display:flex; gap:8px; align-items:center; flex-wrap:wrap;">
+              <input type="text" id="masterSearchInput" onkeyup="filterMasterCatalog()" placeholder="Cari SKU / Barcode / Nama..." style="width:220px;">
               <button class="btn btn-dark" onclick="openBarcodeStudioModal()">Cetak Barcode Massal (<span id="selectedBarcodeCount">0</span>)</button>
             </div>
           </div>
@@ -640,7 +693,7 @@
         </div>
 
         <div class="card">
-          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
+          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px; flex-wrap:wrap; gap:8px;">
             <h3 style="margin:0;">Pecah Kemasan / Konversi Satuan Bertingkat (Repack)</h3>
             <span class="badge badge-ok">Contoh: 1 DUS &rarr; 40 PCS</span>
           </div>
@@ -655,7 +708,7 @@
           <div class="form-row">
             <input type="number" id="repQtySrc" placeholder="Jumlah Kemasan Dipecah (misal: 2)" min="1" oninput="updateRepackPreview()">
             <input type="number" id="repFactor" placeholder="Isi per Kemasan (misal: 40)" min="2" oninput="updateRepackPreview()">
-            <div id="repPreviewBox" style="display:flex; align-items:center; padding:0 12px; background:#F8FAFC; border:1px solid var(--border); border-radius:8px; font-size:13px; font-weight:700; color:var(--blue);">
+            <div id="repPreviewBox" style="display:flex; align-items:center; padding:8px 12px; background:#F8FAFC; border:1px solid var(--border); border-radius:8px; font-size:13px; font-weight:700; color:var(--blue);">
               Hasil Eceran: 0 Pcs
             </div>
           </div>
@@ -681,7 +734,7 @@
             </div>
           </div>
 
-          <div style="background:#F8FAFC; border:1px dashed #94A3B8; padding:12px; border-radius:12px; margin-bottom:14px; display:flex; gap:10px; align-items:center;">
+          <div style="background:#F8FAFC; border:1px dashed #94A3B8; padding:12px; border-radius:12px; margin-bottom:14px; display:flex; gap:10px; align-items:center; flex-wrap:wrap;">
             <strong style="font-size:13px; white-space:nowrap;">Scan Barcode Rak:</strong>
             <input type="text" id="soScannerInput" autocomplete="off" placeholder="Arahkan scanner ke barcode barang lalu Enter..." onkeydown="handleSOScannerKey(event)" style="max-width:340px; background:#fff;">
             <span id="soScannerFeedback" style="font-size:12px; font-weight:600; color:var(--primary);"></span>
@@ -803,7 +856,7 @@
             <input type="date" id="repEndDate" style="width:165px;">
             <button class="btn btn-blue" onclick="loadSalesProfitReport()">Tampilkan</button>
           </div>
-          <div style="display:flex; gap:8px;">
+          <div style="display:flex; gap:8px; flex-wrap:wrap;">
             <button class="btn btn-green" onclick="exportReportToExcel()">Ekspor Excel (.CSV)</button>
             <button class="btn btn-dark" onclick="printSalesReportPDF()">Cetak / Simpan PDF</button>
           </div>
