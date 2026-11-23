@@ -605,6 +605,133 @@
         </div>
       </div>
 
+      <!-- TAB 2: PERSEDIAAN (KATEGORI, MASTER BARANG, PROMO & BARCODE) -->
+      <div id="tab-master" class="section">
+        <!-- SUB-PANEL 1: MASTER KATEGORI BARANG (ADAPTASI RENE POS) -->
+        <div class="bento-2col">
+          <div class="card">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
+              <h3 style="margin:0;">Kategori Barang</h3>
+              <span class="badge badge-ok">Perintah Pesanan &amp; Routing</span>
+            </div>
+            <input type="hidden" id="catId">
+            <div class="form-row" style="grid-template-columns: 1.3fr 1fr;">
+              <div>
+                <label style="font-size:12px; font-weight:600; color:var(--text-muted); display:block; margin-bottom:4px;">Nama Kategori</label>
+                <input type="text" id="catNama" placeholder="Contoh: Minuman, Makanan, Umum">
+              </div>
+              <div>
+                <label style="font-size:12px; font-weight:600; color:var(--text-muted); display:block; margin-bottom:4px;">Lokasi Perintah Pesanan</label>
+                <select id="catLokasi">
+                  <option value="- Tidak Pakai -">- Tidak Pakai -</option>
+                  <option value="Bar">Bar</option>
+                  <option value="Dapur">Dapur</option>
+                  <option value="Gudang / Delivery">Gudang / Delivery</option>
+                  <option value="Kasir Utama">Kasir Utama</option>
+                </select>
+              </div>
+            </div>
+            <p style="font-size:12px; color:var(--text-muted); margin: 4px 0 12px 0;">
+              <em>Perintah Pesanan:</em> Setelah pesanan dimasukkan, sistem mengarahkan cetak/notifikasi ke lokasi sesuai kategorinya (contoh: Minuman ke Bar, Masakan ke Dapur).
+            </p>
+            <div style="display:flex; gap:8px; flex-wrap:wrap;">
+              <button class="btn btn-blue" onclick="submitCategory(true)">Simpan &amp; Baru</button>
+              <button class="btn btn-green" onclick="submitCategory(false)">Simpan</button>
+              <button class="btn btn-dark" onclick="resetCategoryForm()">Batal</button>
+            </div>
+          </div>
+
+          <div class="card">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
+              <h3 style="margin:0;">Daftar Kategori Barang</h3>
+              <span id="totalKategoriBadge" class="badge badge-warn">0 Kategori</span>
+            </div>
+            <div class="table-responsive" style="max-height:220px; overflow-y:auto;">
+              <table>
+                <thead>
+                  <tr><th>Kode</th><th>Nama Kategori</th><th>Lokasi Pesanan</th><th>Aksi</th></tr>
+                </thead>
+                <tbody id="categoryTableBody"></tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+
+        <!-- SUB-PANEL 2: MASTER BARANG & PROMO -->
+        <div class="bento-2col">
+          <div class="card">
+            <h3 style="margin-top:0;">Tambah / Ubah Master Barang</h3>
+            <div class="form-row">
+              <input type="text" id="prdSku" placeholder="SKU (misal: SKU-1005)">
+              <input type="text" id="prdBarcode" placeholder="Barcode (pisah koma jika >1)">
+              <input type="text" id="prdNama" placeholder="Nama Barang">
+            </div>
+            <div class="form-row">
+              <select id="prdKategori">
+                <option value="Umum">Umum</option>
+              </select>
+              <input type="text" id="prdSatuan" placeholder="Satuan (PCS / PACK:12 / DUS:40)">
+              <select id="prdHighRisk">
+                <option value="false">Risiko Normal</option>
+                <option value="true">High-Risk Item (SO Harian)</option>
+              </select>
+            </div>
+            <div class="form-row">
+              <input type="number" id="prdModal" placeholder="Harga Modal / HPP (Rp)">
+              <input type="number" id="prdJual" placeholder="Harga Jual Toko (Rp)">
+              <button class="btn btn-green" onclick="submitProduct()">Simpan Barang</button>
+            </div>
+          </div>
+
+          <div class="card">
+            <h3 style="margin-top:0;">Buat Promo Otomatis (Tiered / Bundling / PWP)</h3>
+            <div class="form-row">
+              <select id="prmJenis">
+                <option value="DISCOUNT">DISCOUNT - Potongan Langsung</option>
+                <option value="TIERED">TIERED - Harga Grosir Bertingkat</option>
+                <option value="BUNDLING">BUNDLING - Paket Mix &amp; Match</option>
+                <option value="PWP">PWP - Tebus Murah</option>
+              </select>
+              <input type="text" id="prmBarcodeSyarat" placeholder="Barcode Syarat">
+              <input type="number" id="prmMinQty" placeholder="Min Qty / Min Belanja">
+            </div>
+            <div class="form-row">
+              <input type="text" id="prmBarcodeHadiah" placeholder="Barcode Hadiah (Khusus PWP)">
+              <input type="number" id="prmHarga" placeholder="Harga Promo / Potongan (Rp)">
+              <button class="btn btn-violet" onclick="submitPromo()">Simpan Promo</button>
+            </div>
+            <div class="form-row">
+              <input type="date" id="prmMulai" title="Tanggal Mulai">
+              <input type="date" id="prmSelesai" title="Tanggal Selesai">
+              <div></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- SUB-PANEL 3: KATALOG BARANG & CETAK BARCODE -->
+        <div class="card">
+          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px; flex-wrap:wrap; gap:10px;">
+            <div>
+              <h3 style="margin:0;">Katalog Master Barang &amp; Studio Cetak Barcode</h3>
+              <small style="color:var(--text-muted);">Pilih produk untuk cetak stiker barcode kemasan atau cek Kartu Stok.</small>
+            </div>
+            <div style="display:flex; gap:8px; align-items:center; flex-wrap:wrap;">
+              <input type="text" id="masterSearchInput" onkeyup="filterMasterCatalog()" placeholder="Cari SKU / Barcode / Nama..." style="width:220px;">
+              <button class="btn btn-dark" onclick="openBarcodeStudioModal()">Cetak Barcode Massal (<span id="selectedBarcodeCount">0</span>)</button>
+            </div>
+          </div>
+          <table>
+            <thead>
+              <tr>
+                <th style="width:36px;"><input type="checkbox" id="selectAllBarcode" onchange="toggleAllBarcodeCheckboxes(this)"></th>
+                <th>SKU</th><th>Barcode</th><th>Nama Barang</th><th>Kategori</th><th>Satuan</th><th>HPP</th><th>Harga Jual</th><th>Aksi</th>
+              </tr>
+            </thead>
+            <tbody id="masterCatalogBody"></tbody>
+          </table>
+        </div>
+      </div>
+
       <!-- TAB 2: MASTER BARANG, PROMO & CETAK BARCODE -->
       <div id="tab-master" class="section">
         <div class="bento-2col">

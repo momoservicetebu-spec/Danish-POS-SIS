@@ -1049,3 +1049,112 @@ function logout() {
 }
 
 loadDashboard();
+
+// =========================================================
+// MASTER KATEGORI BARANG (ADAPTASI RENE POS)
+// =========================================================
+let cachedCategories = [];
+
+async function loadCategoriesAdmin() {
+  const res = await apiCall('getCategories', {});
+  if (res && res.success) {
+    cachedCategories = res.data || [];
+  } else {
+    // Fallback default jika sheet Categories belum terisi
+    cachedCategories = [{ id: 'CAT-01', nama: 'Umum', lokasi: '- Tidak Pakai -' }];
+  }
+  renderCategoryTable();
+  populateCategoryDropdown();
+}
+
+function renderCategoryTable() {
+  const tbody = document.getElementById('categoryTableBody');
+  const badge = document.getElementById('totalKategoriBadge');
+  if (!tbody) return;
+
+  if (badge) badge.textContent = cachedCategories.length + ' Kategori';
+
+  if (cachedCategories.length === 0) {
+    tbody.innerHTML = '<tr><td colspan="4" style="text-align:center; color:var(--text-muted);">Belum ada kategori barang.</td></tr>';
+    return;
+  }
+
+  tbody.innerHTML = cachedCategories.map(c => `
+    <tr>
+      <td><strong>${c.id}</strong></td>
+      <td>${c.nama}</td>
+      <td><span class="badge ${c.lokasi === '- Tidak Pakai -' ? 'badge-warn' : 'badge-ok'}">${c.lokasi}</span></td>
+      <td style="white-space:nowrap;">
+        <button class="btn btn-blue btn-sm" onclick="editCategoryForm('${c.id}')">Edit</button>
+        ${c.nama.toLowerCase() !== 'umum' ? `<button class="btn btn-red btn-sm" onclick="deleteCategoryAdmin('${c.id}', '${c.nama}')">Hapus</button>` : ''}
+      </td>
+    </tr>
+  `).join('');
+}
+
+function populateCategoryDropdown() {
+  const select = document.getElementById('prdKategori');
+  if (!select) return;
+  const currentVal = select.value;
+  select.innerHTML = cachedCategories.map(c => `<option value="${c.nama}">${c.nama}</option>`).join('');
+  if (currentVal && cachedCategories.some(c => c.nama === currentVal)) {
+    select.value = currentVal;
+  }
+}
+
+function editCategoryForm(id) {
+  const item = cachedCategories.find(c => c.id === id);
+  if (!item) return;
+  document.getElementById('catId').value = item.id;
+  document.getElementById('catNama').value = item.nama;
+  document.getElementById('catLokasi').value = item.lokasi || '- Tidak Pakai -';
+  document.getElementById('catNama').focus();
+}
+
+function resetCategoryForm() {
+  document.getElementById('catId').value = '';
+  document.getElementById('catNama').value = '';
+  document.getElementById('catLokasi').value = '- Tidak Pakai -';
+}
+
+async function submitCategory(isSaveAndNew) {
+  const id = document.getElementById('catId').value.trim();
+  const nama = document.getElementById('catNama').value.trim();
+  const lokasi = document.getElementById('catLokasi').value;
+
+  if (!nama) {
+    alert('Nama Kategori wajib diisi!');
+    document.getElementById('catNama').focus();
+    return;
+  }
+
+  showLoading('Menyimpan Kategori...', 'Memperbarui Master Kategori Barang');
+  const res = await apiCall('saveCategory', { id, nama, lokasi });
+  hideLoading();
+
+  if (res && res.success) {
+    await loadCategoriesAdmin();
+    if (isSaveAndNew) {
+      resetCategoryForm();
+      document.getElementById('catNama').focus();
+    } else {
+      resetCategoryForm();
+      alert('Kategori "' + nama + '" berhasil disimpan.');
+    }
+  } else {
+    alert(res ? res.message : 'Gagal menyimpan kategori.');
+  }
+}
+
+async function deleteCategoryAdmin(id, nama) {
+  if (!confirm('Hapus kategori "' + nama + '"?')) return;
+  showLoading('Menghapus Kategori...', 'Memproses penghapusan data');
+  const res = await apiCall('deleteCategory', { id });
+  hideLoading();
+
+  if (res && res.success) {
+    await loadCategoriesAdmin();
+  } else {
+    alert(res ? res.message : 'Gagal menghapus kategori.');
+  }
+}
