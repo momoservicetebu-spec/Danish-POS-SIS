@@ -1,5 +1,5 @@
 // sw.js - Service Worker untuk Caching Aset Offline-First (Network-First Update)
-const CACHE_NAME = 'danish-pos-sis-v3.5';
+const CACHE_NAME = 'danish-pos-sis-v3.6';
 const ASSETS_TO_CACHE = [
   './',
   './index.html',

@@ -2,7 +2,9 @@
 <html lang="id">
 <head>
   <meta charset="UTF-8">
-  <title>Admin & SIS - Enterprise Retail POS v3.1</title>
+  <title>Admin & SIS - Enterprise Retail POS v3.5</title>
+  <!-- Library Barcode Generator untuk Label Produk & Stiker Rak -->
+  <script src="https://cdn.jsdelivr.net/npm/jsbarcode@3.11.6/dist/JsBarcode.all.min.js"></script>
   <style>
     :root {
       --bg-canvas: #F4F6F9; --surface: #FFFFFF; --border: #E2E8F0;
@@ -43,35 +45,78 @@
 
     .btn {
       padding: 9px 14px; border-radius: 10px; border: none; font-weight: 600;
-      cursor: pointer; color: #fff; font-size: 13px;
+      cursor: pointer; color: #fff; font-size: 13px; display: inline-flex; align-items: center; gap: 6px;
     }
+    .btn:hover { opacity: 0.92; }
     .btn-green { background: var(--primary); }
     .btn-blue { background: var(--blue); }
     .btn-violet { background: var(--violet); }
     .btn-amber { background: var(--amber); }
     .btn-red { background: var(--red); }
+    .btn-dark { background: #1E293B; }
     .btn-sm { padding: 5px 10px; font-size: 12px; border-radius: 8px; }
     .form-row { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin-bottom: 12px; }
     input, select { padding: 10px; border-radius: 8px; border: 1px solid var(--border); width: 100%; font-size: 13px; }
+    input:focus, select:focus { outline: none; border-color: var(--primary); }
     .section { display: none; }
     .section.active { display: block; }
     .badge { padding: 4px 8px; border-radius: 6px; font-size: 11px; font-weight: 700; }
     .badge-danger { background: #FEF2F2; color: var(--red); }
     .badge-ok { background: #ECFDF5; color: var(--primary); }
+    .badge-warn { background: #FFFBEB; color: var(--amber); }
+
+    /* Modal Overlay (Kartu Stok & Barcode Studio) */
+    .modal-backdrop {
+      display: none; position: fixed; inset: 0; background: rgba(15, 23, 42, 0.55);
+      z-index: 50; align-items: center; justify-content: center; padding: 20px;
+    }
+    .modal-backdrop.open { display: flex; }
+    .modal-box {
+      background: var(--surface); border-radius: 16px; width: 100%; max-width: 820px;
+      max-height: 88vh; display: flex; flex-direction: column; overflow: hidden;
+      box-shadow: 0 20px 35px rgba(0,0,0,0.2);
+    }
+    .modal-header {
+      padding: 16px 20px; border-bottom: 1px solid var(--border);
+      display: flex; justify-content: space-between; align-items: center;
+    }
+    .modal-body { padding: 20px; overflow-y: auto; }
+
+    /* Print Styling untuk Price Tag & Stiker Barcode */
+    #priceTagPrintArea, #barcodeStickerPrintArea { display: none; }
+    @media print {
+      body * { visibility: hidden; }
+      #priceTagPrintArea.printing, #priceTagPrintArea.printing *,
+      #barcodeStickerPrintArea.printing, #barcodeStickerPrintArea.printing *,
+      #tab-reports.printing, #tab-reports.printing * {
+        visibility: visible;
+      }
+      #priceTagPrintArea.printing {
+        display: grid !important; grid-template-columns: repeat(3, 1fr); gap: 8px;
+        position: absolute; left: 0; top: 0; width: 100%;
+      }
+      #barcodeStickerPrintArea.printing {
+        display: grid !important; position: absolute; left: 0; top: 0; width: 100%;
+      }
+      #tab-reports.printing {
+        position: absolute; left: 0; top: 0; width: 100%;
+      }
+      .no-print { display: none !important; }
+    }
   </style>
 </head>
 <body>
-  <header class="topbar">
+  <header class="topbar no-print">
     <div>
       <strong id="storeTitle">SIS Backoffice</strong> •
       <span id="userBadge" style="font-size: 13px; color: var(--text-muted);">Loading...</span>
     </div>
     <div class="nav-tabs">
       <button class="tab-btn active" onclick="switchTab('dashboard', this)">Dashboard KPI</button>
-      <button class="tab-btn" onclick="switchTab('master', this)">Master & Promo</button>
+      <button class="tab-btn" onclick="switchTab('master', this)">Master & Barcode</button>
       <button class="tab-btn" onclick="switchTab('members', this)">Member & Piutang</button>
       <button class="tab-btn" onclick="switchTab('gudang', this)">Gudang & Mutasi</button>
-      <button class="tab-btn" onclick="switchTab('so', this)">Blind Stock Opname</button>
+      <button class="tab-btn" onclick="switchTab('so', this)">Stock Opname</button>
       <button class="tab-btn" onclick="switchTab('brankas', this)">Brankas & Setoran</button>
       <button class="tab-btn" onclick="switchTab('users', this)">User & Device</button>
       <button class="tab-btn" onclick="switchTab('suppliers', this)">Supplier & Beli</button>
@@ -114,7 +159,10 @@
           </table>
         </div>
         <div class="card">
-          <h3 style="margin-top:0;">Antrean Cetak Price Tag Rak</h3>
+          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
+            <h3 style="margin:0;">Antrean Cetak Price Tag Rak</h3>
+            <button class="btn btn-amber btn-sm" onclick="printPendingPriceTags()">Cetak Label Rak</button>
+          </div>
           <table>
             <thead>
               <tr><th>SKU / Barang</th><th>Harga Baru</th></tr>
@@ -125,7 +173,7 @@
       </div>
     </div>
 
-    <!-- TAB 2: MASTER BARANG & PROMO -->
+    <!-- TAB 2: MASTER BARANG, PROMO & CETAK BARCODE -->
     <div id="tab-master" class="section">
       <div class="bento-2col">
         <div class="card">
@@ -176,10 +224,22 @@
       </div>
 
       <div class="card">
-        <h3 style="margin-top:0;">Katalog Master Barang</h3>
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px; flex-wrap:wrap; gap:10px;">
+          <div>
+            <h3 style="margin:0;">Katalog Master Barang & Studio Cetak Barcode</h3>
+            <small style="color:var(--text-muted);">Pilih produk untuk cetak stiker barcode kemasan atau cek Kartu Stok.</small>
+          </div>
+          <div style="display:flex; gap:8px; align-items:center;">
+            <input type="text" id="masterSearchInput" onkeyup="filterMasterCatalog()" placeholder="Cari SKU / Barcode / Nama..." style="width:230px;">
+            <button class="btn btn-dark" onclick="openBarcodeStudioModal()">Cetak Barcode Massal (<span id="selectedBarcodeCount">0</span>)</button>
+          </div>
+        </div>
         <table>
           <thead>
-            <tr><th>SKU</th><th>Barcode</th><th>Nama Barang</th><th>Kategori</th><th>Satuan</th><th>HPP</th><th>Harga Jual</th><th>Aksi</th></tr>
+            <tr>
+              <th style="width:36px;"><input type="checkbox" id="selectAllBarcode" onchange="toggleAllBarcodeCheckboxes(this)"></th>
+              <th>SKU</th><th>Barcode</th><th>Nama Barang</th><th>Kategori</th><th>Satuan</th><th>HPP</th><th>Harga Jual</th><th>Aksi</th>
+            </tr>
           </thead>
           <tbody id="masterCatalogBody"></tbody>
         </table>
@@ -244,15 +304,15 @@
       </div>
     </div>
 
-    <!-- TAB 5: BLIND STOCK OPNAME -->
+    <!-- TAB 5: BLIND STOCK OPNAME (RENE SCANNER MODE) -->
     <div id="tab-so" class="section">
       <div class="card">
-        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:14px; flex-wrap:wrap; gap:10px;">
           <div>
-            <h3 style="margin:0;">Stock Opname (Metode Blind Count)</h3>
-            <small style="color:var(--text-muted);">Stok komputer disembunyikan agar perhitungan fisik objektif.</small>
+            <h3 style="margin:0;">Stock Opname (Blind Count + Barcode Scanner)</h3>
+            <small style="color:var(--text-muted);">Scan barcode barang di rak untuk menambah hitungan +1 secara otomatis tanpa mouse.</small>
           </div>
-          <div style="display:flex; gap:8px;">
+          <div style="display:flex; gap:8px; flex-wrap:wrap;">
             <select id="jenisSO" style="width:180px;">
               <option value="PARSIAL">SO Parsial (Harian)</option>
               <option value="GRAND">Grand SO (Bulanan)</option>
@@ -261,6 +321,14 @@
             <button class="btn btn-green" onclick="submitSO()">Simpan Hasil SO</button>
           </div>
         </div>
+
+        <!-- Bar Scanner Cepat ala RENE POS -->
+        <div style="background:#F8FAFC; border:1px dashed #94A3B8; padding:12px; border-radius:12px; margin-bottom:14px; display:flex; gap:10px; align-items:center;">
+          <strong style="font-size:13px; white-space:nowrap;">Scan Barcode Rak:</strong>
+          <input type="text" id="soScannerInput" placeholder="Arahkan scanner ke barcode barang lalu Enter..." onkeydown="handleSOScannerKey(event)" style="max-width:340px; background:#fff;">
+          <span id="soScannerFeedback" style="font-size:12px; font-weight:600; color:var(--primary);"></span>
+        </div>
+
         <table>
           <thead>
             <tr><th>SKU</th><th>Barcode</th><th>Nama Barang</th><th>Satuan</th><th>Input Hitungan Fisik Rak</th></tr>
@@ -367,14 +435,20 @@
       </div>
     </div>
 
-    <!-- TAB 9: LAPORAN PENJUALAN & LABA RUGI (X/Z-REPORT) -->
+    <!-- TAB 9: LAPORAN PENJUALAN & LABA RUGI (X/Z-REPORT + EXPORT) -->
     <div id="tab-reports" class="section">
-      <div class="card" style="margin-bottom:16px; display:flex; gap:12px; align-items:center; flex-wrap:wrap;">
-        <strong>Periode Laporan:</strong>
-        <input type="date" id="repStartDate" style="width:170px;">
-        <span>s/d</span>
-        <input type="date" id="repEndDate" style="width:170px;">
-        <button class="btn btn-blue" onclick="loadSalesProfitReport()">Tampilkan Laporan</button>
+      <div class="card no-print" style="margin-bottom:16px; display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:12px;">
+        <div style="display:flex; gap:10px; align-items:center; flex-wrap:wrap;">
+          <strong>Periode Laporan:</strong>
+          <input type="date" id="repStartDate" style="width:165px;">
+          <span>s/d</span>
+          <input type="date" id="repEndDate" style="width:165px;">
+          <button class="btn btn-blue" onclick="loadSalesProfitReport()">Tampilkan</button>
+        </div>
+        <div style="display:flex; gap:8px;">
+          <button class="btn btn-green" onclick="exportReportToExcel()">Ekspor Excel (.CSV)</button>
+          <button class="btn btn-dark" onclick="printSalesReportPDF()">Cetak / Simpan PDF</button>
+        </div>
       </div>
 
       <div class="bento-kpi">
@@ -400,7 +474,7 @@
       </div>
 
       <div class="card">
-        <h3 style="margin-top:0;">Rincian Transaksi Periode Terpilih (Maks. 50 Terbaru)</h3>
+        <h3 style="margin-top:0;">Rincian Transaksi Periode Terpilih</h3>
         <table>
           <thead>
             <tr><th>No. Struk</th><th>Waktu</th><th>Kasir</th><th>Tipe</th><th>Total</th></tr>
@@ -410,6 +484,68 @@
       </div>
     </div>
   </main>
+
+  <!-- MODAL 1: KARTU STOK DIGITAL PER SKU (RENE INVENTORY CARD) -->
+  <div id="stockCardModal" class="modal-backdrop">
+    <div class="modal-box">
+      <div class="modal-header">
+        <div>
+          <h3 style="margin:0;" id="scModalTitle">Kartu Stok Barang</h3>
+          <small id="scModalSubtitle" style="color:var(--text-muted);"></small>
+        </div>
+        <button class="btn btn-red btn-sm" onclick="closeModal('stockCardModal')">Tutup</button>
+      </div>
+      <div class="modal-body">
+        <table>
+          <thead>
+            <tr><th>Waktu</th><th>Jenis Mutasi</th><th>Referensi / Ket</th><th>Masuk</th><th>Keluar</th><th>Saldo Akhir</th></tr>
+          </thead>
+          <tbody id="stockCardTableBody"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL 2: STUDIO CETAK BARCODE STIKER MASSAL -->
+  <div id="barcodeStudioModal" class="modal-backdrop">
+    <div class="modal-box">
+      <div class="modal-header">
+        <div>
+          <h3 style="margin:0;">Studio Cetak Stiker Barcode Produk</h3>
+          <small style="color:var(--text-muted);">Atur jumlah stiker per barang dan format kertas label.</small>
+        </div>
+        <button class="btn btn-red btn-sm" onclick="closeModal('barcodeStudioModal')">Tutup</button>
+      </div>
+      <div class="modal-body">
+        <div style="display:flex; gap:12px; margin-bottom:14px; align-items:center; flex-wrap:wrap;">
+          <label style="font-size:13px; font-weight:600;">Ukuran Kertas Label:
+            <select id="barcodeLayoutCols" style="width:220px; margin-left:6px;">
+              <option value="2">Stiker Thermal 33x15mm (2 Kolom)</option>
+              <option value="3">Stiker Thermal / A4 (3 Kolom)</option>
+              <option value="4">Kertas Label A4 Tom & Jerry (4 Kolom)</option>
+            </select>
+          </label>
+          <label style="font-size:13px; font-weight:600;">Tampilkan Harga:
+            <select id="barcodeShowPrice" style="width:140px; margin-left:6px;">
+              <option value="true">Ya, Cetak Harga</option>
+              <option value="false">Barcode Saja</option>
+            </select>
+          </label>
+          <button class="btn btn-green" onclick="executePrintBarcodeStickers()">Cetak Stiker Sekarang</button>
+        </div>
+        <table>
+          <thead>
+            <tr><th>SKU</th><th>Barcode</th><th>Nama Barang</th><th>Harga</th><th style="width:110px;">Jumlah Stiker</th></tr>
+          </thead>
+          <tbody id="barcodeStudioTableBody"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- AREA KHUSUS CETAK (HIDDEN DI LAYAR, TAMPIL SAAT PRINT) -->
+  <div id="priceTagPrintArea"></div>
+  <div id="barcodeStickerPrintArea"></div>
 
   <script src="JS/js_api.js"></script>
   <script src="JS/js_admin.js"></script>

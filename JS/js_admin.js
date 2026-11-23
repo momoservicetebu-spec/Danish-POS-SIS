@@ -1,5 +1,8 @@
-// JS/js_admin.js - Logika Backoffice & Admin SIS v3.1 (RENE POS Edition Lengkap)
+// JS/js_admin.js - Logika Backoffice & Admin SIS v3.5 (RENE POS Edition Lengkap)
 let PENDING_TAGS_CACHE = [];
+let MASTER_PRODUCTS_CACHE = [];
+let SELECTED_BARCODE_SKUS = new Set();
+let LAST_SALES_REPORT_CACHE = null;
 
 if (SESSION) {
   document.getElementById('storeTitle').textContent = `${SESSION.store.namaToko} (${SESSION.store.kodeToko})`;
@@ -13,6 +16,10 @@ async function callAdminApi(endpoint, payload, onSuccess) {
   } catch (err) {
     alert('Error: ' + err.message);
   }
+}
+
+function closeModal(modalId) {
+  document.getElementById(modalId).classList.remove('open');
 }
 
 function switchTab(tabName, btn) {
@@ -64,9 +71,8 @@ function printPendingPriceTags() {
   }
   const today = new Date().toLocaleDateString('id-ID');
   const area = document.getElementById('priceTagPrintArea');
-  area.style.display = 'grid';
   area.innerHTML = PENDING_TAGS_CACHE.map(t => `
-    <div style="border:2px solid #000; padding:10px; border-radius:6px; font-family:sans-serif; background:#fff;">
+    <div style="border:2px solid #000; padding:10px; border-radius:6px; font-family:sans-serif; background:#fff; break-inside:avoid;">
       <div style="font-size:11px; font-weight:700; border-bottom:1px solid #000; padding-bottom:4px;">${SESSION.store.namaToko}</div>
       <div style="font-size:13px; font-weight:700; margin:6px 0; min-height:32px;">${t.nama}</div>
       <div style="font-size:22px; font-weight:900; text-align:right;">Rp ${Number(t.hargaBaru).toLocaleString('id-ID')}</div>
@@ -77,8 +83,9 @@ function printPendingPriceTags() {
     </div>
   `).join('');
 
+  area.classList.add('printing');
   window.print();
-  area.style.display = 'none';
+  area.classList.remove('printing');
 
   if (confirm('Tandai semua label harga ini sudah dicetak (hapus dari antrean)?')) {
     callAdminApi('admin/mark-tags-printed', {}, res => {
@@ -88,22 +95,153 @@ function printPendingPriceTags() {
   }
 }
 
-// === MASTER BARANG & PROMO ===
+// === MASTER BARANG, KARTU STOK & BARCODE STUDIO ===
 function loadMasterCatalog() {
   callAdminApi('admin/products', {}, items => {
-    const tbody = document.getElementById('masterCatalogBody');
-    tbody.innerHTML = items.map(p => `
+    MASTER_PRODUCTS_CACHE = items || [];
+    renderMasterCatalogTable(MASTER_PRODUCTS_CACHE);
+  });
+}
+
+function renderMasterCatalogTable(items) {
+  const tbody = document.getElementById('masterCatalogBody');
+  tbody.innerHTML = items.map(p => `
+    <tr>
+      <td>
+        <input type="checkbox" class="barcode-chk" value="${p.sku}"
+          ${SELECTED_BARCODE_SKUS.has(p.sku) ? 'checked' : ''}
+          onchange="toggleSingleBarcodeCheckbox('${p.sku}', this.checked)">
+      </td>
+      <td><strong>${p.sku}</strong></td>
+      <td><code>${p.barcode}</code></td>
+      <td>${p.nama}</td>
+      <td>${p.kategori}</td>
+      <td>${p.satuan}</td>
+      <td>${p.hargaModal !== null ? 'Rp ' + p.hargaModal.toLocaleString('id-ID') : '<span style="color:#94A3B8;">Hidden</span>'}</td>
+      <td><strong>Rp ${p.hargaJual.toLocaleString('id-ID')}</strong></td>
+      <td style="display:flex; gap:6px;">
+        <button class="btn btn-blue btn-sm" onclick='fillProductForm(${JSON.stringify(p)})'>Edit</button>
+        <button class="btn btn-violet btn-sm" onclick="openStockCardModal('${p.sku}', '${p.nama.replace(/'/g, "\\'")}')">Kartu Stok</button>
+      </td>
+    </tr>
+  `).join('');
+  updateSelectedBarcodeCounter();
+}
+
+function filterMasterCatalog() {
+  const q = (document.getElementById('masterSearchInput').value || '').toLowerCase().trim();
+  if (!q) return renderMasterCatalogTable(MASTER_PRODUCTS_CACHE);
+  const filtered = MASTER_PRODUCTS_CACHE.filter(p =>
+    p.sku.toLowerCase().includes(q) ||
+    String(p.barcode).toLowerCase().includes(q) ||
+    p.nama.toLowerCase().includes(q)
+  );
+  renderMasterCatalogTable(filtered);
+}
+
+function toggleSingleBarcodeCheckbox(sku, isChecked) {
+  if (isChecked) SELECTED_BARCODE_SKUS.add(sku);
+  else SELECTED_BARCODE_SKUS.delete(sku);
+  updateSelectedBarcodeCounter();
+}
+
+function toggleAllBarcodeCheckboxes(masterChk) {
+  document.querySelectorAll('.barcode-chk').forEach(chk => {
+    chk.checked = masterChk.checked;
+    if (masterChk.checked) SELECTED_BARCODE_SKUS.add(chk.value);
+    else SELECTED_BARCODE_SKUS.delete(chk.value);
+  });
+  updateSelectedBarcodeCounter();
+}
+
+function updateSelectedBarcodeCounter() {
+  const el = document.getElementById('selectedBarcodeCount');
+  if (el) el.textContent = SELECTED_BARCODE_SKUS.size;
+}
+
+function openBarcodeStudioModal() {
+  if (SELECTED_BARCODE_SKUS.size === 0) {
+    return alert('Centang minimal satu barang pada tabel Katalog Master Barang terlebih dahulu.');
+  }
+  const selectedItems = MASTER_PRODUCTS_CACHE.filter(p => SELECTED_BARCODE_SKUS.has(p.sku));
+  const tbody = document.getElementById('barcodeStudioTableBody');
+  tbody.innerHTML = selectedItems.map(p => {
+    const primaryBarcode = String(p.barcode || p.sku).split(',')[0].trim();
+    return `
       <tr>
         <td><strong>${p.sku}</strong></td>
-        <td>${p.barcode}</td>
+        <td><code>${primaryBarcode}</code></td>
         <td>${p.nama}</td>
-        <td>${p.kategori}</td>
-        <td>${p.satuan}</td>
-        <td>${p.hargaModal !== null ? 'Rp ' + p.hargaModal.toLocaleString('id-ID') : '<span style="color:#94A3B8;">Hidden</span>'}</td>
-        <td><strong>Rp ${p.hargaJual.toLocaleString('id-ID')}</strong></td>
-        <td>
-          <button class="btn btn-blue btn-sm" onclick='fillProductForm(${JSON.stringify(p)})'>Edit</button>
-        </td>
+        <td>Rp ${p.hargaJual.toLocaleString('id-ID')}</td>
+        <td><input type="number" class="barcode-qty-inp" data-sku="${p.sku}" data-code="${primaryBarcode}" data-nama="${p.nama}" data-harga="${p.hargaJual}" value="2" min="1" max="200" style="width:85px;"></td>
+      </tr>
+    `;
+  }).join('');
+  document.getElementById('barcodeStudioModal').classList.add('open');
+}
+
+function executePrintBarcodeStickers() {
+  const cols = document.getElementById('barcodeLayoutCols').value;
+  const showPrice = document.getElementById('barcodeShowPrice').value === 'true';
+  const area = document.getElementById('barcodeStickerPrintArea');
+  area.style.gridTemplateColumns = `repeat(${cols}, 1fr)`;
+  area.style.gap = '6px';
+
+  let stickersHtml = '';
+  let idx = 0;
+  document.querySelectorAll('.barcode-qty-inp').forEach(inp => {
+    const qty = Math.max(1, Number(inp.value) || 1);
+    const code = inp.dataset.code;
+    const nama = inp.dataset.nama;
+    const harga = Number(inp.dataset.harga).toLocaleString('id-ID');
+
+    for (let i = 0; i < qty; i++) {
+      idx++;
+      stickersHtml += `
+        <div style="border:1px dashed #94A3B8; padding:6px; text-align:center; background:#fff; break-inside:avoid;">
+          <div style="font-size:10px; font-weight:700; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${nama}</div>
+          <svg id="bc-svg-${idx}" data-code="${code}" style="max-width:100%; height:36px;"></svg>
+          ${showPrice ? `<div style="font-size:12px; font-weight:900;">Rp ${harga}</div>` : ''}
+        </div>
+      `;
+    }
+  });
+
+  area.innerHTML = stickersHtml;
+  if (typeof JsBarcode !== 'undefined') {
+    area.querySelectorAll('svg').forEach(svg => {
+      JsBarcode(svg, svg.dataset.code, {
+        format: 'CODE128', width: 1.4, height: 32, displayValue: true, fontSize: 10, margin: 0
+      });
+    });
+  }
+
+  closeModal('barcodeStudioModal');
+  area.classList.add('printing');
+  window.print();
+  area.classList.remove('printing');
+}
+
+function openStockCardModal(sku, namaBarang) {
+  document.getElementById('scModalTitle').textContent = `Kartu Stok: ${sku}`;
+  document.getElementById('scModalSubtitle').textContent = namaBarang;
+  const tbody = document.getElementById('stockCardTableBody');
+  tbody.innerHTML = '<tr><td colspan="6">Memuat riwayat mutasi stok...</td></tr>';
+  document.getElementById('stockCardModal').classList.add('open');
+
+  callAdminApi('inventory/stock-card', { sku }, rows => {
+    if (!rows || rows.length === 0) {
+      tbody.innerHTML = '<tr><td colspan="6">Belum ada riwayat mutasi stok untuk SKU ini.</td></tr>';
+      return;
+    }
+    tbody.innerHTML = rows.map(r => `
+      <tr>
+        <td>${r.waktu}</td>
+        <td><span class="badge ${r.masuk > 0 ? 'badge-ok' : 'badge-warn'}">${r.jenis}</span></td>
+        <td>${r.referensi || '-'}</td>
+        <td style="color:var(--primary); font-weight:700;">${r.masuk > 0 ? '+' + r.masuk : '-'}</td>
+        <td style="color:var(--red); font-weight:700;">${r.keluar > 0 ? '-' + r.keluar : '-'}</td>
+        <td><strong>${r.saldoAkhir}</strong></td>
       </tr>
     `).join('');
   });
@@ -220,7 +358,7 @@ function payDebtModal(memberId, memberName, currentDebt) {
   });
 }
 
-// === SUPPLIER, PEMBELIAN LPB & HUTANG USAHA (RENE POS TAHAP 3) ===
+// === SUPPLIER, PEMBELIAN LPB & HUTANG USAHA ===
 function loadSuppliersTable() {
   callAdminApi('supplier/list', {}, suppliers => {
     const sel = document.getElementById('purSupplierId');
@@ -303,7 +441,7 @@ function paySupplierDebtModal(supplierId, supplierName, curDebt) {
   });
 }
 
-// === LAPORAN PENJUALAN & LABA RUGI (X/Z-REPORT) ===
+// === LAPORAN PENJUALAN, LABA RUGI & EKSPOR EXCEL/PDF ===
 function initAndLoadReport() {
   const today = new Date().toISOString().slice(0, 10);
   const startEl = document.getElementById('repStartDate');
@@ -318,6 +456,7 @@ function loadSalesProfitReport() {
   const endDate = document.getElementById('repEndDate').value;
 
   callAdminApi('finance/sales-report', { startDate, endDate }, rep => {
+    LAST_SALES_REPORT_CACHE = { startDate, endDate, ...rep };
     document.getElementById('repNetSales').textContent = 'Rp ' + rep.netSales.toLocaleString('id-ID');
     document.getElementById('repReturnInfo').textContent = `Retur: Rp ${rep.totalReturn.toLocaleString('id-ID')} (${rep.trxCount} Trx)`;
     document.getElementById('repTotalHpp').textContent = 'Rp ' + rep.totalHpp.toLocaleString('id-ID');
@@ -336,6 +475,39 @@ function loadSalesProfitReport() {
       </tr>
     `).join('') || '<tr><td colspan="5">Tidak ada transaksi pada periode ini.</td></tr>';
   });
+}
+
+function exportReportToExcel() {
+  if (!LAST_SALES_REPORT_CACHE || !LAST_SALES_REPORT_CACHE.transactions) {
+    return alert('Tampilkan laporan terlebih dahulu sebelum mengekspor.');
+  }
+  const r = LAST_SALES_REPORT_CACHE;
+  const lines = [
+    ['LAPORAN PENJUALAN & LABA RUGI', SESSION.store.namaToko],
+    ['Periode', `${r.startDate} s/d ${r.endDate}`],
+    ['Penjualan Bersih', r.netSales, 'Total HPP', r.totalHpp, 'Laba Kotor', r.grossProfit],
+    [],
+    ['No Struk', 'Waktu', 'Kasir', 'Tipe', 'Total (Rp)']
+  ];
+  r.transactions.forEach(t => {
+    lines.push([t.trxId, t.waktu, t.kasir, t.tipe, t.total]);
+  });
+
+  const csvContent = 'data:text/csv;charset=utf-8,' + lines.map(row => row.join(',')).join('\n');
+  const encodedUri = encodeURI(csvContent);
+  const link = document.createElement('a');
+  link.setAttribute('href', encodedUri);
+  link.setAttribute('download', `Laporan_POS_${SESSION.store.kodeToko}_${r.startDate}_${r.endDate}.csv`);
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+}
+
+function printSalesReportPDF() {
+  const repTab = document.getElementById('tab-reports');
+  repTab.classList.add('printing');
+  window.print();
+  repTab.classList.remove('printing');
 }
 
 // === GUDANG & MUTASI ANTAR TOKO ===
@@ -357,20 +529,54 @@ function submitGudangDoc() {
   });
 }
 
-// === BLIND STOCK OPNAME ===
+// === BLIND STOCK OPNAME (DENGAN BARCODE SCANNER) ===
 function loadBlindSOItems() {
   callAdminApi('inventory/stok-toko', { blindMode: true }, items => {
     const tbody = document.getElementById('soTableBody');
     tbody.innerHTML = items.map(item => `
-      <tr>
+      <tr id="so-row-${item.sku}">
         <td><strong>${item.sku}</strong></td>
-        <td>${item.barcode}</td>
+        <td><code>${item.barcode}</code></td>
         <td>${item.nama}</td>
         <td>${item.satuan}</td>
-        <td><input type="number" class="so-input" data-sku="${item.sku}" placeholder="0" style="width:110px;"></td>
+        <td><input type="number" class="so-input" data-sku="${item.sku}" data-barcode="${item.barcode}" data-nama="${item.nama}" placeholder="0" style="width:110px;"></td>
       </tr>
     `).join('');
+    const scanInp = document.getElementById('soScannerInput');
+    if (scanInp) scanInp.focus();
   });
+}
+
+function handleSOScannerKey(e) {
+  if (e.key !== 'Enter') return;
+  e.preventDefault();
+  const code = e.target.value.trim();
+  if (!code) return;
+
+  let matchedInp = null;
+  document.querySelectorAll('.so-input').forEach(inp => {
+    const barcodes = String(inp.dataset.barcode || '').split(',').map(b => b.trim());
+    if (inp.dataset.sku.toLowerCase() === code.toLowerCase() || barcodes.includes(code)) {
+      matchedInp = inp;
+    }
+  });
+
+  const fb = document.getElementById('soScannerFeedback');
+  if (matchedInp) {
+    const curVal = Number(matchedInp.value) || 0;
+    matchedInp.value = curVal + 1;
+    const row = document.getElementById('so-row-' + matchedInp.dataset.sku);
+    if (row) {
+      row.style.background = '#ECFDF5';
+      row.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }
+    fb.style.color = 'var(--primary)';
+    fb.textContent = `+1 ${matchedInp.dataset.nama} (Total Fisik: ${matchedInp.value})`;
+  } else {
+    fb.style.color = 'var(--red)';
+    fb.textContent = `Barcode "${code}" tidak ditemukan di daftar SO!`;
+  }
+  e.target.value = '';
 }
 
 function submitSO() {
