@@ -74,8 +74,38 @@ function focusScanner() {
   if (inp) inp.focus();
 }
 
-// Pemindaian Barcode Instan (< 50ms dari IndexedDB)
+// Pemindaian Barcode Instan (< 50ms dari IndexedDB) + Navigasi Zero-Mouse RENE POS
 document.getElementById('barcodeInput').addEventListener('keydown', async function(e) {
+  // Navigasi baris keranjang dengan panah Atas/Bawah
+  if (e.key === 'ArrowDown' && CART.length > 0) {
+    e.preventDefault();
+    SELECTED_INDEX = (SELECTED_INDEX + 1) % CART.length;
+    renderCart();
+    return;
+  }
+  if (e.key === 'ArrowUp' && CART.length > 0) {
+    e.preventDefault();
+    SELECTED_INDEX = (SELECTED_INDEX - 1 + CART.length) % CART.length;
+    renderCart();
+    return;
+  }
+
+  // Shortcut cepat '+' atau '-' saat kotak input kosong untuk ubah Qty baris terpilih
+  if ((e.key === '+' || e.key === '=') && this.value === '' && SELECTED_INDEX >= 0 && CART[SELECTED_INDEX]) {
+    e.preventDefault();
+    CART[SELECTED_INDEX].qty += 1;
+    renderCart();
+    return;
+  }
+  if (e.key === '-' && this.value === '' && SELECTED_INDEX >= 0 && CART[SELECTED_INDEX]) {
+    e.preventDefault();
+    if (CART[SELECTED_INDEX].qty > 1) {
+      CART[SELECTED_INDEX].qty -= 1;
+      renderCart();
+    }
+    return;
+  }
+
   if (e.key === 'Enter') {
     e.preventDefault();
     const rawCode = this.value.trim();
@@ -328,31 +358,57 @@ async function voidSelectedItem() {
   focusScanner();
 }
 
-// Pending / Recall Struk [F6]
+// Pending / Recall Struk Multi-Antrean [F6]
 async function handleHoldRecall() {
   if (CART.length > 0) {
-    const note = prompt('Simpan Transaksi Sementara (Hold)\nCatatan nama/ciri pembeli:', 'Antrean 1');
+    const note = prompt('Simpan Transaksi Sementara (Hold)\nCatatan nama/ciri pembeli:', 'Antrean ' + (new Date().getMinutes()));
     if (note === null) return;
+    const evalRes = evaluateCartWithMember();
     await db.held_carts.put({
       hold_id: 'HOLD-' + Date.now(),
       timestamp: new Date().toISOString(),
-      customer_note: note,
+      customer_note: note || 'Tanpa Catatan',
+      total_amount: evalRes.grandTotal,
       items_json: JSON.stringify(CART)
     });
     CART = [];
     SELECTED_INDEX = -1;
+    resetActiveMember();
     renderCart();
-    alert('Keranjang berhasil disimpan sementara.');
+    alert(`Keranjang disimpan ke antrean Hold (${note}).`);
+    focusScanner();
   } else {
     const holds = await db.held_carts.toArray();
     if (holds.length === 0) return alert('Tidak ada transaksi tertunda (Hold).');
-    const latest = holds[holds.length - 1];
-    CART = JSON.parse(latest.items_json);
-    await db.held_carts.delete(latest.hold_id);
-    SELECTED_INDEX = CART.length - 1;
-    renderCart();
+
+    document.getElementById('holdQueueBody').innerHTML = holds.map(h => {
+      const items = JSON.parse(h.items_json || '[]');
+      const totalQty = items.reduce((s, i) => s + i.qty, 0);
+      const totalAmt = h.total_amount || items.reduce((s, i) => s + (i.price * i.qty), 0);
+      return `
+        <tr>
+          <td><strong>${h.customer_note}</strong></td>
+          <td>${new Date(h.timestamp).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' })}</td>
+          <td class="num">${totalQty} pcs</td>
+          <td class="num"><strong>Rp ${totalAmt.toLocaleString('id-ID')}</strong></td>
+          <td>
+            <button onclick="recallHeldCart('${h.hold_id}')" style="padding:5px 10px; border-radius:6px; border:none; background:var(--emerald); color:#fff; font-weight:700; cursor:pointer;">Panggil</button>
+          </td>
+        </tr>
+      `;
+    }).join('');
+    document.getElementById('holdQueueModal').style.display = 'flex';
   }
-  focusScanner();
+}
+
+async function recallHeldCart(holdId) {
+  const held = await db.held_carts.get(holdId);
+  if (!held) return;
+  CART = JSON.parse(held.items_json || '[]');
+  await db.held_carts.delete(holdId);
+  SELECTED_INDEX = CART.length - 1;
+  closeModals();
+  renderCart();
 }
 
 // Pembayaran Lengkap RENE POS [F8 / F10]
@@ -433,6 +489,19 @@ function calcChange() {
   const comp = getCheckoutComputation();
   document.getElementById('modalTotalDue').textContent = 'Rp ' + comp.netDue.toLocaleString('id-ID');
   document.getElementById('modalChangeVal').textContent = 'Rp ' + Math.max(0, comp.change).toLocaleString('id-ID');
+}
+
+function setQuickCash(mode) {
+  const comp = getCheckoutComputation();
+  const cashInp = document.getElementById('payCashInput');
+  if (mode === 'EXACT') {
+    const nonCash = comp.qris + comp.edc + comp.tempo;
+    cashInp.value = Math.max(0, comp.netDue - nonCash);
+  } else {
+    cashInp.value = (Number(cashInp.value) || 0) + Number(mode);
+  }
+  calcChange();
+  cashInp.focus();
 }
 
 async function processFinalPayment() {
@@ -552,11 +621,21 @@ function printThermalReceipt(trx, items, comp, isCopy) {
   window.print();
 }
 
-// Kontrol Cetak Ulang Maksimal 1x dengan Label Wajib COPY STRUK
-function reprintLastReceipt() {
+// Kontrol Cetak Ulang Maksimal 1x dengan Label Wajib COPY STRUK + Audit Log
+async function reprintLastReceipt() {
   if (!LAST_RECEIPT_HTML) return alert('Belum ada transaksi untuk dicetak ulang.');
   if (LAST_REPRINT_COUNT >= 1) return alert('Batas cetak ulang (maksimal 1x) sudah tercapai!');
   LAST_REPRINT_COUNT++;
+
+  await db.audit_logs.add({
+    timestamp: new Date().toISOString(),
+    user_id: SESSION.user.userId,
+    supervisor_id: SESSION.user.userId,
+    action_type: 'REPRINT_RECEIPT',
+    detail: 'Cetak ulang struk terakhir (1x COPY STRUK)',
+    sync_status: 'PENDING'
+  });
+
   document.getElementById('thermalReceiptArea').innerHTML = LAST_RECEIPT_HTML;
   window.print();
 }
@@ -884,6 +963,7 @@ function closeModals() {
   focusScanner();
 }
 
+
 // Global Keyboard Shortcuts sesuai PRD v3.1 & RENE POS
 document.addEventListener('keydown', function(e) {
   if (e.key === 'F1') { e.preventDefault(); openMemberModal(); }
@@ -899,4 +979,11 @@ document.addEventListener('keydown', function(e) {
   else if (e.key === 'F12') { e.preventDefault(); openReturnModal(); }
   else if (e.key === 'Delete') { e.preventDefault(); voidSelectedItem(); }
   else if (e.key === 'Escape') { closeModals(); }
+  else if (e.ctrlKey && e.key === 'Enter') {
+    const chkModal = document.getElementById('checkoutModal');
+    if (chkModal && chkModal.style.display === 'flex') {
+      e.preventDefault();
+      processFinalPayment();
+    }
+  }
 });

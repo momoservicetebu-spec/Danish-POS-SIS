@@ -160,6 +160,15 @@
         </label>
       </div>
 
+      <!-- Tombol Pecahan Uang Cepat (RENE POS Quick Cash) -->
+      <div style="display:flex; gap:6px; flex-wrap:wrap; margin-bottom:10px;">
+        <button type="button" onclick="setQuickCash('EXACT')" style="flex:1; padding:7px 8px; border-radius:8px; border:1px solid #10B981; background:#ECFDF5; color:#047857; font-weight:700; font-size:12px; cursor:pointer;">Uang Pas</button>
+        <button type="button" onclick="setQuickCash(10000)" style="padding:7px 10px; border-radius:8px; border:1px solid var(--border); background:#F8FAFC; font-weight:700; font-size:12px; cursor:pointer;">+10rb</button>
+        <button type="button" onclick="setQuickCash(20000)" style="padding:7px 10px; border-radius:8px; border:1px solid var(--border); background:#F8FAFC; font-weight:700; font-size:12px; cursor:pointer;">+20rb</button>
+        <button type="button" onclick="setQuickCash(50000)" style="padding:7px 10px; border-radius:8px; border:1px solid var(--border); background:#F8FAFC; font-weight:700; font-size:12px; cursor:pointer;">+50rb</button>
+        <button type="button" onclick="setQuickCash(100000)" style="padding:7px 10px; border-radius:8px; border:1px solid var(--border); background:#F8FAFC; font-weight:700; font-size:12px; cursor:pointer;">+100rb</button>
+      </div>
+
       <!-- Multi-Metode Bayar -->
       <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-bottom:10px;">
         <div>
@@ -367,6 +376,23 @@
         <button onclick="closeModals()" style="flex:1; padding:10px; border-radius:10px; border:1px solid var(--border); cursor:pointer;">Batal</button>
         <button onclick="submitCloseShift()" style="flex:2; padding:10px; border-radius:10px; border:none; background:var(--crimson); color:#fff; font-weight:700; cursor:pointer;">Tutup Shift & Cetak Z-Report</button>
       </div>
+    </div>
+  </div>
+
+  <!-- MODAL ANTREAN TERTUNDA (MULTI-HOLD / RECALL) [F6] -->
+  <div id="holdQueueModal" class="modal-backdrop">
+    <div class="modal-box" style="max-width:560px;">
+      <h3 style="margin-top:0;">Daftar Transaksi Tertunda (Hold Queue) [F6]</h3>
+      <p style="font-size:12px; color:var(--text-muted); margin-top:0;">Pilih antrean di bawah untuk melanjutkan transaksi ke layar kasir.</p>
+      <div style="max-height:260px; overflow-y:auto; border:1px solid var(--border); border-radius:10px; margin-bottom:12px;">
+        <table class="cart-table">
+          <thead>
+            <tr><th>Catatan Pembeli</th><th>Waktu</th><th class="num">Item</th><th class="num">Total</th><th>Aksi</th></tr>
+          </thead>
+          <tbody id="holdQueueBody"></tbody>
+        </table>
+      </div>
+      <button onclick="closeModals()" style="width:100%; padding:10px; border-radius:10px; border:1px solid var(--border); cursor:pointer;">Tutup</button>
     </div>
   </div>
 
