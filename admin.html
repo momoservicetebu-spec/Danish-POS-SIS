@@ -25,9 +25,7 @@
     * { box-sizing: border-box; font-family: 'Inter', system-ui, -apple-system, sans-serif; }
     body { margin: 0; background: var(--bg-canvas); color: var(--text-main); display: flex; min-height: 100vh; overflow-x: hidden; }
 
-    /* ========================================================= */
-    /* GLOBAL LOADING SCREEN OVERLAY                             */
-    /* ========================================================= */
+    /* GLOBAL LOADING SCREEN OVERLAY */
     .loading-overlay {
       display: none; position: fixed; inset: 0; background: rgba(11, 25, 44, 0.62);
       backdrop-filter: blur(2px); z-index: 9999;
@@ -49,9 +47,7 @@
     .loading-text { font-size: 14px; font-weight: 700; color: var(--text-main); }
     .loading-sub { font-size: 12px; color: var(--text-muted); margin-top: -8px; }
 
-    /* ========================================================= */
-    /* SIDEBAR KIRI GELAP (ENTERPRISE STYLE)                     */
-    /* ========================================================= */
+    /* SIDEBAR KIRI GELAP */
     .sidebar {
       width: 250px; background: var(--sidebar-bg); color: #E2E8F0;
       display: flex; flex-direction: column; flex-shrink: 0;
@@ -97,7 +93,6 @@
       color: #FFFFFF; font-weight: 700; box-shadow: 0 4px 12px rgba(37, 99, 235, 0.35);
     }
     .nav-icon { font-size: 16px; width: 20px; text-align: center; flex-shrink: 0; }
-
     .sidebar-divider { height: 1px; background: rgba(255,255,255,0.08); margin: 8px 6px; }
 
     .sidebar-widget {
@@ -108,9 +103,7 @@
     .sidebar-widget-title { color: #FBBF24; font-weight: 700; margin-bottom: 6px; display: flex; align-items: center; gap: 6px; }
     .sidebar-widget-row { display: flex; justify-content: space-between; margin-top: 4px; color: #CBD5E1; }
 
-    /* ========================================================= */
-    /* AREA KANAN: TOPBAR + RUNNING TEXT + KONTEN UTAMA          */
-    /* ========================================================= */
+    /* AREA KANAN: TOPBAR + RUNNING TEXT + KONTEN UTAMA */
     .main-wrapper { flex: 1; display: flex; flex-direction: column; min-width: 0; width: 100%; }
 
     .topbar {
@@ -130,39 +123,20 @@
       border: 1px solid var(--border); background: #F8FAFC; font-size: 13px; flex-shrink: 0;
     }
 
-    /* RUNNING TEXT WATERMARK PERUSAHAAN (ANTI-TUMPUK / 1 BARIS RAPI) */
     .company-watermark-marquee {
-      flex: 1;
-      min-width: 0;
-      height: 36px;
-      overflow: hidden !important;
+      flex: 1; min-width: 0; height: 36px; overflow: hidden !important;
       background: linear-gradient(90deg, #0B192C 0%, #162E4D 50%, #0B192C 100%);
-      color: #F8FAFC;
-      padding: 0 14px;
-      border-radius: 99px;
-      border: 1px solid rgba(59, 130, 246, 0.4);
-      font-size: 12px;
-      line-height: 36px;
-      white-space: nowrap !important;
-      display: flex;
-      align-items: center;
-      position: relative;
+      color: #F8FAFC; padding: 0 14px; border-radius: 99px;
+      border: 1px solid rgba(59, 130, 246, 0.4); font-size: 12px; line-height: 36px;
+      white-space: nowrap !important; display: flex; align-items: center; position: relative;
       box-shadow: inset 0 1px 4px rgba(0, 0, 0, 0.35);
     }
     .company-watermark-track {
-      display: inline-block;
-      white-space: nowrap !important;
-      padding-left: 100%;
-      will-change: transform;
-      animation: marqueeRun 30s linear infinite;
+      display: inline-block; white-space: nowrap !important; padding-left: 100%;
+      will-change: transform; animation: marqueeRun 30s linear infinite;
     }
-    .company-watermark-marquee:hover .company-watermark-track {
-      animation-play-state: paused;
-    }
-    .wm-gold {
-      color: #FBBF24;
-      font-weight: 800;
-    }
+    .company-watermark-marquee:hover .company-watermark-track { animation-play-state: paused; }
+    .wm-gold { color: #FBBF24; font-weight: 800; }
     @keyframes marqueeRun {
       0%   { transform: translate3d(0, 0, 0); }
       100% { transform: translate3d(-100%, 0, 0); }
@@ -191,9 +165,7 @@
 
     .container { width: 100%; max-width: 100%; margin: 0; padding: 20px 24px 32px; }
 
-    /* ========================================================= */
-    /* KARTU KPI GRADIEN WARNA-WARNI                             */
-    /* ========================================================= */
+    /* KARTU KPI GRADIEN */
     .bento-kpi { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; margin-bottom: 20px; }
     .kpi-grad-card {
       border-radius: 16px; padding: 20px; color: #FFFFFF; position: relative;
@@ -266,12 +238,12 @@
     .modal-backdrop.open { display: flex; }
     .modal-box {
       background: var(--surface); border-radius: 16px; width: 100%; max-width: 820px;
-      max-height: 88vh; display: flex; flex-direction: column; overflow: hidden;
-      box-shadow: 0 20px 35px rgba(0,0,0,0.2);
+      max-height: 90vh; display: flex; flex-direction: column; overflow: hidden;
+      box-shadow: 0 20px 35px rgba(0,0,0,0.25);
     }
     .modal-header {
       padding: 16px 20px; border-bottom: 1px solid var(--border);
-      display: flex; justify-content: space-between; align-items: center;
+      display: flex; justify-content: space-between; align-items: center; gap: 10px; flex-wrap: wrap;
     }
     .modal-body { padding: 20px; overflow-y: auto; }
 
@@ -297,43 +269,25 @@
       .no-print { display: none !important; }
     }
 
-    /* ========================================================= */
-    /* RESPONSIF TABLET & MOBILE (<= 1100px)                     */
-    /* ========================================================= */
     @media (max-width: 1100px) {
       .company-watermark-marquee { display: none !important; }
       .bento-kpi { grid-template-columns: repeat(2, 1fr); }
       .bento-main, .bento-2col, .bento-3col-top, .bento-3col-mid { grid-template-columns: 1fr; }
       .form-row { grid-template-columns: repeat(2, 1fr); }
-
       .sidebar {
-        position: fixed !important;
-        left: -265px !important;
-        top: 0;
-        bottom: 0;
-        height: 100vh;
-        width: 250px !important;
-        z-index: 30;
+        position: fixed !important; left: -265px !important; top: 0; bottom: 0;
+        height: 100vh; width: 250px !important; z-index: 30;
       }
-      .sidebar.mobile-open {
-        left: 0 !important;
-      }
+      .sidebar.mobile-open { left: 0 !important; }
       .sidebar.collapsed .brand-text,
       .sidebar.collapsed .nav-label,
-      .sidebar.collapsed .sidebar-widget {
-        display: block;
-      }
+      .sidebar.collapsed .sidebar-widget { display: block; }
     }
 
-    /* ========================================================= */
-    /* RESPONSIF SMARTPHONE (<= 640px)                           */
-    /* ========================================================= */
     @media (max-width: 640px) {
       .container { padding: 12px 12px 24px; }
       .topbar { padding: 0 12px; height: 58px; gap: 8px; }
-      .top-search { display: none !important; }
-      .date-pill { display: none !important; }
-      .user-profile-box div:last-child { display: none !important; }
+      .top-search, .date-pill, .user-profile-box div:last-child { display: none !important; }
       .bento-kpi { grid-template-columns: 1fr; gap: 10px; }
       .kpi-grad-card { min-height: 96px; padding: 14px 16px; }
       .kpi-grad-card .kpi-val { font-size: 22px; }
@@ -419,7 +373,6 @@
         <button class="toggle-btn" onclick="toggleAdminSidebar()" title="Menu Navigasi">&#9776;</button>
         <input type="text" class="top-search" placeholder="Cari cepat SKU / Barcode..." onkeydown="if(event.key==='Enter'){ const sb = document.querySelectorAll('.sidebar-menu .tab-btn')[1]; switchTab('master', sb); document.getElementById('masterSearchInput').value=this.value; filterMasterCatalog(); }">
 
-        <!-- Running Text Watermark Perusahaan -->
         <div class="company-watermark-marquee">
           <div class="company-watermark-track">
             &#9889; <strong>DANISH SHOP</strong> &mdash; Danish POS &amp; SIS Smart Retail &nbsp;&bull;&nbsp;
@@ -474,7 +427,6 @@
           </div>
         </div>
 
-        <!-- BARIS ANALITIK 1 -->
         <div class="bento-3col-top">
           <div class="card">
             <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
@@ -498,7 +450,6 @@
           </div>
         </div>
 
-        <!-- BARIS ANALITIK 2 -->
         <div class="bento-3col-mid">
           <div class="card">
             <h3 style="margin:0 0 10px 0; font-size:15px;">Top 5 Best Selling Items</h3>
@@ -521,7 +472,6 @@
           </div>
         </div>
 
-        <!-- BARIS ANALITIK 3 -->
         <div class="bento-2col">
           <div class="card">
             <h3 style="margin:0 0 10px 0; font-size:15px;">Recent Transactions</h3>
@@ -558,7 +508,6 @@
           </div>
         </div>
 
-        <!-- PANEL PERINGATAN FEFO & AUTO-PO -->
         <div class="bento-2col" style="margin-top:16px;">
           <div class="card">
             <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
@@ -587,7 +536,6 @@
           </div>
         </div>
 
-        <!-- PANEL INVESTIGASI FRAUD -->
         <div class="card" style="margin-top:16px;">
           <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px; flex-wrap:wrap; gap:8px;">
             <div>
@@ -605,237 +553,45 @@
         </div>
       </div>
 
-<!-- TAB 2: PERSEDIAAN (KATEGORI, FORM MASTER BARANG LENGKAP, PROMO & BARCODE) -->
+      <!-- TAB 2: MASTER & BARCODE (HALAMAN RINGKAS + TOMBOL MODAL KATEGORI & BARANG) -->
       <div id="tab-master" class="section">
-        <!-- SUB-PANEL 1: MASTER KATEGORI BARANG -->
-        <div class="bento-2col">
-          <div class="card">
-            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
-              <h3 style="margin:0;">Kategori Barang</h3>
-              <span class="badge badge-ok">Perintah Pesanan &amp; Routing</span>
-            </div>
-            <input type="hidden" id="catId">
-            <div class="form-row" style="grid-template-columns: 1.3fr 1fr;">
-              <div>
-                <label style="font-size:12px; font-weight:600; color:var(--text-muted); display:block; margin-bottom:4px;">Nama Kategori</label>
-                <input type="text" id="catNama" placeholder="Contoh: Minuman, Makanan, Umum">
-              </div>
-              <div>
-                <label style="font-size:12px; font-weight:600; color:var(--text-muted); display:block; margin-bottom:4px;">Lokasi Perintah Pesanan</label>
-                <select id="catLokasi">
-                  <option value="- Tidak Pakai -">- Tidak Pakai -</option>
-                  <option value="Bar">Bar</option>
-                  <option value="Dapur">Dapur</option>
-                  <option value="Gudang / Delivery">Gudang / Delivery</option>
-                  <option value="Kasir Utama">Kasir Utama</option>
-                </select>
-              </div>
-            </div>
-            <p style="font-size:12px; color:var(--text-muted); margin: 4px 0 12px 0;">
-              <em>Perintah Pesanan:</em> Setelah pesanan dimasukkan, sistem mengarahkan cetak/notifikasi ke lokasi sesuai kategorinya.
-            </p>
-            <div style="display:flex; gap:8px; flex-wrap:wrap;">
-              <button class="btn btn-blue" onclick="submitCategory(true)">Simpan &amp; Baru</button>
-              <button class="btn btn-green" onclick="submitCategory(false)">Simpan</button>
-              <button class="btn btn-dark" onclick="resetCategoryForm()">Batal</button>
-            </div>
+        <!-- HEADER AKSI UTAMA -->
+        <div class="card" style="margin-bottom:16px; display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:12px;">
+          <div>
+            <h3 style="margin:0;">Katalog Master Barang &amp; Studio Barcode</h3>
+            <small style="color:var(--text-muted);">Kelola master barang, kategori pesanan, kartu stok, dan cetak label barcode.</small>
           </div>
-
-          <div class="card">
-            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
-              <h3 style="margin:0;">Daftar Kategori Barang</h3>
-              <span id="totalKategoriBadge" class="badge badge-warn">0 Kategori</span>
-            </div>
-            <div class="table-responsive" style="max-height:220px; overflow-y:auto;">
-              <table>
-                <thead>
-                  <tr><th>Kode</th><th>Nama Kategori</th><th>Lokasi Pesanan</th><th>Aksi</th></tr>
-                </thead>
-                <tbody id="categoryTableBody"></tbody>
-              </table>
-            </div>
+          <div style="display:flex; gap:8px; flex-wrap:wrap;">
+            <button type="button" class="btn btn-blue" onclick="openCategoryModal()">&#128193; Tambah / Kelola Kategori (<span id="totalKategoriBadge">0</span>)</button>
+            <button type="button" class="btn btn-green" onclick="openProductModal()">&#10133; Tambah Barang</button>
+            <button type="button" class="btn btn-dark" onclick="openBarcodeStudioModal()">&#128424; Cetak Barcode (<span id="selectedBarcodeCount">0</span>)</button>
           </div>
         </div>
 
-        <!-- SUB-PANEL 2: FORM MASTER BARANG LENGKAP (SESUAI REFERENSI RENE POS) -->
+        <!-- TABEL KATALOG MASTER BARANG -->
         <div class="card" style="margin-bottom:16px;">
-          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:14px; border-bottom:1px solid var(--border); padding-bottom:10px;">
-            <div>
-              <h3 style="margin:0;">Form Master Barang</h3>
-              <small style="color:var(--text-muted);">Kelola Informasi Barang, Kode Referensi, Saldo Awal &amp; Default Harga 5 Tingkat</small>
+          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px; flex-wrap:wrap; gap:10px;">
+            <div style="display:flex; gap:8px; align-items:center; flex-wrap:wrap;">
+              <input type="text" id="masterSearchInput" onkeyup="filterMasterCatalog()" placeholder="Cari SKU / Barcode / Nama..." style="width:260px;">
+              <select id="masterCategoryFilter" onchange="filterMasterCatalog()" style="width:180px;">
+                <option value="">Semua Kategori</option>
+              </select>
             </div>
-            <div style="display:flex; gap:6px;">
-              <button type="button" class="btn btn-blue btn-sm prd-subtab-btn" onclick="switchProductSubTab('info', this)">Info Barang</button>
-              <button type="button" class="btn btn-dark btn-sm prd-subtab-btn" onclick="switchProductSubTab('tambahan', this)">Info Tambahan</button>
-              <button type="button" class="btn btn-dark btn-sm prd-subtab-btn" onclick="switchProductSubTab('catatan', this)">Catatan</button>
-            </div>
+            <small style="color:var(--text-muted);">Centang barang di sebelah kiri untuk cetak stiker barcode massal.</small>
           </div>
-
-          <!-- SUB-TAB 1: INFO BARANG -->
-          <div id="prd-subtab-info" class="prd-subtab-panel">
-            <!-- BOX ATAS: INFORMASI BARANG + GAMBAR -->
-            <div style="display:grid; grid-template-columns: 1fr 220px; gap:16px; padding:14px; border:1px solid var(--border); border-radius:12px; background:#F8FAFC; margin-bottom:14px;">
-              <div>
-                <div style="font-size:12px; font-weight:800; color:var(--blue); text-transform:uppercase; margin-bottom:10px;">Informasi Barang</div>
-
-                <div style="display:grid; grid-template-columns: 130px 1fr auto; gap:10px; align-items:center; margin-bottom:8px;">
-                  <label style="font-size:13px; font-weight:600;">Kategori</label>
-                  <select id="prdKategori">
-                    <option value="Umum">Umum</option>
-                  </select>
-                  <label style="display:inline-flex; align-items:center; gap:6px; font-size:13px; font-weight:600; color:var(--red); cursor:pointer; white-space:nowrap;">
-                    <input type="checkbox" id="prdNonAktif" style="width:16px; height:16px;"> Non Aktif
-                  </label>
-                </div>
-
-                <div style="display:grid; grid-template-columns: 130px 1fr; gap:10px; align-items:center; margin-bottom:8px;">
-                  <label style="font-size:13px; font-weight:600;">Nama Barang</label>
-                  <input type="text" id="prdNama" placeholder="Nama lengkap barang" style="background:#FEFCE8;">
-                </div>
-
-                <div style="display:grid; grid-template-columns: 130px 1fr; gap:10px; align-items:center; margin-bottom:8px;">
-                  <label style="font-size:13px; font-weight:600;">Nama Singkat</label>
-                  <input type="text" id="prdNamaSingkat" placeholder="Nama pendek untuk struk kasir (maks 20 karakter)" style="background:#FEFCE8;">
-                </div>
-
-                <div style="display:grid; grid-template-columns: 130px 200px; gap:10px; align-items:center; margin-bottom:8px;">
-                  <label style="font-size:13px; font-weight:600;">Tipe</label>
-                  <select id="prdTipe">
-                    <option value="Persediaan">Persediaan</option>
-                    <option value="Non-Stok">Non-Stok</option>
-                    <option value="Jasa">Jasa / Layanan</option>
-                  </select>
-                </div>
-
-                <div style="display:grid; grid-template-columns: 130px 1fr 70px 1fr; gap:10px; align-items:center; margin-bottom:8px;">
-                  <label style="font-size:13px; font-weight:600;">Atribut</label>
-                  <input type="text" id="prdAtribut" placeholder="Warna / Rasa / Varian">
-                  <label style="font-size:13px; font-weight:600; text-align:right;">Ukuran</label>
-                  <input type="text" id="prdUkuran" placeholder="ml / gr / L / XL">
-                </div>
-
-                <div style="display:grid; grid-template-columns: 130px 140px 1fr; gap:10px; align-items:center;">
-                  <label style="font-size:13px; font-weight:600;">Satuan</label>
-                  <input type="text" id="prdSatuan" value="PCS" placeholder="PCS / PACK:12">
-                  <select id="prdHighRisk">
-                    <option value="false">Risiko Normal</option>
-                    <option value="true">High-Risk Item (SO Harian)</option>
-                  </select>
-                </div>
-              </div>
-
-              <!-- KOTAK GAMBAR PRODUK -->
-              <div style="border:1px solid var(--border); border-radius:10px; background:#fff; padding:10px; display:flex; flex-direction:column; justify-content:space-between;">
-                <div style="font-size:12px; font-weight:700; color:var(--text-muted); margin-bottom:6px;">Gambar</div>
-                <div id="prdImagePreview" style="flex:1; min-height:130px; border:1px dashed #CBD5E1; border-radius:8px; display:flex; align-items:center; justify-content:center; overflow:hidden; background:#F8FAFC; font-size:11px; color:var(--text-muted); text-align:center; padding:6px;">
-                  Tidak ada gambar
-                </div>
-                <input type="hidden" id="prdImageUrl">
-                <div style="display:flex; gap:6px; margin-top:8px;">
-                  <button type="button" class="btn btn-blue btn-sm" style="flex:1; justify-content:center;" onclick="promptProductImageUrl()">&#128194; Pilih URL</button>
-                  <button type="button" class="btn btn-red btn-sm" onclick="clearProductImageUrl()" title="Hapus Gambar">&#10006;</button>
-                </div>
-              </div>
-            </div>
-
-            <!-- BOX BAWAH: KIRI (KODE REFERENSI + SALDO AWAL) | KANAN (DEFAULT HARGA 5 TINGKAT) -->
-            <div class="bento-2col" style="margin-bottom:14px;">
-              <div style="display:flex; flex-direction:column; gap:12px;">
-                <!-- KODE REFERENSI -->
-                <div style="padding:14px; border:1px solid var(--border); border-radius:12px; background:#F8FAFC;">
-                  <div style="font-size:12px; font-weight:800; color:var(--blue); text-transform:uppercase; margin-bottom:10px;">Kode Referensi</div>
-                  <div style="display:grid; grid-template-columns: 120px 1fr; gap:8px; align-items:center; margin-bottom:8px;">
-                    <label style="font-size:13px; font-weight:600;">Kode</label>
-                    <input type="text" id="prdSku" placeholder="Contoh: 01.00011 atau SKU-1005" style="background:#FEFCE8; font-weight:700;">
-                  </div>
-                  <div style="display:grid; grid-template-columns: 120px 1fr; gap:8px; align-items:center; margin-bottom:8px;">
-                    <label style="font-size:13px; font-weight:600;">UPC / Barcode</label>
-                    <input type="text" id="prdBarcode" placeholder="Scan / Ketik Barcode (pisah koma jika >1)">
-                  </div>
-                  <div style="display:grid; grid-template-columns: 120px 1fr; gap:8px; align-items:center;">
-                    <label style="font-size:13px; font-weight:600;">PLU</label>
-                    <input type="text" id="prdPlu" placeholder="Kode PLU Timbangan / Cepat">
-                  </div>
-                </div>
-
-                <!-- SALDO AWAL & STOK -->
-                <div style="padding:14px; border:1px solid var(--border); border-radius:12px; background:#F8FAFC;">
-                  <div style="font-size:12px; font-weight:800; color:var(--blue); text-transform:uppercase; margin-bottom:10px;">Saldo Awal &amp; Stok</div>
-                  <div style="display:grid; grid-template-columns: 120px 1fr 55px 95px; gap:8px; align-items:center;">
-                    <label style="font-size:13px; font-weight:600;">Saldo Awal</label>
-                    <input type="number" id="prdSaldoAwal" value="0" min="0" style="background:#FEFCE8; text-align:right; font-weight:700;">
-                    <label style="font-size:13px; font-weight:600; text-align:right;">Stok</label>
-                    <div id="prdCurrentStockBadge" style="background:linear-gradient(90deg, #6D28D9, #4C1D95); color:#fff; font-weight:800; padding:8px 10px; border-radius:8px; text-align:right; font-size:13px;">0</div>
-                  </div>
-                </div>
-              </div>
-
-              <!-- DEFAULT HARGA (5 TINGKAT + HPP MODAL) -->
-              <div style="padding:14px; border:1px solid var(--border); border-radius:12px; background:#F8FAFC;">
-                <div style="font-size:12px; font-weight:800; color:var(--blue); text-transform:uppercase; margin-bottom:10px;">Default Harga &amp; HPP</div>
-                <div style="display:grid; grid-template-columns: 130px 1fr; gap:8px; align-items:center; margin-bottom:8px;">
-                  <label style="font-size:13px; font-weight:600; color:var(--text-muted);">Harga Modal (HPP)</label>
-                  <input type="number" id="prdModal" value="0" min="0" style="text-align:right;">
-                </div>
-                <div style="display:grid; grid-template-columns: 130px 1fr; gap:8px; align-items:center; margin-bottom:8px;">
-                  <label style="font-size:13px; font-weight:700;">Reguler</label>
-                  <input type="number" id="prdJual" value="0" min="0" style="text-align:right; font-weight:700; border-color:var(--primary);">
-                </div>
-                <div style="display:grid; grid-template-columns: 130px 1fr; gap:8px; align-items:center; margin-bottom:8px;">
-                  <label style="font-size:13px; font-weight:600;">Member</label>
-                  <input type="number" id="prdHargaMember" value="0" min="0" style="text-align:right;">
-                </div>
-                <div style="display:grid; grid-template-columns: 130px 1fr; gap:8px; align-items:center; margin-bottom:8px;">
-                  <label style="font-size:13px; font-weight:600;">Tingkat 3</label>
-                  <input type="number" id="prdHargaT3" value="0" min="0" style="text-align:right;">
-                </div>
-                <div style="display:grid; grid-template-columns: 130px 1fr; gap:8px; align-items:center; margin-bottom:8px;">
-                  <label style="font-size:13px; font-weight:600;">Tingkat 4</label>
-                  <input type="number" id="prdHargaT4" value="0" min="0" style="text-align:right;">
-                </div>
-                <div style="display:grid; grid-template-columns: 130px 1fr; gap:8px; align-items:center;">
-                  <label style="font-size:13px; font-weight:600;">Tingkat 5</label>
-                  <input type="number" id="prdHargaT5" value="0" min="0" style="text-align:right;">
-                </div>
-              </div>
-            </div>
-          </div>
-
-          <!-- SUB-TAB 2: INFO TAMBAHAN -->
-          <div id="prd-subtab-tambahan" class="prd-subtab-panel" style="display:none; padding:14px; border:1px solid var(--border); border-radius:12px; background:#F8FAFC; margin-bottom:14px;">
-            <div style="font-size:12px; font-weight:800; color:var(--blue); text-transform:uppercase; margin-bottom:10px;">Info Tambahan &amp; Pengaturan Reorder</div>
-            <div class="form-row">
-              <div>
-                <label style="font-size:12px; font-weight:600; display:block; margin-bottom:4px;">Minimum Stok (Reorder Point)</label>
-                <input type="number" id="prdMinStock" value="10" min="0">
-              </div>
-              <div>
-                <label style="font-size:12px; font-weight:600; display:block; margin-bottom:4px;">Lokasi Rak / Lorong Toko</label>
-                <input type="text" id="prdRak" placeholder="Contoh: Rak A-02">
-              </div>
-              <div>
-                <label style="font-size:12px; font-weight:600; display:block; margin-bottom:4px;">Pajak / PPN (%)</label>
-                <input type="number" id="prdPajak" value="0" min="0" max="100">
-              </div>
-            </div>
-          </div>
-
-          <!-- SUB-TAB 3: CATATAN -->
-          <div id="prd-subtab-catatan" class="prd-subtab-panel" style="display:none; padding:14px; border:1px solid var(--border); border-radius:12px; background:#F8FAFC; margin-bottom:14px;">
-            <div style="font-size:12px; font-weight:800; color:var(--blue); text-transform:uppercase; margin-bottom:10px;">Catatan Internal Barang</div>
-            <textarea id="prdCatatan" rows="4" placeholder="Tulis catatan supplier, ketentuan retur, atau keterangan khusus barang..." style="width:100%; padding:10px; border-radius:8px; border:1px solid var(--border); font-size:13px;"></textarea>
-          </div>
-
-          <!-- TOMBOL AKSI: SIMPAN & BARU | SIMPAN | BATAL -->
-          <div style="display:flex; justify-content:flex-end; gap:10px; flex-wrap:wrap;">
-            <button type="button" class="btn btn-violet" onclick="submitProduct(true)">&#128190; Simpan &amp; Baru</button>
-            <button type="button" class="btn btn-green" onclick="submitProduct(false)">&#128190; Simpan</button>
-            <button type="button" class="btn btn-red" onclick="resetProductForm()">&#10006; Batal</button>
-          </div>
+          <table>
+            <thead>
+              <tr>
+                <th style="width:36px;"><input type="checkbox" id="selectAllBarcode" onchange="toggleAllBarcodeCheckboxes(this)"></th>
+                <th>SKU</th><th>Barcode</th><th>Nama Barang</th><th>Kategori</th><th>Satuan</th><th>HPP</th><th>Harga Jual</th><th>Aksi</th>
+              </tr>
+            </thead>
+            <tbody id="masterCatalogBody"></tbody>
+          </table>
         </div>
 
-        <!-- SUB-PANEL 3: PROMO OTOMATIS -->
-        <div class="card" style="margin-bottom:16px;">
+        <!-- PANEL PROMO OTOMATIS -->
+        <div class="card">
           <h3 style="margin-top:0;">Buat Promo Otomatis (Tiered / Bundling / PWP)</h3>
           <div class="form-row">
             <select id="prmJenis">
@@ -857,101 +613,6 @@
             <input type="date" id="prmSelesai" title="Tanggal Selesai">
             <div></div>
           </div>
-        </div>
-
-        <!-- SUB-PANEL 4: KATALOG BARANG & CETAK BARCODE -->
-        <div class="card">
-          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px; flex-wrap:wrap; gap:10px;">
-            <div>
-              <h3 style="margin:0;">Katalog Master Barang &amp; Studio Cetak Barcode</h3>
-              <small style="color:var(--text-muted);">Pilih produk untuk cetak stiker barcode kemasan atau cek Kartu Stok.</small>
-            </div>
-            <div style="display:flex; gap:8px; align-items:center; flex-wrap:wrap;">
-              <input type="text" id="masterSearchInput" onkeyup="filterMasterCatalog()" placeholder="Cari SKU / Barcode / Nama..." style="width:220px;">
-              <button class="btn btn-dark" onclick="openBarcodeStudioModal()">Cetak Barcode Massal (<span id="selectedBarcodeCount">0</span>)</button>
-            </div>
-          </div>
-          <table>
-            <thead>
-              <tr>
-                <th style="width:36px;"><input type="checkbox" id="selectAllBarcode" onchange="toggleAllBarcodeCheckboxes(this)"></th>
-                <th>SKU</th><th>Barcode</th><th>Nama Barang</th><th>Kategori</th><th>Satuan</th><th>HPP</th><th>Harga Jual</th><th>Aksi</th>
-              </tr>
-            </thead>
-            <tbody id="masterCatalogBody"></tbody>
-          </table>
-        </div>
-      </div>
-      <!-- TAB 2: MASTER BARANG, PROMO & CETAK BARCODE -->
-      <div id="tab-master" class="section">
-        <div class="bento-2col">
-          <div class="card">
-            <h3 style="margin-top:0;">Tambah / Ubah Master Barang</h3>
-            <div class="form-row">
-              <input type="text" id="prdSku" placeholder="SKU (misal: SKU-1005)">
-              <input type="text" id="prdBarcode" placeholder="Barcode (pisah koma jika >1)">
-              <input type="text" id="prdNama" placeholder="Nama Barang">
-            </div>
-            <div class="form-row">
-              <input type="text" id="prdKategori" placeholder="Kategori (Minuman/Snack)">
-              <input type="text" id="prdSatuan" placeholder="Satuan (PCS / PACK:12 / DUS:40)">
-              <select id="prdHighRisk">
-                <option value="false">Risiko Normal</option>
-                <option value="true">High-Risk Item (SO Harian)</option>
-              </select>
-            </div>
-            <div class="form-row">
-              <input type="number" id="prdModal" placeholder="Harga Modal / HPP (Rp)">
-              <input type="number" id="prdJual" placeholder="Harga Jual Toko (Rp)">
-              <button class="btn btn-green" onclick="submitProduct()">Simpan Barang</button>
-            </div>
-          </div>
-
-          <div class="card">
-            <h3 style="margin-top:0;">Buat Promo Otomatis (Tiered / Bundling / PWP)</h3>
-            <div class="form-row">
-              <select id="prmJenis">
-                <option value="DISCOUNT">DISCOUNT - Potongan Langsung</option>
-                <option value="TIERED">TIERED - Harga Grosir Bertingkat</option>
-                <option value="BUNDLING">BUNDLING - Paket Mix & Match</option>
-                <option value="PWP">PWP - Tebus Murah</option>
-              </select>
-              <input type="text" id="prmBarcodeSyarat" placeholder="Barcode Syarat">
-              <input type="number" id="prmMinQty" placeholder="Min Qty / Min Belanja">
-            </div>
-            <div class="form-row">
-              <input type="text" id="prmBarcodeHadiah" placeholder="Barcode Hadiah (Khusus PWP)">
-              <input type="number" id="prmHarga" placeholder="Harga Promo / Potongan (Rp)">
-              <button class="btn btn-violet" onclick="submitPromo()">Simpan Promo</button>
-            </div>
-            <div class="form-row">
-              <input type="date" id="prmMulai" title="Tanggal Mulai">
-              <input type="date" id="prmSelesai" title="Tanggal Selesai">
-              <div></div>
-            </div>
-          </div>
-        </div>
-
-        <div class="card">
-          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px; flex-wrap:wrap; gap:10px;">
-            <div>
-              <h3 style="margin:0;">Katalog Master Barang & Studio Cetak Barcode</h3>
-              <small style="color:var(--text-muted);">Pilih produk untuk cetak stiker barcode kemasan atau cek Kartu Stok.</small>
-            </div>
-            <div style="display:flex; gap:8px; align-items:center; flex-wrap:wrap;">
-              <input type="text" id="masterSearchInput" onkeyup="filterMasterCatalog()" placeholder="Cari SKU / Barcode / Nama..." style="width:220px;">
-              <button class="btn btn-dark" onclick="openBarcodeStudioModal()">Cetak Barcode Massal (<span id="selectedBarcodeCount">0</span>)</button>
-            </div>
-          </div>
-          <table>
-            <thead>
-              <tr>
-                <th style="width:36px;"><input type="checkbox" id="selectAllBarcode" onchange="toggleAllBarcodeCheckboxes(this)"></th>
-                <th>SKU</th><th>Barcode</th><th>Nama Barang</th><th>Kategori</th><th>Satuan</th><th>HPP</th><th>Harga Jual</th><th>Aksi</th>
-              </tr>
-            </thead>
-            <tbody id="masterCatalogBody"></tbody>
-          </table>
         </div>
       </div>
 
@@ -1276,6 +937,231 @@
           </thead>
           <tbody id="barcodeStudioTableBody"></tbody>
         </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL 3: KELOLA & TAMBAH KATEGORI BARANG -->
+  <div id="categoryModal" class="modal-backdrop">
+    <div class="modal-box" style="max-width:760px;">
+      <div class="modal-header">
+        <div>
+          <h3 style="margin:0;">Master Kategori Barang</h3>
+          <small style="color:var(--text-muted);">Atur kategori produk dan tujuan cetak perintah pesanan (Bar / Dapur / Gudang)</small>
+        </div>
+        <button type="button" class="btn btn-dark btn-sm" onclick="closeModal('categoryModal')">&#10006; Tutup</button>
+      </div>
+      <div class="modal-body">
+        <div style="padding:14px; border:1px solid var(--border); border-radius:12px; background:#F8FAFC; margin-bottom:14px;">
+          <input type="hidden" id="catId">
+          <div class="form-row" style="grid-template-columns: 1.4fr 1fr;">
+            <div>
+              <label style="font-size:12px; font-weight:600; color:var(--text-muted); display:block; margin-bottom:4px;">Nama Kategori</label>
+              <input type="text" id="catNama" placeholder="Contoh: Minuman, Makanan, Umum">
+            </div>
+            <div>
+              <label style="font-size:12px; font-weight:600; color:var(--text-muted); display:block; margin-bottom:4px;">Lokasi Perintah Pesanan</label>
+              <select id="catLokasi">
+                <option value="- Tidak Pakai -">- Tidak Pakai -</option>
+                <option value="Bar">Bar</option>
+                <option value="Dapur">Dapur</option>
+                <option value="Gudang / Delivery">Gudang / Delivery</option>
+                <option value="Kasir Utama">Kasir Utama</option>
+              </select>
+            </div>
+          </div>
+          <div style="display:flex; gap:8px; flex-wrap:wrap; margin-top:6px;">
+            <button type="button" class="btn btn-blue btn-sm" onclick="submitCategory(true)">Simpan &amp; Baru</button>
+            <button type="button" class="btn btn-green btn-sm" onclick="submitCategory(false)">Simpan</button>
+            <button type="button" class="btn btn-dark btn-sm" onclick="resetCategoryForm()">Reset Form</button>
+          </div>
+        </div>
+
+        <div class="table-responsive" style="max-height:260px; overflow-y:auto;">
+          <table>
+            <thead>
+              <tr><th>Kode</th><th>Nama Kategori</th><th>Lokasi Pesanan</th><th>Aksi</th></tr>
+            </thead>
+            <tbody id="categoryTableBody"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL 4: FORM TAMBAH / EDIT MASTER BARANG (RENE POS) -->
+  <div id="productModal" class="modal-backdrop">
+    <div class="modal-box" style="max-width:960px;">
+      <div class="modal-header">
+        <div>
+          <h3 id="productModalTitle" style="margin:0;">Tambah Barang Baru</h3>
+          <small style="color:var(--text-muted);">Informasi Barang, Kode Referensi, Saldo Awal &amp; Default Harga 5 Tingkat</small>
+        </div>
+        <div style="display:flex; gap:6px; align-items:center;">
+          <button type="button" class="btn btn-blue btn-sm prd-subtab-btn" onclick="switchProductSubTab('info', this)">Info Barang</button>
+          <button type="button" class="btn btn-dark btn-sm prd-subtab-btn" onclick="switchProductSubTab('tambahan', this)">Info Tambahan</button>
+          <button type="button" class="btn btn-dark btn-sm prd-subtab-btn" onclick="switchProductSubTab('catatan', this)">Catatan</button>
+          <button type="button" class="btn btn-red btn-sm" onclick="closeModal('productModal')" style="margin-left:6px;">&#10006;</button>
+        </div>
+      </div>
+
+      <div class="modal-body">
+        <!-- SUB-TAB 1: INFO BARANG -->
+        <div id="prd-subtab-info" class="prd-subtab-panel">
+          <div style="display:grid; grid-template-columns: 1fr 210px; gap:16px; padding:14px; border:1px solid var(--border); border-radius:12px; background:#F8FAFC; margin-bottom:14px;">
+            <div>
+              <div style="font-size:12px; font-weight:800; color:var(--blue); text-transform:uppercase; margin-bottom:10px;">Informasi Barang</div>
+
+              <div style="display:grid; grid-template-columns: 130px 1fr auto; gap:10px; align-items:center; margin-bottom:8px;">
+                <label style="font-size:13px; font-weight:600;">Kategori</label>
+                <select id="prdKategori">
+                  <option value="Umum">Umum</option>
+                </select>
+                <label style="display:inline-flex; align-items:center; gap:6px; font-size:13px; font-weight:600; color:var(--red); cursor:pointer; white-space:nowrap;">
+                  <input type="checkbox" id="prdNonAktif" style="width:16px; height:16px;"> Non Aktif
+                </label>
+              </div>
+
+              <div style="display:grid; grid-template-columns: 130px 1fr; gap:10px; align-items:center; margin-bottom:8px;">
+                <label style="font-size:13px; font-weight:600;">Nama Barang</label>
+                <input type="text" id="prdNama" placeholder="Nama lengkap barang" style="background:#FEFCE8;">
+              </div>
+
+              <div style="display:grid; grid-template-columns: 130px 1fr; gap:10px; align-items:center; margin-bottom:8px;">
+                <label style="font-size:13px; font-weight:600;">Nama Singkat</label>
+                <input type="text" id="prdNamaSingkat" placeholder="Nama pendek untuk struk kasir (maks 20 karakter)" style="background:#FEFCE8;">
+              </div>
+
+              <div style="display:grid; grid-template-columns: 130px 200px; gap:10px; align-items:center; margin-bottom:8px;">
+                <label style="font-size:13px; font-weight:600;">Tipe</label>
+                <select id="prdTipe">
+                  <option value="Persediaan">Persediaan</option>
+                  <option value="Non-Stok">Non-Stok</option>
+                  <option value="Jasa">Jasa / Layanan</option>
+                </select>
+              </div>
+
+              <div style="display:grid; grid-template-columns: 130px 1fr 70px 1fr; gap:10px; align-items:center; margin-bottom:8px;">
+                <label style="font-size:13px; font-weight:600;">Atribut</label>
+                <input type="text" id="prdAtribut" placeholder="Warna / Rasa / Varian">
+                <label style="font-size:13px; font-weight:600; text-align:right;">Ukuran</label>
+                <input type="text" id="prdUkuran" placeholder="ml / gr / L / XL">
+              </div>
+
+              <div style="display:grid; grid-template-columns: 130px 140px 1fr; gap:10px; align-items:center;">
+                <label style="font-size:13px; font-weight:600;">Satuan</label>
+                <input type="text" id="prdSatuan" value="PCS" placeholder="PCS / PACK:12">
+                <select id="prdHighRisk">
+                  <option value="false">Risiko Normal</option>
+                  <option value="true">High-Risk Item (SO Harian)</option>
+                </select>
+              </div>
+            </div>
+
+            <!-- KOTAK GAMBAR PRODUK -->
+            <div style="border:1px solid var(--border); border-radius:10px; background:#fff; padding:10px; display:flex; flex-direction:column; justify-content:space-between;">
+              <div style="font-size:12px; font-weight:700; color:var(--text-muted); margin-bottom:6px;">Gambar</div>
+              <div id="prdImagePreview" style="flex:1; min-height:130px; border:1px dashed #CBD5E1; border-radius:8px; display:flex; align-items:center; justify-content:center; overflow:hidden; background:#F8FAFC; font-size:11px; color:var(--text-muted); text-align:center; padding:6px;">
+                Tidak ada gambar
+              </div>
+              <input type="hidden" id="prdImageUrl">
+              <div style="display:flex; gap:6px; margin-top:8px;">
+                <button type="button" class="btn btn-blue btn-sm" style="flex:1; justify-content:center;" onclick="promptProductImageUrl()">&#128194; Pilih URL</button>
+                <button type="button" class="btn btn-red btn-sm" onclick="clearProductImageUrl()" title="Hapus Gambar">&#10006;</button>
+              </div>
+            </div>
+          </div>
+
+          <div class="bento-2col" style="margin-bottom:14px;">
+            <div style="display:flex; flex-direction:column; gap:12px;">
+              <div style="padding:14px; border:1px solid var(--border); border-radius:12px; background:#F8FAFC;">
+                <div style="font-size:12px; font-weight:800; color:var(--blue); text-transform:uppercase; margin-bottom:10px;">Kode Referensi</div>
+                <div style="display:grid; grid-template-columns: 120px 1fr; gap:8px; align-items:center; margin-bottom:8px;">
+                  <label style="font-size:13px; font-weight:600;">Kode</label>
+                  <input type="text" id="prdSku" placeholder="Contoh: SKU-1006" style="background:#FEFCE8; font-weight:700;">
+                </div>
+                <div style="display:grid; grid-template-columns: 120px 1fr; gap:8px; align-items:center; margin-bottom:8px;">
+                  <label style="font-size:13px; font-weight:600;">UPC / Barcode</label>
+                  <input type="text" id="prdBarcode" placeholder="Scan / Ketik Barcode">
+                </div>
+                <div style="display:grid; grid-template-columns: 120px 1fr; gap:8px; align-items:center;">
+                  <label style="font-size:13px; font-weight:600;">PLU</label>
+                  <input type="text" id="prdPlu" placeholder="Kode PLU Timbangan / Cepat">
+                </div>
+              </div>
+
+              <div style="padding:14px; border:1px solid var(--border); border-radius:12px; background:#F8FAFC;">
+                <div style="font-size:12px; font-weight:800; color:var(--blue); text-transform:uppercase; margin-bottom:10px;">Saldo Awal &amp; Stok</div>
+                <div style="display:grid; grid-template-columns: 120px 1fr 55px 95px; gap:8px; align-items:center;">
+                  <label style="font-size:13px; font-weight:600;">Saldo Awal</label>
+                  <input type="number" id="prdSaldoAwal" value="0" min="0" style="background:#FEFCE8; text-align:right; font-weight:700;">
+                  <label style="font-size:13px; font-weight:600; text-align:right;">Stok</label>
+                  <div id="prdCurrentStockBadge" style="background:linear-gradient(90deg, #6D28D9, #4C1D95); color:#fff; font-weight:800; padding:8px 10px; border-radius:8px; text-align:right; font-size:13px;">0</div>
+                </div>
+              </div>
+            </div>
+
+            <div style="padding:14px; border:1px solid var(--border); border-radius:12px; background:#F8FAFC;">
+              <div style="font-size:12px; font-weight:800; color:var(--blue); text-transform:uppercase; margin-bottom:10px;">Default Harga &amp; HPP</div>
+              <div style="display:grid; grid-template-columns: 130px 1fr; gap:8px; align-items:center; margin-bottom:8px;">
+                <label style="font-size:13px; font-weight:600; color:var(--text-muted);">Harga Modal (HPP)</label>
+                <input type="number" id="prdModal" value="0" min="0" style="text-align:right;">
+              </div>
+              <div style="display:grid; grid-template-columns: 130px 1fr; gap:8px; align-items:center; margin-bottom:8px;">
+                <label style="font-size:13px; font-weight:700;">Reguler</label>
+                <input type="number" id="prdJual" value="0" min="0" style="text-align:right; font-weight:700; border-color:var(--primary);">
+              </div>
+              <div style="display:grid; grid-template-columns: 130px 1fr; gap:8px; align-items:center; margin-bottom:8px;">
+                <label style="font-size:13px; font-weight:600;">Member</label>
+                <input type="number" id="prdHargaMember" value="0" min="0" style="text-align:right;">
+              </div>
+              <div style="display:grid; grid-template-columns: 130px 1fr; gap:8px; align-items:center; margin-bottom:8px;">
+                <label style="font-size:13px; font-weight:600;">Tingkat 3</label>
+                <input type="number" id="prdHargaT3" value="0" min="0" style="text-align:right;">
+              </div>
+              <div style="display:grid; grid-template-columns: 130px 1fr; gap:8px; align-items:center; margin-bottom:8px;">
+                <label style="font-size:13px; font-weight:600;">Tingkat 4</label>
+                <input type="number" id="prdHargaT4" value="0" min="0" style="text-align:right;">
+              </div>
+              <div style="display:grid; grid-template-columns: 130px 1fr; gap:8px; align-items:center;">
+                <label style="font-size:13px; font-weight:600;">Tingkat 5</label>
+                <input type="number" id="prdHargaT5" value="0" min="0" style="text-align:right;">
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- SUB-TAB 2: INFO TAMBAHAN -->
+        <div id="prd-subtab-tambahan" class="prd-subtab-panel" style="display:none; padding:14px; border:1px solid var(--border); border-radius:12px; background:#F8FAFC; margin-bottom:14px;">
+          <div style="font-size:12px; font-weight:800; color:var(--blue); text-transform:uppercase; margin-bottom:10px;">Info Tambahan &amp; Pengaturan Reorder</div>
+          <div class="form-row">
+            <div>
+              <label style="font-size:12px; font-weight:600; display:block; margin-bottom:4px;">Minimum Stok (Reorder Point)</label>
+              <input type="number" id="prdMinStock" value="10" min="0">
+            </div>
+            <div>
+              <label style="font-size:12px; font-weight:600; display:block; margin-bottom:4px;">Lokasi Rak / Lorong Toko</label>
+              <input type="text" id="prdRak" placeholder="Contoh: Rak A-02">
+            </div>
+            <div>
+              <label style="font-size:12px; font-weight:600; display:block; margin-bottom:4px;">Pajak / PPN (%)</label>
+              <input type="number" id="prdPajak" value="0" min="0" max="100">
+            </div>
+          </div>
+        </div>
+
+        <!-- SUB-TAB 3: CATATAN -->
+        <div id="prd-subtab-catatan" class="prd-subtab-panel" style="display:none; padding:14px; border:1px solid var(--border); border-radius:12px; background:#F8FAFC; margin-bottom:14px;">
+          <div style="font-size:12px; font-weight:800; color:var(--blue); text-transform:uppercase; margin-bottom:10px;">Catatan Internal Barang</div>
+          <textarea id="prdCatatan" rows="4" placeholder="Tulis catatan supplier, ketentuan retur, atau keterangan khusus barang..." style="width:100%; padding:10px; border-radius:8px; border:1px solid var(--border); font-size:13px;"></textarea>
+        </div>
+
+        <!-- TOMBOL AKSI MODAL BARANG -->
+        <div style="display:flex; justify-content:flex-end; gap:10px; flex-wrap:wrap; border-top:1px solid var(--border); padding-top:12px;">
+          <button type="button" class="btn btn-violet" onclick="submitProduct(true)">&#128190; Simpan &amp; Baru</button>
+          <button type="button" class="btn btn-green" onclick="submitProduct(false)">&#128190; Simpan</button>
+          <button type="button" class="btn btn-red" onclick="closeModal('productModal')">&#10006; Batal</button>
+        </div>
       </div>
     </div>
   </div>

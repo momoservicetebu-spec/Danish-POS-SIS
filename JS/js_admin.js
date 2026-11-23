@@ -1,4 +1,4 @@
-// JS/js_admin.js - Logika Backoffice & Admin SIS v3.5 (Enterprise Edition + Adaptasi RENE POS)
+// JS/js_admin.js - Logika Backoffice & Admin SIS v3.5 (Enterprise Edition + Modal Kategori & Master Barang)
 let PENDING_TAGS_CACHE = [];
 let MASTER_PRODUCTS_CACHE = [];
 let SELECTED_BARCODE_SKUS = new Set();
@@ -10,7 +10,7 @@ if (SESSION) {
   document.getElementById('userBadge').textContent = `${SESSION.user.nama} [${SESSION.user.role}]`;
 }
 
-// === KONTROL SIDEBAR RESPONSIF (DESKTOP / TABLET / HP) ===
+// === KONTROL SIDEBAR RESPONSIF ===
 function toggleAdminSidebar() {
   const sidebar = document.getElementById('adminSidebar');
   const overlay = document.getElementById('sidebarOverlay');
@@ -33,7 +33,6 @@ function closeMobileSidebar() {
   }
 }
 
-// Otomatis bungkus semua tabel agar bisa digeser horizontal di HP
 document.querySelectorAll('table').forEach(tbl => {
   if (!tbl.parentElement.classList.contains('table-responsive')) {
     const wrap = document.createElement('div');
@@ -79,7 +78,8 @@ async function callAdminApi(endpoint, payload, onSuccess, loadingLabel) {
 }
 
 function closeModal(modalId) {
-  document.getElementById(modalId).classList.remove('open');
+  const el = document.getElementById(modalId);
+  if (el) el.classList.remove('open');
 }
 
 function switchTab(tabName, btn) {
@@ -367,9 +367,7 @@ function renderDashboardAnalytics(data) {
 function quickReorderPO(sku, lastHpp) {
   const supplierTabBtn = Array.from(document.querySelectorAll('.tab-btn'))
     .find(b => b.getAttribute('onclick') && b.getAttribute('onclick').includes("'suppliers'"));
-  if (supplierTabBtn) {
-    switchTab('suppliers', supplierTabBtn);
-  }
+  if (supplierTabBtn) switchTab('suppliers', supplierTabBtn);
   const skuInp = document.getElementById('purSku');
   const priceInp = document.getElementById('purBuyPrice');
   const qtyInp = document.getElementById('purQty');
@@ -424,8 +422,14 @@ function printPendingPriceTags() {
 }
 
 // =========================================================
-// MASTER KATEGORI BARANG (ADAPTASI RENE POS)
+// MODAL & LOGIKA MASTER KATEGORI BARANG
 // =========================================================
+function openCategoryModal() {
+  resetCategoryForm();
+  document.getElementById('categoryModal').classList.add('open');
+  setTimeout(() => document.getElementById('catNama').focus(), 100);
+}
+
 function loadCategoriesAdmin() {
   callAdminApi('admin/categories', {}, data => {
     cachedCategories = (data && data.categories) ? data.categories : [{ id: 'CAT-01', nama: 'Umum', lokasi: '- Tidak Pakai -' }];
@@ -437,9 +441,8 @@ function loadCategoriesAdmin() {
 function renderCategoryTable() {
   const tbody = document.getElementById('categoryTableBody');
   const badge = document.getElementById('totalKategoriBadge');
+  if (badge) badge.textContent = cachedCategories.length;
   if (!tbody) return;
-
-  if (badge) badge.textContent = cachedCategories.length + ' Kategori';
 
   if (cachedCategories.length === 0) {
     tbody.innerHTML = '<tr><td colspan="4" style="text-align:center; color:var(--text-muted);">Belum ada kategori barang.</td></tr>';
@@ -452,8 +455,8 @@ function renderCategoryTable() {
       <td>${c.nama}</td>
       <td><span class="badge ${c.lokasi === '- Tidak Pakai -' ? 'badge-warn' : 'badge-ok'}">${c.lokasi}</span></td>
       <td style="white-space:nowrap;">
-        <button class="btn btn-blue btn-sm" onclick="editCategoryForm('${c.id}')">Edit</button>
-        ${c.nama.toLowerCase() !== 'umum' ? `<button class="btn btn-red btn-sm" onclick="deleteCategoryAdmin('${c.id}', '${c.nama.replace(/'/g, "\\'")}')">Hapus</button>` : ''}
+        <button type="button" class="btn btn-blue btn-sm" onclick="editCategoryForm('${c.id}')">Edit</button>
+        ${c.nama.toLowerCase() !== 'umum' ? `<button type="button" class="btn btn-red btn-sm" onclick="deleteCategoryAdmin('${c.id}', '${c.nama.replace(/'/g, "\\'")}')">Hapus</button>` : ''}
       </td>
     </tr>
   `).join('');
@@ -461,11 +464,20 @@ function renderCategoryTable() {
 
 function populateCategoryDropdown() {
   const select = document.getElementById('prdKategori');
-  if (!select) return;
-  const currentVal = select.value;
-  select.innerHTML = cachedCategories.map(c => `<option value="${c.nama}">${c.nama}</option>`).join('');
-  if (currentVal && cachedCategories.some(c => c.nama === currentVal)) {
-    select.value = currentVal;
+  if (select) {
+    const currentVal = select.value;
+    select.innerHTML = cachedCategories.map(c => `<option value="${c.nama}">${c.nama}</option>`).join('');
+    if (currentVal && cachedCategories.some(c => c.nama === currentVal)) {
+      select.value = currentVal;
+    }
+  }
+
+  const filterSel = document.getElementById('masterCategoryFilter');
+  if (filterSel) {
+    const curFilter = filterSel.value;
+    filterSel.innerHTML = '<option value="">Semua Kategori</option>' +
+      cachedCategories.map(c => `<option value="${c.nama}">${c.nama}</option>`).join('');
+    filterSel.value = curFilter;
   }
 }
 
@@ -514,8 +526,16 @@ function deleteCategoryAdmin(id, nama) {
 }
 
 // =========================================================
-// MASTER BARANG LENGKAP (RENE POS), KARTU STOK & BARCODE
+// MODAL & LOGIKA MASTER BARANG LENGKAP (RENE POS)
 // =========================================================
+function openProductModal() {
+  resetProductForm();
+  const titleEl = document.getElementById('productModalTitle');
+  if (titleEl) titleEl.textContent = 'Tambah Barang Baru';
+  document.getElementById('productModal').classList.add('open');
+  setTimeout(() => document.getElementById('prdNama').focus(), 100);
+}
+
 function switchProductSubTab(subName, btn) {
   document.querySelectorAll('.prd-subtab-panel').forEach(el => { el.style.display = 'none'; });
   document.querySelectorAll('.prd-subtab-btn').forEach(b => {
@@ -556,7 +576,7 @@ function renderProductImagePreview(url) {
 function loadMasterCatalog() {
   callAdminApi('admin/products', {}, items => {
     MASTER_PRODUCTS_CACHE = items || [];
-    renderMasterCatalogTable(MASTER_PRODUCTS_CACHE);
+    filterMasterCatalog();
   }, 'Memuat Katalog Barang...');
 }
 
@@ -590,9 +610,7 @@ function renderMasterCatalogTable(items) {
 }
 
 function deleteMasterProduct(sku, nama) {
-  if (!confirm(`Yakin ingin menghapus barang ini dari katalog?\n\nSKU: ${sku}\nNama: ${nama}`)) {
-    return;
-  }
+  if (!confirm(`Yakin ingin menghapus barang ini dari katalog?\n\nSKU: ${sku}\nNama: ${nama}`)) return;
   callAdminApi('admin/delete-product', { sku, nama }, res => {
     SELECTED_BARCODE_SKUS.delete(sku);
     alert(res.message);
@@ -602,12 +620,15 @@ function deleteMasterProduct(sku, nama) {
 
 function filterMasterCatalog() {
   const q = (document.getElementById('masterSearchInput').value || '').toLowerCase().trim();
-  if (!q) return renderMasterCatalogTable(MASTER_PRODUCTS_CACHE);
-  const filtered = MASTER_PRODUCTS_CACHE.filter(p =>
-    p.sku.toLowerCase().includes(q) ||
-    String(p.barcode).toLowerCase().includes(q) ||
-    p.nama.toLowerCase().includes(q)
-  );
+  const cat = (document.getElementById('masterCategoryFilter')?.value || '').trim();
+  const filtered = MASTER_PRODUCTS_CACHE.filter(p => {
+    const matchText = !q ||
+      p.sku.toLowerCase().includes(q) ||
+      String(p.barcode).toLowerCase().includes(q) ||
+      p.nama.toLowerCase().includes(q);
+    const matchCat = !cat || p.kategori === cat;
+    return matchText && matchCat;
+  });
   renderMasterCatalogTable(filtered);
 }
 
@@ -720,6 +741,10 @@ function openStockCardModal(sku, namaBarang) {
 }
 
 function fillProductForm(p) {
+  resetProductForm();
+  const titleEl = document.getElementById('productModalTitle');
+  if (titleEl) titleEl.textContent = `Edit Barang: ${p.sku}`;
+
   document.getElementById('prdSku').value = p.sku || '';
   document.getElementById('prdBarcode').value = p.barcode || '';
   document.getElementById('prdNama').value = p.nama || '';
@@ -746,7 +771,9 @@ function fillProductForm(p) {
   if (document.getElementById('prdCatatan')) document.getElementById('prdCatatan').value = p.catatan || '';
   if (document.getElementById('prdImageUrl')) document.getElementById('prdImageUrl').value = p.imageUrl || '';
   renderProductImagePreview(p.imageUrl || '');
-  document.getElementById('prdNama').focus();
+
+  document.getElementById('productModal').classList.add('open');
+  setTimeout(() => document.getElementById('prdNama').focus(), 100);
 }
 
 function resetProductForm() {
@@ -815,8 +842,11 @@ function submitProduct(isSaveAndNew) {
     loadMasterCatalog();
     if (isSaveAndNew) {
       resetProductForm();
+      const titleEl = document.getElementById('productModalTitle');
+      if (titleEl) titleEl.textContent = 'Tambah Barang Baru';
       document.getElementById('prdNama').focus();
     } else {
+      closeModal('productModal');
       alert(res.message);
     }
   }, 'Menyimpan Master Barang...');
@@ -839,7 +869,7 @@ function submitPromo() {
   }, 'Menyimpan Aturan Promo...');
 }
 
-// === MEMBER & PIUTANG PELANGGAN (RENE CRM) ===
+// === MEMBER & PIUTANG PELANGGAN ===
 function loadMembersTable() {
   callAdminApi('member/list', {}, members => {
     const tbody = document.getElementById('membersTableBody');
@@ -1102,7 +1132,7 @@ function submitRepackUnit() {
   }, 'Memproses Konversi Satuan...');
 }
 
-// === BLIND STOCK OPNAME (DENGAN BARCODE SCANNER) ===
+// === BLIND STOCK OPNAME ===
 function loadBlindSOItems() {
   callAdminApi('inventory/stok-toko', { blindMode: true }, items => {
     const tbody = document.getElementById('soTableBody');
