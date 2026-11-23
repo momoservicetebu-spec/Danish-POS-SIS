@@ -219,10 +219,11 @@
     .btn-amber { background: var(--amber); }
     .btn-red { background: var(--red); }
     .btn-dark { background: #1E293B; }
+    .btn-teal { background: #0D9488; }
     .btn-sm { padding: 5px 10px; font-size: 12px; border-radius: 8px; }
     .form-row { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin-bottom: 12px; }
-    input, select { padding: 10px; border-radius: 8px; border: 1px solid var(--border); width: 100%; font-size: 13px; }
-    input:focus, select:focus { outline: none; border-color: var(--blue); }
+    input, select, textarea { padding: 10px; border-radius: 8px; border: 1px solid var(--border); width: 100%; font-size: 13px; }
+    input:focus, select:focus, textarea:focus { outline: none; border-color: var(--blue); }
     .section { display: none; }
     .section.active { display: block; }
     .badge { padding: 4px 8px; border-radius: 6px; font-size: 11px; font-weight: 700; }
@@ -248,11 +249,12 @@
     .modal-body { padding: 20px; overflow-y: auto; }
 
     /* Print Styling */
-    #priceTagPrintArea, #barcodeStickerPrintArea { display: none; }
+    #priceTagPrintArea, #barcodeStickerPrintArea, #stockAdjPrintArea { display: none; }
     @media print {
       body * { visibility: hidden; }
       #priceTagPrintArea.printing, #priceTagPrintArea.printing *,
       #barcodeStickerPrintArea.printing, #barcodeStickerPrintArea.printing *,
+      #stockAdjPrintArea.printing, #stockAdjPrintArea.printing *,
       #tab-reports.printing, #tab-reports.printing * {
         visibility: visible;
       }
@@ -262,6 +264,9 @@
       }
       #barcodeStickerPrintArea.printing {
         display: grid !important; position: absolute; left: 0; top: 0; width: 100%;
+      }
+      #stockAdjPrintArea.printing {
+        display: block !important; position: absolute; left: 0; top: 0; width: 100%; padding: 16px;
       }
       #tab-reports.printing {
         position: absolute; left: 0; top: 0; width: 100%;
@@ -553,23 +558,30 @@
         </div>
       </div>
 
-      <!-- TAB 2: MASTER & BARCODE (HALAMAN RINGKAS + TOMBOL MODAL KATEGORI & BARANG) -->
+      <!-- TAB 2: MASTER & BARCODE (SEMUA FORM DI DALAM BUTTON / MODAL) -->
       <div id="tab-master" class="section">
         <!-- HEADER AKSI UTAMA -->
-        <div class="card" style="margin-bottom:16px; display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:12px;">
-          <div>
-            <h3 style="margin:0;">Katalog Master Barang &amp; Studio Barcode</h3>
-            <small style="color:var(--text-muted);">Kelola master barang, kategori pesanan, kartu stok, dan cetak label barcode.</small>
+        <div class="card" style="margin-bottom:16px;">
+          <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:12px; margin-bottom:12px;">
+            <div>
+              <h3 style="margin:0;">Katalog Master Barang &amp; Operasional Persediaan</h3>
+              <small style="color:var(--text-muted);">Pilih tombol modul di bawah untuk mengelola barang, kategori, penyesuaian stok, set harga, komisi, dan promo otomatis.</small>
+            </div>
           </div>
+
           <div style="display:flex; gap:8px; flex-wrap:wrap;">
-            <button type="button" class="btn btn-blue" onclick="openCategoryModal()">&#128193; Tambah / Kelola Kategori (<span id="totalKategoriBadge">0</span>)</button>
+            <button type="button" class="btn btn-blue" onclick="openCategoryModal()">&#128193; Kategori (<span id="totalKategoriBadge">0</span>)</button>
             <button type="button" class="btn btn-green" onclick="openProductModal()">&#10133; Tambah Barang</button>
+            <button type="button" class="btn btn-teal" onclick="openStockAdjModal()">&#128230; Penyesuaian Stok</button>
+            <button type="button" class="btn btn-amber" onclick="openSetHargaModal()">&#128178; Set Harga</button>
+            <button type="button" class="btn btn-violet" onclick="openKomisiModal()">&#127942; Komisi</button>
+            <button type="button" class="btn btn-red" onclick="openPromoModal()">&#127873; Promo Otomatis</button>
             <button type="button" class="btn btn-dark" onclick="openBarcodeStudioModal()">&#128424; Cetak Barcode (<span id="selectedBarcodeCount">0</span>)</button>
           </div>
         </div>
 
         <!-- TABEL KATALOG MASTER BARANG -->
-        <div class="card" style="margin-bottom:16px;">
+        <div class="card">
           <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px; flex-wrap:wrap; gap:10px;">
             <div style="display:flex; gap:8px; align-items:center; flex-wrap:wrap;">
               <input type="text" id="masterSearchInput" onkeyup="filterMasterCatalog()" placeholder="Cari SKU / Barcode / Nama..." style="width:260px;">
@@ -588,31 +600,6 @@
             </thead>
             <tbody id="masterCatalogBody"></tbody>
           </table>
-        </div>
-
-        <!-- PANEL PROMO OTOMATIS -->
-        <div class="card">
-          <h3 style="margin-top:0;">Buat Promo Otomatis (Tiered / Bundling / PWP)</h3>
-          <div class="form-row">
-            <select id="prmJenis">
-              <option value="DISCOUNT">DISCOUNT - Potongan Langsung</option>
-              <option value="TIERED">TIERED - Harga Grosir Bertingkat</option>
-              <option value="BUNDLING">BUNDLING - Paket Mix &amp; Match</option>
-              <option value="PWP">PWP - Tebus Murah</option>
-            </select>
-            <input type="text" id="prmBarcodeSyarat" placeholder="Barcode Syarat">
-            <input type="number" id="prmMinQty" placeholder="Min Qty / Min Belanja">
-          </div>
-          <div class="form-row">
-            <input type="text" id="prmBarcodeHadiah" placeholder="Barcode Hadiah (Khusus PWP)">
-            <input type="number" id="prmHarga" placeholder="Harga Promo / Potongan (Rp)">
-            <button class="btn btn-violet" onclick="submitPromo()">Simpan Promo</button>
-          </div>
-          <div class="form-row">
-            <input type="date" id="prmMulai" title="Tanggal Mulai">
-            <input type="date" id="prmSelesai" title="Tanggal Selesai">
-            <div></div>
-          </div>
         </div>
       </div>
 
@@ -1166,9 +1153,292 @@
     </div>
   </div>
 
+  <!-- MODAL 5: PENYESUAIAN STOK (DENGAN TANGGAL & CETAK BUKTI) -->
+  <div id="stockAdjModal" class="modal-backdrop">
+    <div class="modal-box" style="max-width:920px;">
+      <div class="modal-header">
+        <div>
+          <h3 style="margin:0;">Penyesuaian Stok Barang</h3>
+          <small style="color:var(--text-muted);">Koreksi kuantitas stok fisik (+ / -) berdasarkan tanggal pencatatan &amp; cetak bukti penyesuaian.</small>
+        </div>
+        <button type="button" class="btn btn-dark btn-sm" onclick="closeModal('stockAdjModal')">&#10006; Tutup</button>
+      </div>
+      <div class="modal-body">
+        <!-- HEADER FORM PENYESUAIAN STOK -->
+        <div style="display:grid; grid-template-columns: 1fr 1.3fr; gap:16px; padding:14px; border:1px solid var(--border); border-radius:12px; background:#F8FAFC; margin-bottom:14px;">
+          <div>
+            <div style="display:grid; grid-template-columns: 95px 1fr; gap:8px; align-items:center; margin-bottom:8px;">
+              <label style="font-size:13px; font-weight:600;">Nomor</label>
+              <input type="text" id="adjNomor" readonly style="background:#EFF6FF; font-weight:700; color:var(--blue);">
+            </div>
+            <div style="display:grid; grid-template-columns: 95px 1fr; gap:8px; align-items:center;">
+              <label style="font-size:13px; font-weight:600;">Tanggal</label>
+              <input type="date" id="adjTanggal" style="background:#FEFCE8; font-weight:600;">
+            </div>
+          </div>
+          <div>
+            <label style="font-size:13px; font-weight:600; display:block; margin-bottom:4px;">Keterangan</label>
+            <textarea id="adjKeterangan" rows="2" placeholder="Contoh: Koreksi selisih fisik rak / barang rusak / bonus supplier..."></textarea>
+          </div>
+        </div>
+
+        <!-- PENCARIAN / SCAN BARANG -->
+        <div style="padding:14px; border:1px solid var(--border); border-radius:12px; background:#fff; margin-bottom:14px;">
+          <label style="font-size:12px; font-weight:700; color:var(--blue); display:block; margin-bottom:6px;">Isikan barang-barang yang akan disesuaikan stoknya</label>
+          <div style="display:flex; gap:8px; margin-bottom:12px; flex-wrap:wrap;">
+            <input type="text" id="adjSearchInput" list="catalogDataList" placeholder="Ketik / Scan Kode SKU, Barcode, atau Nama Barang lalu Enter..." onkeydown="if(event.key==='Enter'){ event.preventDefault(); addStockAdjItem(); }" style="flex:1; min-width:240px; background:#FEFCE8;">
+            <button type="button" class="btn btn-green btn-sm" onclick="addStockAdjItem()">&#10133; Tambah</button>
+            <button type="button" class="btn btn-red btn-sm" onclick="clearStockAdjRows()">&#128465; Kosongkan</button>
+          </div>
+
+          <div class="table-responsive" style="max-height:260px; overflow-y:auto;">
+            <table>
+              <thead>
+                <tr style="background:#6D28D9; color:#fff;">
+                  <th style="background:#6D28D9; color:#fff;">Kode#</th>
+                  <th style="background:#6D28D9; color:#fff;">Nama Barang</th>
+                  <th style="background:#6D28D9; color:#fff; text-align:right;">Stok</th>
+                  <th style="background:#6D28D9; color:#fff; width:135px; text-align:right;">Perubahan Kts</th>
+                  <th style="background:#6D28D9; color:#fff;">Satuan</th>
+                  <th style="background:#6D28D9; color:#fff; text-align:right;">Stok Akhir</th>
+                  <th style="background:#6D28D9; color:#fff; width:50px;"></th>
+                </tr>
+              </thead>
+              <tbody id="stockAdjTableBody"></tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- TOMBOL BAWAH: CETAK & SIMPAN -->
+        <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px; border-top:1px solid var(--border); padding-top:12px;">
+          <button type="button" class="btn btn-dark" onclick="printStockAdjustment()">&#128424; Cetak Bukti Penyesuaian</button>
+          <div style="display:flex; gap:8px; flex-wrap:wrap;">
+            <button type="button" class="btn btn-violet" onclick="submitStockAdjustment(true)">&#128190; Simpan &amp; Baru</button>
+            <button type="button" class="btn btn-green" onclick="submitStockAdjustment(false)">&#128190; Simpan</button>
+            <button type="button" class="btn btn-red" onclick="closeModal('stockAdjModal')">&#10006; Batal</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL 6: SET HARGA MASSAL / BERTINGKAT -->
+  <div id="setHargaModal" class="modal-backdrop">
+    <div class="modal-box" style="max-width:900px;">
+      <div class="modal-header">
+        <div>
+          <h3 style="margin:0;">Set Harga Jual Barang</h3>
+          <small style="color:var(--text-muted);">Perbarui harga jual Reguler, Member, atau Tingkat 3–5 dengan tanggal mulai berlaku.</small>
+        </div>
+        <button type="button" class="btn btn-dark btn-sm" onclick="closeModal('setHargaModal')">&#10006; Tutup</button>
+      </div>
+      <div class="modal-body">
+        <div style="display:grid; grid-template-columns: 1fr 1.3fr; gap:16px; padding:14px; border:1px solid var(--border); border-radius:12px; background:#F8FAFC; margin-bottom:14px;">
+          <div>
+            <div style="display:grid; grid-template-columns: 110px 1fr; gap:8px; align-items:center; margin-bottom:8px;">
+              <label style="font-size:13px; font-weight:600;">Nama / No.</label>
+              <input type="text" id="shNama" style="background:#FEFCE8; font-weight:700;">
+            </div>
+            <div style="display:grid; grid-template-columns: 110px 1fr; gap:8px; align-items:center; margin-bottom:8px;">
+              <label style="font-size:13px; font-weight:600;">Untuk Harga</label>
+              <select id="shUntukHarga" onchange="refreshSetHargaOldPrices()">
+                <option value="Reguler">Reguler</option>
+                <option value="Member">Member</option>
+                <option value="Tingkat 3">Tingkat 3</option>
+                <option value="Tingkat 4">Tingkat 4</option>
+                <option value="Tingkat 5">Tingkat 5</option>
+              </select>
+            </div>
+            <div style="display:grid; grid-template-columns: 110px 1fr; gap:8px; align-items:center;">
+              <label style="font-size:13px; font-weight:600;">Mulai Berlaku</label>
+              <input type="date" id="shMulaiBerlaku" style="background:#FEFCE8;">
+            </div>
+          </div>
+          <div>
+            <label style="font-size:13px; font-weight:600; display:block; margin-bottom:4px;">Catatan</label>
+            <textarea id="shCatatan" rows="3" placeholder="Contoh: Penyesuaian harga baru bulan ini / promo akhir pekan..."></textarea>
+          </div>
+        </div>
+
+        <div style="padding:14px; border:1px solid var(--border); border-radius:12px; background:#fff; margin-bottom:14px;">
+          <label style="font-size:12px; font-weight:700; color:var(--blue); display:block; margin-bottom:6px;">Detail harga barang</label>
+          <div style="display:flex; gap:8px; margin-bottom:12px; flex-wrap:wrap;">
+            <input type="text" id="shSearchInput" list="catalogDataList" placeholder="Cari Kode / Barcode / Nama Barang lalu Enter..." onkeydown="if(event.key==='Enter'){ event.preventDefault(); addSetHargaItem(); }" style="flex:1; min-width:220px; background:#FEFCE8;">
+            <button type="button" class="btn btn-green btn-sm" onclick="addSetHargaItem()">&#10133; Tambah Barang</button>
+            <button type="button" class="btn btn-blue btn-sm" onclick="loadCategoryToSetHarga()">&#128193; Muat Semua dari Filter Kategori</button>
+            <button type="button" class="btn btn-red btn-sm" onclick="clearSetHargaRows()">&#128465; Bersihkan</button>
+          </div>
+
+          <div class="table-responsive" style="max-height:260px; overflow-y:auto;">
+            <table>
+              <thead>
+                <tr>
+                  <th style="background:#6D28D9; color:#fff;">Kode #</th>
+                  <th style="background:#6D28D9; color:#fff;">Barang</th>
+                  <th style="background:#6D28D9; color:#fff; text-align:right;">Harga Lama</th>
+                  <th style="background:#6D28D9; color:#fff; width:155px; text-align:right;">Harga Baru (Rp)</th>
+                  <th style="background:#6D28D9; color:#fff; width:50px;"></th>
+                </tr>
+              </thead>
+              <tbody id="setHargaTableBody"></tbody>
+            </table>
+          </div>
+        </div>
+
+        <div style="display:flex; justify-content:flex-end; gap:8px; flex-wrap:wrap; border-top:1px solid var(--border); padding-top:12px;">
+          <button type="button" class="btn btn-violet" onclick="submitSetHarga(true)">&#128190; Simpan &amp; Baru</button>
+          <button type="button" class="btn btn-green" onclick="submitSetHarga(false)">&#128190; Simpan</button>
+          <button type="button" class="btn btn-red" onclick="closeModal('setHargaModal')">&#10006; Batal</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL 7: PENGATURAN KOMISI PENJUALAN -->
+  <div id="komisiModal" class="modal-backdrop">
+    <div class="modal-box" style="max-width:900px;">
+      <div class="modal-header">
+        <div>
+          <h3 style="margin:0;">Pengaturan Komisi Penjualan Produk / Jasa</h3>
+          <small style="color:var(--text-muted);">Atur komisi kasir / sales berdasarkan level komisi dan jenis perhitungan persentase atau nominal.</small>
+        </div>
+        <button type="button" class="btn btn-dark btn-sm" onclick="closeModal('komisiModal')">&#10006; Tutup</button>
+      </div>
+      <div class="modal-body">
+        <div style="display:grid; grid-template-columns: 1fr 1.2fr; gap:16px; padding:14px; border:1px solid var(--border); border-radius:12px; background:#F8FAFC; margin-bottom:14px;">
+          <div>
+            <div style="display:grid; grid-template-columns: 125px 1fr; gap:8px; align-items:center; margin-bottom:8px;">
+              <label style="font-size:13px; font-weight:600;">Nama Komisi</label>
+              <input type="text" id="komNama" placeholder="Contoh: Komisi Sales Q4" style="background:#FEFCE8;">
+            </div>
+            <div style="display:grid; grid-template-columns: 125px 1fr; gap:8px; align-items:center; margin-bottom:8px;">
+              <label style="font-size:13px; font-weight:600;">Level Komisi</label>
+              <select id="komLevel">
+                <option value="1">1 - Kasir / Pramuniaga</option>
+                <option value="2">2 - Senior Sales</option>
+                <option value="3">3 - Supervisor / Kepala Toko</option>
+                <option value="4">4 - Sales Kanvas / Luar</option>
+                <option value="5">5 - Mitra / Reseller</option>
+              </select>
+            </div>
+            <div style="display:grid; grid-template-columns: 125px 1fr; gap:8px; align-items:center; margin-bottom:8px;">
+              <label style="font-size:13px; font-weight:600;">Tanggal Berlaku</label>
+              <input type="date" id="komTanggal" style="background:#FEFCE8;">
+            </div>
+            <div style="display:grid; grid-template-columns: 125px 1fr; gap:8px; align-items:center;">
+              <label style="font-size:13px; font-weight:600;">Jenis Perhitungan</label>
+              <select id="komJenis" onchange="updateKomisiTableHeader()">
+                <option value="Persentase">Persentase (%)</option>
+                <option value="Nominal">Nominal (Rp / Pcs)</option>
+              </select>
+            </div>
+          </div>
+          <div>
+            <label style="font-size:13px; font-weight:600; display:block; margin-bottom:4px;">Catatan</label>
+            <textarea id="komCatatan" rows="5" placeholder="Keterangan syarat pencapaian komisi..."></textarea>
+          </div>
+        </div>
+
+        <div style="padding:14px; border:1px solid var(--border); border-radius:12px; background:#fff; margin-bottom:14px;">
+          <label style="font-size:12px; font-weight:700; color:var(--blue); display:block; margin-bottom:6px;">Rincian Produk/Jasa yang mendapatkan komisi</label>
+          <div style="display:flex; gap:8px; margin-bottom:12px; flex-wrap:wrap;">
+            <input type="text" id="komSearchInput" list="catalogDataList" placeholder="< Kode / Cari Barang > lalu Enter..." onkeydown="if(event.key==='Enter'){ event.preventDefault(); addKomisiItem(); }" style="flex:1; min-width:240px; background:#FEFCE8;">
+            <button type="button" class="btn btn-green btn-sm" onclick="addKomisiItem()">&#10133; Tambah Produk</button>
+            <button type="button" class="btn btn-red btn-sm" onclick="clearKomisiRows()">&#128465; Bersihkan</button>
+          </div>
+
+          <div class="table-responsive" style="max-height:240px; overflow-y:auto;">
+            <table>
+              <thead>
+                <tr>
+                  <th style="background:#6D28D9; color:#fff;">Kode #</th>
+                  <th style="background:#6D28D9; color:#fff;">Nama Barang</th>
+                  <th style="background:#6D28D9; color:#fff; text-align:right;">Harga</th>
+                  <th style="background:#6D28D9; color:#fff; text-align:right;">Komisi Lama</th>
+                  <th style="background:#6D28D9; color:#fff; width:155px; text-align:right;" id="komBaruColHeader">Komisi Baru (%)</th>
+                  <th style="background:#6D28D9; color:#fff; width:50px;"></th>
+                </tr>
+              </thead>
+              <tbody id="komisiTableBody"></tbody>
+            </table>
+          </div>
+        </div>
+
+        <div style="display:flex; justify-content:flex-end; gap:8px; flex-wrap:wrap; border-top:1px solid var(--border); padding-top:12px;">
+          <button type="button" class="btn btn-violet" onclick="submitKomisi(true)">&#128190; Simpan &amp; Baru</button>
+          <button type="button" class="btn btn-green" onclick="submitKomisi(false)">&#128190; Simpan</button>
+          <button type="button" class="btn btn-red" onclick="closeModal('komisiModal')">&#10006; Batal</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL 8: BUAT PROMO OTOMATIS (TIERED / BUNDLING / PWP) -->
+  <div id="promoModal" class="modal-backdrop">
+    <div class="modal-box" style="max-width:820px;">
+      <div class="modal-header">
+        <div>
+          <h3 style="margin:0;">Buat Promo Otomatis (Tiered / Bundling / PWP)</h3>
+          <small style="color:var(--text-muted);">Atur diskon otomatis, harga grosir bertingkat, paket bundling, atau tebus murah PWP di kasir.</small>
+        </div>
+        <button type="button" class="btn btn-dark btn-sm" onclick="closeModal('promoModal')">&#10006; Tutup</button>
+      </div>
+      <div class="modal-body">
+        <div class="form-row">
+          <div>
+            <label style="font-size:12px; font-weight:600; display:block; margin-bottom:4px;">Jenis Promo</label>
+            <select id="prmJenis">
+              <option value="DISCOUNT">DISCOUNT - Potongan Langsung</option>
+              <option value="TIERED">TIERED - Harga Grosir Bertingkat</option>
+              <option value="BUNDLING">BUNDLING - Paket Mix &amp; Match</option>
+              <option value="PWP">PWP - Tebus Murah</option>
+            </select>
+          </div>
+          <div>
+            <label style="font-size:12px; font-weight:600; display:block; margin-bottom:4px;">Barcode Syarat</label>
+            <input type="text" id="prmBarcodeSyarat" list="catalogDataList" placeholder="Barcode / SKU Syarat">
+          </div>
+          <div>
+            <label style="font-size:12px; font-weight:600; display:block; margin-bottom:4px;">Min Qty / Min Belanja</label>
+            <input type="number" id="prmMinQty" placeholder="Min Qty / Min Belanja" value="1" min="1">
+          </div>
+        </div>
+        <div class="form-row">
+          <div>
+            <label style="font-size:12px; font-weight:600; display:block; margin-bottom:4px;">Barcode Hadiah (Khusus PWP)</label>
+            <input type="text" id="prmBarcodeHadiah" list="catalogDataList" placeholder="Barcode Hadiah (Opsional)">
+          </div>
+          <div>
+            <label style="font-size:12px; font-weight:600; display:block; margin-bottom:4px;">Harga Promo / Potongan (Rp)</label>
+            <input type="number" id="prmHarga" placeholder="Nominal Harga / Potongan (Rp)">
+          </div>
+          <div>
+            <label style="font-size:12px; font-weight:600; display:block; margin-bottom:4px;">Tanggal Mulai</label>
+            <input type="date" id="prmMulai">
+          </div>
+        </div>
+        <div class="form-row">
+          <div>
+            <label style="font-size:12px; font-weight:600; display:block; margin-bottom:4px;">Tanggal Selesai</label>
+            <input type="date" id="prmSelesai">
+          </div>
+          <div></div>
+          <div style="display:flex; align-items:flex-end; justify-content:flex-end; gap:8px;">
+            <button type="button" class="btn btn-violet" onclick="submitPromo()">&#128190; Simpan Promo</button>
+            <button type="button" class="btn btn-red" onclick="closeModal('promoModal')">&#10006; Batal</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- DATALIST AUTOCOMPLETE KATALOG BARANG UNTUK SEMUA MODAL -->
+  <datalist id="catalogDataList"></datalist>
+
   <!-- AREA KHUSUS CETAK -->
   <div id="priceTagPrintArea"></div>
   <div id="barcodeStickerPrintArea"></div>
+  <div id="stockAdjPrintArea"></div>
 
   <script>
     const dEl = document.getElementById('topbarTodayDate');

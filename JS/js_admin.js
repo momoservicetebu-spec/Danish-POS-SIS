@@ -1,13 +1,33 @@
-// JS/js_admin.js - Logika Backoffice & Admin SIS v3.5 (Enterprise Edition + Modal Kategori & Master Barang)
+// JS/js_admin.js - Logika Backoffice & Admin SIS v3.5 (Enterprise Edition + Modal Penyesuaian Stok, Set Harga, Komisi & Promo)
 let PENDING_TAGS_CACHE = [];
 let MASTER_PRODUCTS_CACHE = [];
 let SELECTED_BARCODE_SKUS = new Set();
 let LAST_SALES_REPORT_CACHE = null;
 let cachedCategories = [];
 
+// State untuk Modal Penyesuaian Stok, Set Harga, dan Komisi
+let STOCK_ADJ_ROWS = [];
+let SET_HARGA_ROWS = [];
+let KOMISI_ROWS = [];
+
 if (SESSION) {
   document.getElementById('storeTitle').textContent = `${SESSION.store.namaToko} (${SESSION.store.kodeToko})`;
   document.getElementById('userBadge').textContent = `${SESSION.user.nama} [${SESSION.user.role}]`;
+}
+
+function getTodayIsoDate() {
+  const now = new Date();
+  const y = now.getFullYear();
+  const m = String(now.getMonth() + 1).padStart(2, '0');
+  const d = String(now.getDate()).padStart(2, '0');
+  return `${y}-${m}-${d}`;
+}
+
+function formatIndoDate(isoStr) {
+  if (!isoStr) return '-';
+  const parts = isoStr.split('-');
+  if (parts.length !== 3) return isoStr;
+  return `${parts[2]}/${parts[1]}/${parts[0]}`;
 }
 
 // === KONTROL SIDEBAR RESPONSIF ===
@@ -422,6 +442,30 @@ function printPendingPriceTags() {
 }
 
 // =========================================================
+// HELPER PENCARIAN BARANG DI KATALOG CACHE
+// =========================================================
+function populateCatalogDataList() {
+  const dl = document.getElementById('catalogDataList');
+  if (!dl) return;
+  dl.innerHTML = MASTER_PRODUCTS_CACHE.map(p => {
+    const primaryBc = String(p.barcode || p.sku).split(',')[0].trim();
+    return `<option value="${p.sku}">${p.nama} (BC: ${primaryBc} | Stok: ${p.stokTerkini != null ? p.stokTerkini : (p.saldoAwal || 0)})</option>`;
+  }).join('');
+}
+
+function findCatalogProduct(query) {
+  const q = String(query || '').trim().toLowerCase();
+  if (!q) return null;
+  return MASTER_PRODUCTS_CACHE.find(p => {
+    const barcodes = String(p.barcode || '').split(',').map(b => b.trim().toLowerCase());
+    return p.sku.toLowerCase() === q ||
+           barcodes.includes(q) ||
+           p.nama.toLowerCase() === q ||
+           p.nama.toLowerCase().includes(q);
+  }) || null;
+}
+
+// =========================================================
 // MODAL & LOGIKA MASTER KATEGORI BARANG
 // =========================================================
 function openCategoryModal() {
@@ -576,6 +620,7 @@ function renderProductImagePreview(url) {
 function loadMasterCatalog() {
   callAdminApi('admin/products', {}, items => {
     MASTER_PRODUCTS_CACHE = items || [];
+    populateCatalogDataList();
     filterMasterCatalog();
   }, 'Memuat Katalog Barang...');
 }
@@ -852,20 +897,477 @@ function submitProduct(isSaveAndNew) {
   }, 'Menyimpan Master Barang...');
 }
 
+// =========================================================
+// MODAL 5: PENYESUAIAN STOK (DENGAN TANGGAL & CETAK BUKTI)
+// =========================================================
+function generateAdjNumber() {
+  const rand = String(Math.floor(10000 + Math.random() * 90000));
+  return 'ADJ-' + getTodayIsoDate().replace(/-/g, '') + '-' + rand.slice(0, 3);
+}
+
+function openStockAdjModal() {
+  resetStockAdjForm();
+  document.getElementById('stockAdjModal').classList.add('open');
+  setTimeout(() => document.getElementById('adjSearchInput').focus(), 100);
+}
+
+function resetStockAdjForm() {
+  document.getElementById('adjNomor').value = generateAdjNumber();
+  document.getElementById('adjTanggal').value = getTodayIsoDate();
+  document.getElementById('adjKeterangan').value = '';
+  document.getElementById('adjSearchInput').value = '';
+  STOCK_ADJ_ROWS = [];
+  renderStockAdjTable();
+}
+
+function clearStockAdjRows() {
+  STOCK_ADJ_ROWS = [];
+  renderStockAdjTable();
+}
+
+function addStockAdjItem() {
+  const inp = document.getElementById('adjSearchInput');
+  const prod = findCatalogProduct(inp.value);
+  if (!prod) {
+    alert('Barang tidak ditemukan di katalog! Pastikan SKU / Barcode / Nama benar.');
+    inp.focus();
+    return;
+  }
+
+  const existing = STOCK_ADJ_ROWS.find(r => r.sku === prod.sku);
+  if (existing) {
+    existing.perubahan += 1;
+  } else {
+    const curStock = prod.stokTerkini != null ? Number(prod.stokTerkini) : (Number(prod.saldoAwal) || 0);
+    STOCK_ADJ_ROWS.push({
+      sku: prod.sku,
+      nama: prod.nama,
+      stokAwal: curStock,
+      perubahan: 0,
+      satuan: prod.satuan || 'PCS'
+    });
+  }
+  inp.value = '';
+  renderStockAdjTable();
+}
+
+function updateStockAdjQty(idx, val) {
+  const delta = Number(val) || 0;
+  STOCK_ADJ_ROWS[idx].perubahan = delta;
+  const endEl = document.getElementById('adj-end-' + idx);
+  if (endEl) {
+    const stokAkhir = STOCK_ADJ_ROWS[idx].stokAwal + delta;
+    endEl.textContent = stokAkhir;
+    endEl.style.color = stokAkhir < 0 ? 'var(--red)' : 'var(--text-main)';
+  }
+}
+
+function removeStockAdjRow(idx) {
+  STOCK_ADJ_ROWS.splice(idx, 1);
+  renderStockAdjTable();
+}
+
+function renderStockAdjTable() {
+  const tbody = document.getElementById('stockAdjTableBody');
+  if (!tbody) return;
+  if (STOCK_ADJ_ROWS.length === 0) {
+    tbody.innerHTML = '<tr><td colspan="7" style="text-align:center; color:var(--text-muted); padding:24px;">Belum ada barang dipilih. Ketik atau scan SKU/Barcode di atas.</td></tr>';
+    return;
+  }
+  tbody.innerHTML = STOCK_ADJ_ROWS.map((r, idx) => {
+    const stokAkhir = r.stokAwal + r.perubahan;
+    return `
+      <tr>
+        <td><strong>${r.sku}</strong></td>
+        <td>${r.nama}</td>
+        <td style="text-align:right; background:#F8FAFC;">${r.stokAwal}</td>
+        <td style="text-align:right;">
+          <input type="number" value="${r.perubahan}" onchange="updateStockAdjQty(${idx}, this.value)" oninput="updateStockAdjQty(${idx}, this.value)" style="width:110px; text-align:right; font-weight:700; border-color:var(--blue);" placeholder="+/- 0">
+        </td>
+        <td>${r.satuan}</td>
+        <td id="adj-end-${idx}" style="text-align:right; font-weight:800; background:#F8FAFC; color:${stokAkhir < 0 ? 'var(--red)' : 'var(--text-main)'};">${stokAkhir}</td>
+        <td><button type="button" class="btn btn-red btn-sm" onclick="removeStockAdjRow(${idx})">&#10006;</button></td>
+      </tr>
+    `;
+  }).join('');
+}
+
+function printStockAdjustment() {
+  if (STOCK_ADJ_ROWS.length === 0) {
+    return alert('Tambahkan minimal satu barang terlebih dahulu sebelum mencetak bukti penyesuaian stok.');
+  }
+  const nomor = document.getElementById('adjNomor').value;
+  const tanggal = formatIndoDate(document.getElementById('adjTanggal').value);
+  const ket = document.getElementById('adjKeterangan').value.trim() || '-';
+  const area = document.getElementById('stockAdjPrintArea');
+
+  area.innerHTML = `
+    <div style="font-family:sans-serif; color:#000; max-width:800px; margin:0 auto;">
+      <div style="display:flex; justify-content:space-between; border-bottom:2px solid #000; padding-bottom:8px; margin-bottom:12px;">
+        <div>
+          <strong style="font-size:16px;">${SESSION ? SESSION.store.namaToko : 'TOKO'}</strong><br>
+          <span style="font-size:12px;">BUKTI DOKUMEN PENYESUAIAN STOK (STOCK ADJUSTMENT)</span>
+        </div>
+        <div style="text-align:right; font-size:12px;">
+          <div><strong>No. Dokumen:</strong> ${nomor}</div>
+          <div><strong>Tanggal Penyesuaian:</strong> ${tanggal}</div>
+          <div><strong>Petugas:</strong> ${SESSION ? SESSION.user.nama : '-'}</div>
+        </div>
+      </div>
+      <div style="font-size:12px; margin-bottom:12px;">
+        <strong>Keterangan:</strong> ${ket}
+      </div>
+      <table style="width:100%; border-collapse:collapse; font-size:12px; margin-bottom:24px;">
+        <thead>
+          <tr>
+            <th style="border:1px solid #000; padding:6px; text-align:left;">No</th>
+            <th style="border:1px solid #000; padding:6px; text-align:left;">Kode#</th>
+            <th style="border:1px solid #000; padding:6px; text-align:left;">Nama Barang</th>
+            <th style="border:1px solid #000; padding:6px; text-align:right;">Stok Sistem</th>
+            <th style="border:1px solid #000; padding:6px; text-align:right;">Perubahan Kts</th>
+            <th style="border:1px solid #000; padding:6px; text-align:left;">Satuan</th>
+            <th style="border:1px solid #000; padding:6px; text-align:right;">Stok Akhir</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${STOCK_ADJ_ROWS.map((r, i) => `
+            <tr>
+              <td style="border:1px solid #000; padding:6px;">${i + 1}</td>
+              <td style="border:1px solid #000; padding:6px;">${r.sku}</td>
+              <td style="border:1px solid #000; padding:6px;">${r.nama}</td>
+              <td style="border:1px solid #000; padding:6px; text-align:right;">${r.stokAwal}</td>
+              <td style="border:1px solid #000; padding:6px; text-align:right; font-weight:bold;">${r.perubahan > 0 ? '+' + r.perubahan : r.perubahan}</td>
+              <td style="border:1px solid #000; padding:6px;">${r.satuan}</td>
+              <td style="border:1px solid #000; padding:6px; text-align:right; font-weight:bold;">${r.stokAwal + r.perubahan}</td>
+            </tr>
+          `).join('')}
+        </tbody>
+      </table>
+      <div style="display:flex; justify-content:space-between; font-size:12px; margin-top:32px; text-align:center;">
+        <div style="width:30%;">Dibuat Oleh,<br><br><br>( ${SESSION ? SESSION.user.nama : 'Admin'} )</div>
+        <div style="width:30%;">Diperiksa Gudang,<br><br><br>( ........................... )</div>
+        <div style="width:30%;">Disetujui Kepala Toko,<br><br><br>( ........................... )</div>
+      </div>
+    </div>
+  `;
+
+  area.classList.add('printing');
+  window.print();
+  area.classList.remove('printing');
+}
+
+function submitStockAdjustment(isSaveAndNew) {
+  const nomor = document.getElementById('adjNomor').value.trim();
+  const tanggal = document.getElementById('adjTanggal').value;
+  const keterangan = document.getElementById('adjKeterangan').value.trim();
+
+  if (!tanggal) return alert('Tanggal penyesuaian stok wajib diisi.');
+  if (STOCK_ADJ_ROWS.length === 0) return alert('Isikan minimal 1 barang yang akan disesuaikan stoknya.');
+
+  const validItems = STOCK_ADJ_ROWS.filter(r => r.perubahan !== 0);
+  if (validItems.length === 0) return alert('Isi nilai Perubahan Kts (+ atau -) minimal pada satu barang.');
+
+  const payload = {
+    nomor,
+    tanggal,
+    keterangan,
+    items: validItems.map(r => ({
+      sku: r.sku,
+      nama: r.nama,
+      stokLama: r.stokAwal,
+      perubahanQty: r.perubahan,
+      stokAkhir: r.stokAwal + r.perubahan,
+      satuan: r.satuan
+    }))
+  };
+
+  callAdminApi('inventory/stock-adjustment', payload, res => {
+    loadMasterCatalog();
+    if (confirm((res.message || 'Penyesuaian stok berhasil disimpan.') + '\n\nApakah Anda ingin mencetak bukti penyesuaian stok sekarang?')) {
+      printStockAdjustment();
+    }
+    if (isSaveAndNew) {
+      resetStockAdjForm();
+      document.getElementById('adjSearchInput').focus();
+    } else {
+      closeModal('stockAdjModal');
+    }
+  }, 'Menyimpan Penyesuaian Stok...');
+}
+
+// =========================================================
+// MODAL 6: SET HARGA MASSAL / BERTINGKAT
+// =========================================================
+function openSetHargaModal() {
+  resetSetHargaForm();
+  document.getElementById('setHargaModal').classList.add('open');
+  setTimeout(() => document.getElementById('shSearchInput').focus(), 100);
+}
+
+function resetSetHargaForm() {
+  document.getElementById('shNama').value = 'PRC-' + getTodayIsoDate().replace(/-/g, '');
+  document.getElementById('shUntukHarga').value = 'Reguler';
+  document.getElementById('shMulaiBerlaku').value = getTodayIsoDate();
+  document.getElementById('shCatatan').value = '';
+  document.getElementById('shSearchInput').value = '';
+  SET_HARGA_ROWS = [];
+  renderSetHargaTable();
+}
+
+function clearSetHargaRows() {
+  SET_HARGA_ROWS = [];
+  renderSetHargaTable();
+}
+
+function getPriceByTier(prod, tier) {
+  if (tier === 'Member') return Number(prod.hargaMember) || 0;
+  if (tier === 'Tingkat 3') return Number(prod.hargaTingkat3) || 0;
+  if (tier === 'Tingkat 4') return Number(prod.hargaTingkat4) || 0;
+  if (tier === 'Tingkat 5') return Number(prod.hargaTingkat5) || 0;
+  return Number(prod.hargaJual) || 0;
+}
+
+function addSetHargaItem() {
+  const inp = document.getElementById('shSearchInput');
+  const prod = findCatalogProduct(inp.value);
+  if (!prod) {
+    alert('Barang tidak ditemukan di katalog!');
+    inp.focus();
+    return;
+  }
+  const tier = document.getElementById('shUntukHarga').value;
+  if (!SET_HARGA_ROWS.some(r => r.sku === prod.sku)) {
+    const oldPrice = getPriceByTier(prod, tier);
+    SET_HARGA_ROWS.push({
+      sku: prod.sku,
+      nama: prod.nama,
+      hargaLama: oldPrice,
+      hargaBaru: oldPrice
+    });
+  }
+  inp.value = '';
+  renderSetHargaTable();
+}
+
+function loadCategoryToSetHarga() {
+  const cat = document.getElementById('masterCategoryFilter')?.value || '';
+  const tier = document.getElementById('shUntukHarga').value;
+  const list = MASTER_PRODUCTS_CACHE.filter(p => !cat || p.kategori === cat);
+  if (list.length === 0) return alert('Tidak ada barang pada kategori terpilih.');
+  list.forEach(prod => {
+    if (!SET_HARGA_ROWS.some(r => r.sku === prod.sku)) {
+      const oldPrice = getPriceByTier(prod, tier);
+      SET_HARGA_ROWS.push({ sku: prod.sku, nama: prod.nama, hargaLama: oldPrice, hargaBaru: oldPrice });
+    }
+  });
+  renderSetHargaTable();
+}
+
+function refreshSetHargaOldPrices() {
+  const tier = document.getElementById('shUntukHarga').value;
+  SET_HARGA_ROWS.forEach(r => {
+    const prod = MASTER_PRODUCTS_CACHE.find(p => p.sku === r.sku);
+    if (prod) {
+      r.hargaLama = getPriceByTier(prod, tier);
+      r.hargaBaru = r.hargaLama;
+    }
+  });
+  renderSetHargaTable();
+}
+
+function updateSetHargaNewVal(idx, val) {
+  SET_HARGA_ROWS[idx].hargaBaru = Number(val) || 0;
+}
+
+function removeSetHargaRow(idx) {
+  SET_HARGA_ROWS.splice(idx, 1);
+  renderSetHargaTable();
+}
+
+function renderSetHargaTable() {
+  const tbody = document.getElementById('setHargaTableBody');
+  if (!tbody) return;
+  if (SET_HARGA_ROWS.length === 0) {
+    tbody.innerHTML = '<tr><td colspan="5" style="text-align:center; color:var(--text-muted); padding:24px;">Belum ada barang dipilih untuk perubahan harga.</td></tr>';
+    return;
+  }
+  tbody.innerHTML = SET_HARGA_ROWS.map((r, idx) => `
+    <tr>
+      <td><strong>${r.sku}</strong></td>
+      <td>${r.nama}</td>
+      <td style="text-align:right; background:#F8FAFC;">Rp ${r.hargaLama.toLocaleString('id-ID')}</td>
+      <td style="text-align:right;">
+        <input type="number" min="0" value="${r.hargaBaru}" onchange="updateSetHargaNewVal(${idx}, this.value)" style="width:130px; text-align:right; font-weight:700; border-color:var(--primary);">
+      </td>
+      <td><button type="button" class="btn btn-red btn-sm" onclick="removeSetHargaRow(${idx})">&#10006;</button></td>
+    </tr>
+  `).join('');
+}
+
+function submitSetHarga(isSaveAndNew) {
+  const namaDokumen = document.getElementById('shNama').value.trim();
+  const untukHarga = document.getElementById('shUntukHarga').value;
+  const mulaiBerlaku = document.getElementById('shMulaiBerlaku').value;
+  const catatan = document.getElementById('shCatatan').value.trim();
+
+  if (SET_HARGA_ROWS.length === 0) return alert('Tambahkan minimal satu barang dalam daftar Set Harga.');
+
+  callAdminApi('admin/save-bulk-price', {
+    namaDokumen,
+    untukHarga,
+    mulaiBerlaku,
+    catatan,
+    items: SET_HARGA_ROWS
+  }, res => {
+    loadMasterCatalog();
+    if (isSaveAndNew) {
+      resetSetHargaForm();
+    } else {
+      closeModal('setHargaModal');
+      alert(res.message || 'Set harga berhasil disimpan.');
+    }
+  }, 'Menyimpan Perubahan Harga...');
+}
+
+// =========================================================
+// MODAL 7: PENGATURAN KOMISI PENJUALAN
+// =========================================================
+function openKomisiModal() {
+  resetKomisiForm();
+  document.getElementById('komisiModal').classList.add('open');
+  setTimeout(() => document.getElementById('komNama').focus(), 100);
+}
+
+function resetKomisiForm() {
+  document.getElementById('komNama').value = '';
+  document.getElementById('komLevel').value = '1';
+  document.getElementById('komTanggal').value = getTodayIsoDate();
+  document.getElementById('komJenis').value = 'Persentase';
+  document.getElementById('komCatatan').value = '';
+  document.getElementById('komSearchInput').value = '';
+  KOMISI_ROWS = [];
+  updateKomisiTableHeader();
+  renderKomisiTable();
+}
+
+function clearKomisiRows() {
+  KOMISI_ROWS = [];
+  renderKomisiTable();
+}
+
+function updateKomisiTableHeader() {
+  const jenis = document.getElementById('komJenis').value;
+  const th = document.getElementById('komBaruColHeader');
+  if (th) th.textContent = jenis === 'Persentase' ? 'Komisi Baru (%)' : 'Komisi Baru (Rp)';
+}
+
+function addKomisiItem() {
+  const inp = document.getElementById('komSearchInput');
+  const prod = findCatalogProduct(inp.value);
+  if (!prod) {
+    alert('Produk/Jasa tidak ditemukan di katalog!');
+    inp.focus();
+    return;
+  }
+  if (!KOMISI_ROWS.some(r => r.sku === prod.sku)) {
+    KOMISI_ROWS.push({
+      sku: prod.sku,
+      nama: prod.nama,
+      harga: Number(prod.hargaJual) || 0,
+      komisiLama: Number(prod.komisiVal) || 0,
+      komisiBaru: 0
+    });
+  }
+  inp.value = '';
+  renderKomisiTable();
+}
+
+function updateKomisiNewVal(idx, val) {
+  KOMISI_ROWS[idx].komisiBaru = Number(val) || 0;
+}
+
+function removeKomisiRow(idx) {
+  KOMISI_ROWS.splice(idx, 1);
+  renderKomisiTable();
+}
+
+function renderKomisiTable() {
+  const tbody = document.getElementById('komisiTableBody');
+  if (!tbody) return;
+  if (KOMISI_ROWS.length === 0) {
+    tbody.innerHTML = '<tr><td colspan="6" style="text-align:center; color:var(--text-muted); padding:24px;">Belum ada produk/jasa yang dipilih untuk pengaturan komisi.</td></tr>';
+    return;
+  }
+  tbody.innerHTML = KOMISI_ROWS.map((r, idx) => `
+    <tr>
+      <td><strong>${r.sku}</strong></td>
+      <td>${r.nama}</td>
+      <td style="text-align:right; background:#F8FAFC;">Rp ${r.harga.toLocaleString('id-ID')}</td>
+      <td style="text-align:right; background:#F8FAFC;">${r.komisiLama}</td>
+      <td style="text-align:right;">
+        <input type="number" min="0" step="0.1" value="${r.komisiBaru}" onchange="updateKomisiNewVal(${idx}, this.value)" style="width:125px; text-align:right; font-weight:700; border-color:var(--violet);">
+      </td>
+      <td><button type="button" class="btn btn-red btn-sm" onclick="removeKomisiRow(${idx})">&#10006;</button></td>
+    </tr>
+  `).join('');
+}
+
+function submitKomisi(isSaveAndNew) {
+  const namaKomisi = document.getElementById('komNama').value.trim();
+  const levelKomisi = document.getElementById('komLevel').value;
+  const tanggalBerlaku = document.getElementById('komTanggal').value;
+  const jenisPerhitungan = document.getElementById('komJenis').value;
+  const catatan = document.getElementById('komCatatan').value.trim();
+
+  if (!namaKomisi) return alert('Nama Komisi wajib diisi!');
+  if (KOMISI_ROWS.length === 0) return alert('Tambahkan minimal satu produk/jasa yang mendapatkan komisi.');
+
+  callAdminApi('admin/save-commission', {
+    namaKomisi,
+    levelKomisi,
+    tanggalBerlaku,
+    jenisPerhitungan,
+    catatan,
+    items: KOMISI_ROWS
+  }, res => {
+    if (isSaveAndNew) {
+      resetKomisiForm();
+    } else {
+      closeModal('komisiModal');
+      alert(res.message || 'Pengaturan komisi berhasil disimpan.');
+    }
+  }, 'Menyimpan Aturan Komisi...');
+}
+
+// =========================================================
+// MODAL 8: PROMO OTOMATIS (TIERED / BUNDLING / PWP)
+// =========================================================
+function openPromoModal() {
+  document.getElementById('prmBarcodeSyarat').value = '';
+  document.getElementById('prmMinQty').value = 1;
+  document.getElementById('prmBarcodeHadiah').value = '';
+  document.getElementById('prmHarga').value = '';
+  document.getElementById('prmMulai').value = getTodayIsoDate();
+  document.getElementById('prmSelesai').value = '';
+  document.getElementById('promoModal').classList.add('open');
+  setTimeout(() => document.getElementById('prmBarcodeSyarat').focus(), 100);
+}
+
 function submitPromo() {
   const payload = {
     jenisPromo: document.getElementById('prmJenis').value,
-    barcodeSyarat: document.getElementById('prmBarcodeSyarat').value,
+    barcodeSyarat: document.getElementById('prmBarcodeSyarat').value.trim(),
     minQty: Number(document.getElementById('prmMinQty').value) || 1,
-    barcodeHadiah: document.getElementById('prmBarcodeHadiah').value,
+    barcodeHadiah: document.getElementById('prmBarcodeHadiah').value.trim(),
     hargaPromo: Number(document.getElementById('prmHarga').value) || 0,
     tglMulai: document.getElementById('prmMulai').value,
     tglSelesai: document.getElementById('prmSelesai').value
   };
+  if (!payload.barcodeSyarat) return alert('Barcode / SKU Syarat wajib diisi.');
+
   callAdminApi('admin/save-promo', payload, res => {
+    closeModal('promoModal');
     alert(res.message);
-    document.getElementById('prmBarcodeSyarat').value = '';
-    document.getElementById('prmHarga').value = '';
   }, 'Menyimpan Aturan Promo...');
 }
 
@@ -1020,7 +1522,7 @@ function paySupplierDebtModal(supplierId, supplierName, curDebt) {
 
 // === LAPORAN PENJUALAN, LABA RUGI & EKSPOR EXCEL/PDF ===
 function initAndLoadReport() {
-  const today = new Date().toISOString().slice(0, 10);
+  const today = getTodayIsoDate();
   const startEl = document.getElementById('repStartDate');
   const endEl = document.getElementById('repEndDate');
   if (startEl && !startEl.value) startEl.value = today;
