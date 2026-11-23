@@ -655,7 +655,25 @@
         </div>
       </div>
 
-      <!-- TAB 4: GUDANG LPB, NRB & MUTASI -->
+      <!-- TAB 4: GUDANG LPB, NRB & MUTASI (SEMUA FORM DI DALAM BUTTON / MODAL) -->
+      <div id="tab-gudang" class="section">
+        <div class="card" style="margin-bottom: 16px;">
+          <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:12px; margin-bottom:12px;">
+            <div>
+              <h3 style="margin:0;">Gudang, Pemasok, Mutasi &amp; Konversi Satuan</h3>
+              <small style="color:var(--text-muted);">Pilih tombol modul di bawah untuk membuka formulir Pemasok, Penerimaan Barang, LPB/NRB/Mutasi, atau Pecah Kemasan (Repack).</small>
+            </div>
+          </div>
+
+          <div style="display:flex; gap:8px; flex-wrap:wrap;">
+            <button type="button" class="btn btn-blue" onclick="openPemasokModal()">&#10133; Tambah Pemasok</button>
+            <button type="button" class="btn btn-green" onclick="openPenerimaanBarangModal()">&#128229; Penerimaan Barang (Multi-Item)</button>
+            <button type="button" class="btn btn-amber" onclick="openGudangDocModal()">&#128230; LPB / NRB / Mutasi Toko</button>
+            <button type="button" class="btn btn-violet" onclick="openRepackModal()">&#128260; Pecah Kemasan (Repack)</button>
+          </div>
+        </div>
+      </div>
+
       <div id="tab-gudang" class="section">
         <div class="card" style="margin-bottom: 16px;">
           <h3 style="margin-top:0;">Input Penerimaan (LPB) / Retur Rusak (NRB) / Mutasi Antar Toko</h3>
@@ -1666,6 +1684,107 @@
         </div>
       </div>
     </div>
+
+    <!-- MODAL 13: INPUT LPB / NRB / MUTASI ANTAR TOKO -->
+  <div id="gudangDocModal" class="modal-backdrop">
+    <div class="modal-box" style="max-width:760px;">
+      <div class="modal-header">
+        <div>
+          <h3 style="margin:0;">Input Penerimaan (LPB) / Retur Rusak (NRB) / Mutasi Antar Toko</h3>
+          <small style="color:var(--text-muted);">Pencatatan mutasi keluar-masuk barang dan tanggal kedaluwarsa (FEFO).</small>
+        </div>
+        <button type="button" class="btn btn-dark btn-sm" onclick="closeModal('gudangDocModal')">&#10006; Tutup</button>
+      </div>
+      <div class="modal-body">
+        <div class="form-row">
+          <div>
+            <label style="font-size:12px; font-weight:600; display:block; margin-bottom:4px;">Jenis Dokumen</label>
+            <select id="docTipe">
+              <option value="LPB">LPB - Penerimaan Barang Masuk</option>
+              <option value="NRB">NRB - Retur Barang Rusak / Kedaluwarsa</option>
+              <option value="MUTASI_OUT">Mutasi Keluar Antar Toko (Transfer Out)</option>
+              <option value="MUTASI_IN">Mutasi Masuk Antar Toko (Transfer In)</option>
+            </select>
+          </div>
+          <div>
+            <label style="font-size:12px; font-weight:600; display:block; margin-bottom:4px;">Asal / Tujuan</label>
+            <input type="text" id="docAsal" autocomplete="off" placeholder="Asal Gudang / Supplier / Kode Toko">
+          </div>
+          <div>
+            <label style="font-size:12px; font-weight:600; display:block; margin-bottom:4px;">PIN Supervisor</label>
+            <input type="password" id="docPin" autocomplete="new-password" placeholder="PIN (Jika Pramuniaga)">
+          </div>
+        </div>
+        <div class="form-row">
+          <div>
+            <label style="font-size:12px; font-weight:600; display:block; margin-bottom:4px;">Kode SKU / Barcode</label>
+            <input type="text" id="docSku" list="catalogDataList" autocomplete="off" placeholder="Kode SKU (misal: SKU-1001)">
+          </div>
+          <div>
+            <label style="font-size:12px; font-weight:600; display:block; margin-bottom:4px;">Jumlah Fisik Pcs (Qty)</label>
+            <input type="number" id="docQty" placeholder="Jumlah Fisik Pcs (Qty)">
+          </div>
+          <div>
+            <label style="font-size:12px; font-weight:600; display:block; margin-bottom:4px;">Tanggal Kedaluwarsa (FEFO)</label>
+            <input type="date" id="docExpired" title="Tanggal Kedaluwarsa (FEFO)">
+          </div>
+        </div>
+        <div style="display:flex; justify-content:flex-end; gap:8px; margin-top:12px; border-top:1px solid var(--border); padding-top:12px;">
+          <button type="button" class="btn btn-green" onclick="submitGudangDoc()">&#128190; Simpan &amp; Proses Stok</button>
+          <button type="button" class="btn btn-red" onclick="closeModal('gudangDocModal')">&#10006; Batal</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL 14: PECAH KEMASAN / KONVERSI SATUAN BERTINGKAT (REPACK) -->
+  <div id="repackModal" class="modal-backdrop">
+    <div class="modal-box" style="max-width:760px;">
+      <div class="modal-header">
+        <div>
+          <h3 style="margin:0;">Pecah Kemasan / Konversi Satuan Bertingkat (Repack)</h3>
+          <small style="color:var(--text-muted);">Contoh: 1 DUS &rarr; 40 PCS (Otomatis menyesuaikan stok &amp; HPP satuan).</small>
+        </div>
+        <button type="button" class="btn btn-dark btn-sm" onclick="closeModal('repackModal')">&#10006; Tutup</button>
+      </div>
+      <div class="modal-body">
+        <div class="form-row">
+          <div>
+            <label style="font-size:12px; font-weight:600; display:block; margin-bottom:4px;">SKU Kemasan Besar</label>
+            <input type="text" id="repSrcSku" list="catalogDataList" autocomplete="off" placeholder="misal: SKU-DUS-01">
+          </div>
+          <div>
+            <label style="font-size:12px; font-weight:600; display:block; margin-bottom:4px;">SKU Satuan Eceran</label>
+            <input type="text" id="repTgtSku" list="catalogDataList" autocomplete="off" placeholder="misal: SKU-PCS-01">
+          </div>
+          <div>
+            <label style="font-size:12px; font-weight:600; display:block; margin-bottom:4px;">PIN Supervisor</label>
+            <input type="password" id="repPin" autocomplete="new-password" placeholder="PIN (Jika Pramuniaga)">
+          </div>
+        </div>
+        <div class="form-row">
+          <div>
+            <label style="font-size:12px; font-weight:600; display:block; margin-bottom:4px;">Jumlah Kemasan Dipecah</label>
+            <input type="number" id="repQtySrc" placeholder="misal: 2" min="1" oninput="updateRepackPreview()">
+          </div>
+          <div>
+            <label style="font-size:12px; font-weight:600; display:block; margin-bottom:4px;">Isi per Kemasan</label>
+            <input type="number" id="repFactor" placeholder="misal: 40" min="2" oninput="updateRepackPreview()">
+          </div>
+          <div>
+            <label style="font-size:12px; font-weight:600; display:block; margin-bottom:4px;">Estimasi Hasil</label>
+            <div id="repPreviewBox" style="display:flex; align-items:center; height:38px; padding:8px 12px; background:#F8FAFC; border:1px solid var(--border); border-radius:8px; font-size:13px; font-weight:700; color:var(--blue);">
+              Hasil Eceran: 0 Pcs
+            </div>
+          </div>
+        </div>
+        <div style="display:flex; justify-content:flex-end; gap:8px; margin-top:12px; border-top:1px solid var(--border); padding-top:12px;">
+          <button type="button" class="btn btn-violet" onclick="submitRepackUnit()">&#128190; Proses Konversi Satuan</button>
+          <button type="button" class="btn btn-red" onclick="closeModal('repackModal')">&#10006; Batal</button>
+        </div>
+      </div>
+    </div>
+  </div>
 
   <!-- DATALIST AUTOCOMPLETE KATALOG BARANG UNTUK SEMUA MODAL -->
   <datalist id="catalogDataList"></datalist>

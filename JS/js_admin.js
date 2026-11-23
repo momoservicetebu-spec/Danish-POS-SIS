@@ -1776,6 +1776,26 @@ function printSalesReportPDF() {
 }
 
 // === GUDANG & MUTASI ANTAR TOKO ===
+function openGudangDocModal() {
+  document.getElementById('docAsal').value = '';
+  document.getElementById('docPin').value = '';
+  document.getElementById('docSku').value = '';
+  document.getElementById('docQty').value = '';
+  document.getElementById('docExpired').value = '';
+  document.getElementById('gudangDocModal').classList.add('open');
+  setTimeout(() => document.getElementById('docAsal').focus(), 100);
+}
+
+function openRepackModal() {
+  document.getElementById('repSrcSku').value = '';
+  document.getElementById('repTgtSku').value = '';
+  document.getElementById('repPin').value = '';
+  document.getElementById('repQtySrc').value = '';
+  document.getElementById('repFactor').value = '';
+  updateRepackPreview();
+  document.getElementById('repackModal').classList.add('open');
+  setTimeout(() => document.getElementById('repSrcSku').focus(), 100);
+}
 function submitGudangDoc() {
   const payload = {
     tipe: document.getElementById('docTipe').value,
