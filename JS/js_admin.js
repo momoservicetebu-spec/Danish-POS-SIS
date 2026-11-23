@@ -1,8 +1,9 @@
-// JS/js_admin.js - Logika Backoffice & Admin SIS v3.5 (Enterprise Edition + Mobile Responsive + Loading Screen)
+// JS/js_admin.js - Logika Backoffice & Admin SIS v3.5 (Enterprise Edition + Adaptasi RENE POS)
 let PENDING_TAGS_CACHE = [];
 let MASTER_PRODUCTS_CACHE = [];
 let SELECTED_BARCODE_SKUS = new Set();
 let LAST_SALES_REPORT_CACHE = null;
+let cachedCategories = [];
 
 if (SESSION) {
   document.getElementById('storeTitle').textContent = `${SESSION.store.namaToko} (${SESSION.store.kodeToko})`;
@@ -62,9 +63,9 @@ function setLoadingScreen(isShow, titleText, subText) {
 
 async function callAdminApi(endpoint, payload, onSuccess, loadingLabel) {
   const isWriteAction = !endpoint.includes('dashboard') && !endpoint.includes('products') &&
-                        !endpoint.includes('list') && !endpoint.includes('report') &&
-                        !endpoint.includes('stok-toko') && !endpoint.includes('stock-card') &&
-                        !endpoint.includes('users');
+                        !endpoint.includes('categories') && !endpoint.includes('list') &&
+                        !endpoint.includes('report') && !endpoint.includes('stok-toko') &&
+                        !endpoint.includes('stock-card') && !endpoint.includes('users');
   const title = loadingLabel || (isWriteAction ? 'Menyimpan Data...' : 'Memuat Data...');
   setLoadingScreen(true, title, 'Mohon tunggu, menghubungi server...');
   try {
@@ -89,7 +90,10 @@ function switchTab(tabName, btn) {
   closeMobileSidebar();
 
   if (tabName === 'dashboard') loadDashboard();
-  if (tabName === 'master') loadMasterCatalog();
+  if (tabName === 'master') {
+    loadCategoriesAdmin();
+    loadMasterCatalog();
+  }
   if (tabName === 'members') loadMembersTable();
   if (tabName === 'suppliers') loadSuppliersTable();
   if (tabName === 'reports') initAndLoadReport();
@@ -97,6 +101,9 @@ function switchTab(tabName, btn) {
   if (tabName === 'users') loadUsersTable();
 }
 
+// =========================================================
+// DASHBOARD KPI & ANALITIK
+// =========================================================
 function loadDashboard() {
   if (SESSION.user.role === 'Pramuniaga') {
     document.getElementById('kpiOmzet').textContent = 'RESTRICTED';
@@ -109,7 +116,6 @@ function loadDashboard() {
     document.getElementById('kpiLowStock').textContent = data.lowStockCount + ' SKU';
     document.getElementById('kpiFraud').textContent = data.flaggedFraudCount;
 
-    // Render 8 Grafik & Widget Analitik Dashboard
     renderDashboardAnalytics(data);
 
     const auditBody = document.getElementById('auditTableBody');
@@ -127,7 +133,6 @@ function loadDashboard() {
       <tr><td>${t.sku} - ${t.nama}</td><td><strong>Rp ${Number(t.hargaBaru).toLocaleString('id-ID')}</strong></td></tr>
     `).join('') || '<tr><td colspan="2">Semua label harga sudah terbaru.</td></tr>';
 
-    // Render Tabel Stok Menipis + Tombol Auto-PO
     const lowStockBody = document.getElementById('lowStockTableBody');
     if (lowStockBody) {
       lowStockBody.innerHTML = (data.lowStockItems || []).map(item => `
@@ -141,7 +146,6 @@ function loadDashboard() {
       `).join('') || '<tr><td colspan="3">Seluruh stok barang dalam kondisi aman.</td></tr>';
     }
 
-    // Render Tabel Watchlist Kedaluwarsa (FEFO)
     const fefoBody = document.getElementById('fefoTableBody');
     if (fefoBody) {
       fefoBody.innerHTML = (data.expiringItems || []).map(item => {
@@ -159,7 +163,6 @@ function loadDashboard() {
       }).join('') || '<tr><td colspan="3">Tidak ada barang mendekati tanggal kedaluwarsa.</td></tr>';
     }
 
-    // Render Tabel Monitor Anomali & Investigasi Fraud
     const fraudBody = document.getElementById('fraudTableBody');
     if (fraudBody) {
       fraudBody.innerHTML = (data.flaggedTransactions || []).map(f => `
@@ -180,7 +183,6 @@ function loadDashboard() {
 }
 
 function renderDashboardAnalytics(data) {
-  // 1. Sales Overview Line Chart (SVG murni)
   const chartBox = document.getElementById('salesOverviewChart');
   const trend = data.dailyTrend || [];
   if (chartBox && trend.length > 0) {
@@ -215,7 +217,6 @@ function renderDashboardAnalytics(data) {
       </svg>`;
   }
 
-  // 2. Sales by Category Donut Chart
   const catBox = document.getElementById('categoryDonutBox');
   const cats = data.categorySales || [];
   const catColors = ['#F59E0B', '#2563EB', '#10B981', '#7C3AED'];
@@ -249,7 +250,6 @@ function renderDashboardAnalytics(data) {
         </div>`;
   }
 
-  // 3. Collection Summary (Today)
   const colBox = document.getElementById('collectionSummaryBox');
   const col = data.collection || { CASH: 0, QRIS: 0, EDC: 0, TEMPO: 0 };
   if (colBox) {
@@ -279,7 +279,6 @@ function renderDashboardAnalytics(data) {
       </div>`;
   }
 
-  // 4. Top 5 Best Selling Items
   const topBody = document.getElementById('topSellingBody');
   if (topBody) {
     topBody.innerHTML = (data.topSellingItems || []).map((it, i) => `
@@ -292,7 +291,6 @@ function renderDashboardAnalytics(data) {
     `).join('') || '<tr><td colspan="4">Belum ada data penjualan bulan ini.</td></tr>';
   }
 
-  // 5. Stock Summary
   const stkBox = document.getElementById('stockSummaryBox');
   const stk = data.stockSummary || { totalSkuCount: 0, totalStockQty: 0, totalStockValue: 0 };
   if (stkBox) {
@@ -311,7 +309,6 @@ function renderDashboardAnalytics(data) {
       </div>`;
   }
 
-  // 6. Monthly Profit Trend Bar Chart
   const mChart = document.getElementById('monthlyProfitChart');
   const mArr = data.monthlyProfitArr || [];
   if (mChart && mArr.length === 12) {
@@ -330,7 +327,6 @@ function renderDashboardAnalytics(data) {
       </div>`;
   }
 
-  // 7. Recent Transactions Feed
   const rFeed = document.getElementById('recentTrxFeed');
   if (rFeed) {
     rFeed.innerHTML = (data.recentTransactions || []).map(t => `
@@ -347,7 +343,6 @@ function renderDashboardAnalytics(data) {
     `).join('') || '<small style="color:var(--text-muted);">Belum ada transaksi terbaru.</small>';
   }
 
-  // 8. Branch Wise Sales Horizontal Bars
   const bBox = document.getElementById('branchSalesChart');
   const branches = data.branchSales || [];
   const bColors = ['#2563EB', '#10B981', '#F59E0B', '#7C3AED', '#E11D48'];
@@ -428,7 +423,136 @@ function printPendingPriceTags() {
   }
 }
 
-// === MASTER BARANG, KARTU STOK & BARCODE STUDIO ===
+// =========================================================
+// MASTER KATEGORI BARANG (ADAPTASI RENE POS)
+// =========================================================
+function loadCategoriesAdmin() {
+  callAdminApi('admin/categories', {}, data => {
+    cachedCategories = (data && data.categories) ? data.categories : [{ id: 'CAT-01', nama: 'Umum', lokasi: '- Tidak Pakai -' }];
+    renderCategoryTable();
+    populateCategoryDropdown();
+  }, 'Memuat Kategori Barang...');
+}
+
+function renderCategoryTable() {
+  const tbody = document.getElementById('categoryTableBody');
+  const badge = document.getElementById('totalKategoriBadge');
+  if (!tbody) return;
+
+  if (badge) badge.textContent = cachedCategories.length + ' Kategori';
+
+  if (cachedCategories.length === 0) {
+    tbody.innerHTML = '<tr><td colspan="4" style="text-align:center; color:var(--text-muted);">Belum ada kategori barang.</td></tr>';
+    return;
+  }
+
+  tbody.innerHTML = cachedCategories.map(c => `
+    <tr>
+      <td><strong>${c.id}</strong></td>
+      <td>${c.nama}</td>
+      <td><span class="badge ${c.lokasi === '- Tidak Pakai -' ? 'badge-warn' : 'badge-ok'}">${c.lokasi}</span></td>
+      <td style="white-space:nowrap;">
+        <button class="btn btn-blue btn-sm" onclick="editCategoryForm('${c.id}')">Edit</button>
+        ${c.nama.toLowerCase() !== 'umum' ? `<button class="btn btn-red btn-sm" onclick="deleteCategoryAdmin('${c.id}', '${c.nama.replace(/'/g, "\\'")}')">Hapus</button>` : ''}
+      </td>
+    </tr>
+  `).join('');
+}
+
+function populateCategoryDropdown() {
+  const select = document.getElementById('prdKategori');
+  if (!select) return;
+  const currentVal = select.value;
+  select.innerHTML = cachedCategories.map(c => `<option value="${c.nama}">${c.nama}</option>`).join('');
+  if (currentVal && cachedCategories.some(c => c.nama === currentVal)) {
+    select.value = currentVal;
+  }
+}
+
+function editCategoryForm(id) {
+  const item = cachedCategories.find(c => c.id === id);
+  if (!item) return;
+  document.getElementById('catId').value = item.id;
+  document.getElementById('catNama').value = item.nama;
+  document.getElementById('catLokasi').value = item.lokasi || '- Tidak Pakai -';
+  document.getElementById('catNama').focus();
+}
+
+function resetCategoryForm() {
+  document.getElementById('catId').value = '';
+  document.getElementById('catNama').value = '';
+  document.getElementById('catLokasi').value = '- Tidak Pakai -';
+}
+
+function submitCategory(isSaveAndNew) {
+  const id = document.getElementById('catId').value.trim();
+  const nama = document.getElementById('catNama').value.trim();
+  const lokasi = document.getElementById('catLokasi').value;
+
+  if (!nama) {
+    alert('Nama Kategori wajib diisi!');
+    document.getElementById('catNama').focus();
+    return;
+  }
+
+  callAdminApi('admin/save-category', { id, nama, lokasi }, res => {
+    loadCategoriesAdmin();
+    resetCategoryForm();
+    if (isSaveAndNew) {
+      document.getElementById('catNama').focus();
+    } else {
+      alert(res.message || 'Kategori berhasil disimpan.');
+    }
+  }, 'Menyimpan Kategori Barang...');
+}
+
+function deleteCategoryAdmin(id, nama) {
+  if (!confirm('Hapus kategori "' + nama + '"?')) return;
+  callAdminApi('admin/delete-category', { id }, () => {
+    loadCategoriesAdmin();
+  }, 'Menghapus Kategori...');
+}
+
+// =========================================================
+// MASTER BARANG LENGKAP (RENE POS), KARTU STOK & BARCODE
+// =========================================================
+function switchProductSubTab(subName, btn) {
+  document.querySelectorAll('.prd-subtab-panel').forEach(el => { el.style.display = 'none'; });
+  document.querySelectorAll('.prd-subtab-btn').forEach(b => {
+    b.classList.remove('btn-blue');
+    b.classList.add('btn-dark');
+  });
+  const target = document.getElementById('prd-subtab-' + subName);
+  if (target) target.style.display = 'block';
+  if (btn) {
+    btn.classList.remove('btn-dark');
+    btn.classList.add('btn-blue');
+  }
+}
+
+function promptProductImageUrl() {
+  const cur = document.getElementById('prdImageUrl').value || '';
+  const url = prompt('Masukkan URL Gambar Produk (HTTPS):', cur);
+  if (url === null) return;
+  document.getElementById('prdImageUrl').value = url.trim();
+  renderProductImagePreview(url.trim());
+}
+
+function clearProductImageUrl() {
+  document.getElementById('prdImageUrl').value = '';
+  renderProductImagePreview('');
+}
+
+function renderProductImagePreview(url) {
+  const box = document.getElementById('prdImagePreview');
+  if (!box) return;
+  if (url) {
+    box.innerHTML = `<img src="${url}" alt="Produk" style="max-width:100%; max-height:140px; object-fit:contain;" onerror="this.parentElement.innerHTML='Gambar gagal dimuat'">`;
+  } else {
+    box.innerHTML = 'Tidak ada gambar';
+  }
+}
+
 function loadMasterCatalog() {
   callAdminApi('admin/products', {}, items => {
     MASTER_PRODUCTS_CACHE = items || [];
@@ -439,7 +563,7 @@ function loadMasterCatalog() {
 function renderMasterCatalogTable(items) {
   const tbody = document.getElementById('masterCatalogBody');
   tbody.innerHTML = items.map(p => `
-    <tr>
+    <tr style="${p.isActive === false ? 'opacity:0.55; background:#FEF2F2;' : ''}">
       <td>
         <input type="checkbox" class="barcode-chk" value="${p.sku}"
           ${SELECTED_BARCODE_SKUS.has(p.sku) ? 'checked' : ''}
@@ -447,7 +571,10 @@ function renderMasterCatalogTable(items) {
       </td>
       <td><strong>${p.sku}</strong></td>
       <td><code>${p.barcode}</code></td>
-      <td>${p.nama}</td>
+      <td>
+        ${p.nama}
+        ${p.isActive === false ? '<span class="badge badge-danger" style="margin-left:4px;">Non Aktif</span>' : ''}
+      </td>
       <td>${p.kategori}</td>
       <td>${p.satuan}</td>
       <td>${p.hargaModal !== null ? 'Rp ' + p.hargaModal.toLocaleString('id-ID') : '<span style="color:#94A3B8;">Hidden</span>'}</td>
@@ -593,30 +720,105 @@ function openStockCardModal(sku, namaBarang) {
 }
 
 function fillProductForm(p) {
-  document.getElementById('prdSku').value = p.sku;
-  document.getElementById('prdBarcode').value = p.barcode;
-  document.getElementById('prdNama').value = p.nama;
-  document.getElementById('prdKategori').value = p.kategori;
-  document.getElementById('prdSatuan').value = p.satuan;
-  document.getElementById('prdModal').value = p.hargaModal || '';
-  document.getElementById('prdJual').value = p.hargaJual;
-  document.getElementById('prdHighRisk').value = String(p.isHighRisk);
+  document.getElementById('prdSku').value = p.sku || '';
+  document.getElementById('prdBarcode').value = p.barcode || '';
+  document.getElementById('prdNama').value = p.nama || '';
+  if (document.getElementById('prdNamaSingkat')) document.getElementById('prdNamaSingkat').value = p.namaSingkat || '';
+  document.getElementById('prdKategori').value = p.kategori || 'Umum';
+  if (document.getElementById('prdTipe')) document.getElementById('prdTipe').value = p.tipe || 'Persediaan';
+  if (document.getElementById('prdAtribut')) document.getElementById('prdAtribut').value = p.atribut || '';
+  if (document.getElementById('prdUkuran')) document.getElementById('prdUkuran').value = p.ukuran || '';
+  document.getElementById('prdSatuan').value = p.satuan || 'PCS';
+  if (document.getElementById('prdPlu')) document.getElementById('prdPlu').value = p.plu || '';
+  if (document.getElementById('prdSaldoAwal')) document.getElementById('prdSaldoAwal').value = p.saldoAwal || 0;
+  if (document.getElementById('prdCurrentStockBadge')) document.getElementById('prdCurrentStockBadge').textContent = p.stokTerkini != null ? p.stokTerkini : (p.saldoAwal || 0);
+  document.getElementById('prdModal').value = p.hargaModal || 0;
+  document.getElementById('prdJual').value = p.hargaJual || 0;
+  if (document.getElementById('prdHargaMember')) document.getElementById('prdHargaMember').value = p.hargaMember || 0;
+  if (document.getElementById('prdHargaT3')) document.getElementById('prdHargaT3').value = p.hargaTingkat3 || 0;
+  if (document.getElementById('prdHargaT4')) document.getElementById('prdHargaT4').value = p.hargaTingkat4 || 0;
+  if (document.getElementById('prdHargaT5')) document.getElementById('prdHargaT5').value = p.hargaTingkat5 || 0;
+  document.getElementById('prdHighRisk').value = String(Boolean(p.isHighRisk));
+  if (document.getElementById('prdNonAktif')) document.getElementById('prdNonAktif').checked = p.isActive === false;
+  if (document.getElementById('prdMinStock')) document.getElementById('prdMinStock').value = p.minStock != null ? p.minStock : 10;
+  if (document.getElementById('prdRak')) document.getElementById('prdRak').value = p.lokasiRak || '';
+  if (document.getElementById('prdPajak')) document.getElementById('prdPajak').value = p.pajakPct || 0;
+  if (document.getElementById('prdCatatan')) document.getElementById('prdCatatan').value = p.catatan || '';
+  if (document.getElementById('prdImageUrl')) document.getElementById('prdImageUrl').value = p.imageUrl || '';
+  renderProductImagePreview(p.imageUrl || '');
+  document.getElementById('prdNama').focus();
 }
 
-function submitProduct() {
+function resetProductForm() {
+  document.getElementById('prdSku').value = '';
+  document.getElementById('prdBarcode').value = '';
+  document.getElementById('prdNama').value = '';
+  if (document.getElementById('prdNamaSingkat')) document.getElementById('prdNamaSingkat').value = '';
+  document.getElementById('prdKategori').value = 'Umum';
+  if (document.getElementById('prdTipe')) document.getElementById('prdTipe').value = 'Persediaan';
+  if (document.getElementById('prdAtribut')) document.getElementById('prdAtribut').value = '';
+  if (document.getElementById('prdUkuran')) document.getElementById('prdUkuran').value = '';
+  document.getElementById('prdSatuan').value = 'PCS';
+  if (document.getElementById('prdPlu')) document.getElementById('prdPlu').value = '';
+  if (document.getElementById('prdSaldoAwal')) document.getElementById('prdSaldoAwal').value = 0;
+  if (document.getElementById('prdCurrentStockBadge')) document.getElementById('prdCurrentStockBadge').textContent = '0';
+  document.getElementById('prdModal').value = 0;
+  document.getElementById('prdJual').value = 0;
+  if (document.getElementById('prdHargaMember')) document.getElementById('prdHargaMember').value = 0;
+  if (document.getElementById('prdHargaT3')) document.getElementById('prdHargaT3').value = 0;
+  if (document.getElementById('prdHargaT4')) document.getElementById('prdHargaT4').value = 0;
+  if (document.getElementById('prdHargaT5')) document.getElementById('prdHargaT5').value = 0;
+  document.getElementById('prdHighRisk').value = 'false';
+  if (document.getElementById('prdNonAktif')) document.getElementById('prdNonAktif').checked = false;
+  if (document.getElementById('prdMinStock')) document.getElementById('prdMinStock').value = 10;
+  if (document.getElementById('prdRak')) document.getElementById('prdRak').value = '';
+  if (document.getElementById('prdPajak')) document.getElementById('prdPajak').value = 0;
+  if (document.getElementById('prdCatatan')) document.getElementById('prdCatatan').value = '';
+  clearProductImageUrl();
+  const firstSubTab = document.querySelector('.prd-subtab-btn');
+  if (firstSubTab) switchProductSubTab('info', firstSubTab);
+}
+
+function submitProduct(isSaveAndNew) {
   const payload = {
-    sku: document.getElementById('prdSku').value,
-    barcode: document.getElementById('prdBarcode').value,
-    nama: document.getElementById('prdNama').value,
-    kategori: document.getElementById('prdKategori').value,
-    satuan: document.getElementById('prdSatuan').value || 'PCS',
+    sku: document.getElementById('prdSku').value.trim(),
+    barcode: document.getElementById('prdBarcode').value.trim(),
+    nama: document.getElementById('prdNama').value.trim(),
+    namaSingkat: document.getElementById('prdNamaSingkat') ? document.getElementById('prdNamaSingkat').value.trim() : '',
+    kategori: document.getElementById('prdKategori').value || 'Umum',
+    tipe: document.getElementById('prdTipe') ? document.getElementById('prdTipe').value : 'Persediaan',
+    atribut: document.getElementById('prdAtribut') ? document.getElementById('prdAtribut').value.trim() : '',
+    ukuran: document.getElementById('prdUkuran') ? document.getElementById('prdUkuran').value.trim() : '',
+    satuan: document.getElementById('prdSatuan').value.trim() || 'PCS',
+    plu: document.getElementById('prdPlu') ? document.getElementById('prdPlu').value.trim() : '',
+    saldoAwal: document.getElementById('prdSaldoAwal') ? (Number(document.getElementById('prdSaldoAwal').value) || 0) : 0,
     hargaModal: Number(document.getElementById('prdModal').value) || 0,
     hargaJual: Number(document.getElementById('prdJual').value) || 0,
-    isHighRisk: document.getElementById('prdHighRisk').value === 'true'
+    hargaMember: document.getElementById('prdHargaMember') ? (Number(document.getElementById('prdHargaMember').value) || 0) : 0,
+    hargaTingkat3: document.getElementById('prdHargaT3') ? (Number(document.getElementById('prdHargaT3').value) || 0) : 0,
+    hargaTingkat4: document.getElementById('prdHargaT4') ? (Number(document.getElementById('prdHargaT4').value) || 0) : 0,
+    hargaTingkat5: document.getElementById('prdHargaT5') ? (Number(document.getElementById('prdHargaT5').value) || 0) : 0,
+    isHighRisk: document.getElementById('prdHighRisk').value === 'true',
+    isActive: document.getElementById('prdNonAktif') ? !document.getElementById('prdNonAktif').checked : true,
+    minStock: document.getElementById('prdMinStock') ? (Number(document.getElementById('prdMinStock').value) || 0) : 10,
+    lokasiRak: document.getElementById('prdRak') ? document.getElementById('prdRak').value.trim() : '',
+    pajakPct: document.getElementById('prdPajak') ? (Number(document.getElementById('prdPajak').value) || 0) : 0,
+    catatan: document.getElementById('prdCatatan') ? document.getElementById('prdCatatan').value.trim() : '',
+    imageUrl: document.getElementById('prdImageUrl') ? document.getElementById('prdImageUrl').value.trim() : ''
   };
+
+  if (!payload.sku || !payload.barcode || !payload.nama) {
+    return alert('Kode (SKU), UPC/Barcode, dan Nama Barang wajib diisi.');
+  }
+
   callAdminApi('admin/save-product', payload, res => {
-    alert(res.message);
     loadMasterCatalog();
+    if (isSaveAndNew) {
+      resetProductForm();
+      document.getElementById('prdNama').focus();
+    } else {
+      alert(res.message);
+    }
   }, 'Menyimpan Master Barang...');
 }
 
@@ -1049,112 +1251,3 @@ function logout() {
 }
 
 loadDashboard();
-
-// =========================================================
-// MASTER KATEGORI BARANG (ADAPTASI RENE POS)
-// =========================================================
-let cachedCategories = [];
-
-async function loadCategoriesAdmin() {
-  const res = await apiCall('getCategories', {});
-  if (res && res.success) {
-    cachedCategories = res.data || [];
-  } else {
-    // Fallback default jika sheet Categories belum terisi
-    cachedCategories = [{ id: 'CAT-01', nama: 'Umum', lokasi: '- Tidak Pakai -' }];
-  }
-  renderCategoryTable();
-  populateCategoryDropdown();
-}
-
-function renderCategoryTable() {
-  const tbody = document.getElementById('categoryTableBody');
-  const badge = document.getElementById('totalKategoriBadge');
-  if (!tbody) return;
-
-  if (badge) badge.textContent = cachedCategories.length + ' Kategori';
-
-  if (cachedCategories.length === 0) {
-    tbody.innerHTML = '<tr><td colspan="4" style="text-align:center; color:var(--text-muted);">Belum ada kategori barang.</td></tr>';
-    return;
-  }
-
-  tbody.innerHTML = cachedCategories.map(c => `
-    <tr>
-      <td><strong>${c.id}</strong></td>
-      <td>${c.nama}</td>
-      <td><span class="badge ${c.lokasi === '- Tidak Pakai -' ? 'badge-warn' : 'badge-ok'}">${c.lokasi}</span></td>
-      <td style="white-space:nowrap;">
-        <button class="btn btn-blue btn-sm" onclick="editCategoryForm('${c.id}')">Edit</button>
-        ${c.nama.toLowerCase() !== 'umum' ? `<button class="btn btn-red btn-sm" onclick="deleteCategoryAdmin('${c.id}', '${c.nama}')">Hapus</button>` : ''}
-      </td>
-    </tr>
-  `).join('');
-}
-
-function populateCategoryDropdown() {
-  const select = document.getElementById('prdKategori');
-  if (!select) return;
-  const currentVal = select.value;
-  select.innerHTML = cachedCategories.map(c => `<option value="${c.nama}">${c.nama}</option>`).join('');
-  if (currentVal && cachedCategories.some(c => c.nama === currentVal)) {
-    select.value = currentVal;
-  }
-}
-
-function editCategoryForm(id) {
-  const item = cachedCategories.find(c => c.id === id);
-  if (!item) return;
-  document.getElementById('catId').value = item.id;
-  document.getElementById('catNama').value = item.nama;
-  document.getElementById('catLokasi').value = item.lokasi || '- Tidak Pakai -';
-  document.getElementById('catNama').focus();
-}
-
-function resetCategoryForm() {
-  document.getElementById('catId').value = '';
-  document.getElementById('catNama').value = '';
-  document.getElementById('catLokasi').value = '- Tidak Pakai -';
-}
-
-async function submitCategory(isSaveAndNew) {
-  const id = document.getElementById('catId').value.trim();
-  const nama = document.getElementById('catNama').value.trim();
-  const lokasi = document.getElementById('catLokasi').value;
-
-  if (!nama) {
-    alert('Nama Kategori wajib diisi!');
-    document.getElementById('catNama').focus();
-    return;
-  }
-
-  showLoading('Menyimpan Kategori...', 'Memperbarui Master Kategori Barang');
-  const res = await apiCall('saveCategory', { id, nama, lokasi });
-  hideLoading();
-
-  if (res && res.success) {
-    await loadCategoriesAdmin();
-    if (isSaveAndNew) {
-      resetCategoryForm();
-      document.getElementById('catNama').focus();
-    } else {
-      resetCategoryForm();
-      alert('Kategori "' + nama + '" berhasil disimpan.');
-    }
-  } else {
-    alert(res ? res.message : 'Gagal menyimpan kategori.');
-  }
-}
-
-async function deleteCategoryAdmin(id, nama) {
-  if (!confirm('Hapus kategori "' + nama + '"?')) return;
-  showLoading('Menghapus Kategori...', 'Memproses penghapusan data');
-  const res = await apiCall('deleteCategory', { id });
-  hideLoading();
-
-  if (res && res.success) {
-    await loadCategoriesAdmin();
-  } else {
-    alert(res ? res.message : 'Gagal menghapus kategori.');
-  }
-}
