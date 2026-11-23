@@ -199,13 +199,25 @@ function renderMasterCatalogTable(items) {
       <td>${p.satuan}</td>
       <td>${p.hargaModal !== null ? 'Rp ' + p.hargaModal.toLocaleString('id-ID') : '<span style="color:#94A3B8;">Hidden</span>'}</td>
       <td><strong>Rp ${p.hargaJual.toLocaleString('id-ID')}</strong></td>
-      <td style="display:flex; gap:6px;">
+      <td style="display:flex; gap:6px; flex-wrap:wrap;">
         <button class="btn btn-blue btn-sm" onclick='fillProductForm(${JSON.stringify(p)})'>Edit</button>
         <button class="btn btn-violet btn-sm" onclick="openStockCardModal('${p.sku}', '${p.nama.replace(/'/g, "\\'")}')">Kartu Stok</button>
+        <button class="btn btn-red btn-sm" onclick="deleteMasterProduct('${p.sku}', '${p.nama.replace(/'/g, "\\'")}')">Hapus</button>
       </td>
     </tr>
   `).join('');
   updateSelectedBarcodeCounter();
+}
+
+function deleteMasterProduct(sku, nama) {
+  if (!confirm(`Yakin ingin menghapus barang ini dari katalog?\n\nSKU: ${sku}\nNama: ${nama}`)) {
+    return;
+  }
+  callAdminApi('admin/delete-product', { sku, nama }, res => {
+    SELECTED_BARCODE_SKUS.delete(sku);
+    alert(res.message);
+    loadMasterCatalog();
+  });
 }
 
 function filterMasterCatalog() {
