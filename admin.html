@@ -173,6 +173,35 @@
       </div>
     </div>
 
+    <!-- PANEL PERINGATAN FEFO (KEDALUWARSA) & REORDER POINT (AUTO-PO) -->
+      <div class="bento-2col" style="margin-top:16px;">
+        <div class="card">
+          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
+            <h3 style="margin:0;">Peringatan Stok Menipis & Reorder (Auto-PO)</h3>
+            <span class="badge badge-warn">Stok &lt; 10 Pcs</span>
+          </div>
+          <table>
+            <thead>
+              <tr><th>SKU / Barang</th><th>Sisa Stok</th><th>Aksi Cepat</th></tr>
+            </thead>
+            <tbody id="lowStockTableBody"></tbody>
+          </table>
+        </div>
+
+        <div class="card">
+          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
+            <h3 style="margin:0;">Watchlist Kedaluwarsa (FEFO &le; 30 Hari)</h3>
+            <span class="badge badge-danger">Prioritas Jual / NRB</span>
+          </div>
+          <table>
+            <thead>
+              <tr><th>SKU / Barang</th><th>Tgl Expired</th><th>Status</th></tr>
+            </thead>
+            <tbody id="fefoTableBody"></tbody>
+          </table>
+        </div>
+      </div>
+
     <!-- TAB 2: MASTER BARANG, PROMO & CETAK BARCODE -->
     <div id="tab-master" class="section">
       <div class="bento-2col">

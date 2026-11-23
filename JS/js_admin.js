@@ -42,6 +42,7 @@ function loadDashboard() {
     document.getElementById('kpiOmzet').textContent = 'RESTRICTED';
     return;
   }
+
   callAdminApi('finance/dashboard', {}, data => {
     document.getElementById('kpiOmzet').textContent = 'Rp ' + data.omzetHariIni.toLocaleString('id-ID');
     document.getElementById('kpiStruk').textContent = data.jumlahStruk + ' Struk';
@@ -62,7 +63,57 @@ function loadDashboard() {
     tagBody.innerHTML = PENDING_TAGS_CACHE.map(t => `
       <tr><td>${t.sku} - ${t.nama}</td><td><strong>Rp ${Number(t.hargaBaru).toLocaleString('id-ID')}</strong></td></tr>
     `).join('') || '<tr><td colspan="2">Semua label harga sudah terbaru.</td></tr>';
+
+    // Render Tabel Stok Menipis + Tombol Auto-PO (di dalam callback data)
+    const lowStockBody = document.getElementById('lowStockTableBody');
+    if (lowStockBody) {
+      lowStockBody.innerHTML = (data.lowStockItems || []).map(item => `
+        <tr>
+          <td><strong>${item.sku}</strong> - ${item.nama}</td>
+          <td><span class="badge badge-danger">${item.stokGood} Pcs</span></td>
+          <td>
+            <button class="btn btn-blue btn-sm" onclick="quickReorderPO('${item.sku}', ${item.hpp || 0})">Order Ulang (PO)</button>
+          </td>
+        </tr>
+      `).join('') || '<tr><td colspan="3">Seluruh stok barang dalam kondisi aman.</td></tr>';
+    }
+
+    // Render Tabel Watchlist Kedaluwarsa (FEFO)
+    const fefoBody = document.getElementById('fefoTableBody');
+    if (fefoBody) {
+      fefoBody.innerHTML = (data.expiringItems || []).map(item => {
+        const isExpired = item.daysLeft <= 0;
+        const statusBadge = isExpired
+          ? `<span class="badge badge-danger">EXPIRED (${Math.abs(item.daysLeft)} hr lalu)</span>`
+          : `<span class="badge badge-warn">Sisa ${item.daysLeft} Hari</span>`;
+        return `
+          <tr>
+            <td><strong>${item.sku}</strong> - ${item.nama} (${item.stokGood} Pcs)</td>
+            <td><strong>${item.expiredDate}</strong></td>
+            <td>${statusBadge}</td>
+          </tr>
+        `;
+      }).join('') || '<tr><td colspan="3">Tidak ada barang mendekati tanggal kedaluwarsa.</td></tr>';
+    }
   });
+}
+
+function quickReorderPO(sku, lastHpp) {
+  const supplierTabBtn = Array.from(document.querySelectorAll('.tab-btn'))
+    .find(b => b.getAttribute('onclick') && b.getAttribute('onclick').includes("'suppliers'"));
+  if (supplierTabBtn) {
+    switchTab('suppliers', supplierTabBtn);
+  }
+  const skuInp = document.getElementById('purSku');
+  const priceInp = document.getElementById('purBuyPrice');
+  const qtyInp = document.getElementById('purQty');
+  if (skuInp) skuInp.value = sku;
+  if (priceInp && lastHpp > 0) priceInp.value = lastHpp;
+  if (qtyInp) {
+    qtyInp.value = 12;
+    qtyInp.focus();
+    qtyInp.select();
+  }
 }
 
 function printPendingPriceTags() {
