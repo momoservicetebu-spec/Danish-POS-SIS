@@ -2,34 +2,151 @@
 <html lang="id">
 <head>
   <meta charset="UTF-8">
-  <title>Admin & SIS - Enterprise Retail POS v3.5</title>
+  <title>Danish POS & SIS v3.5 - Enterprise Backoffice</title>
   <!-- Library Barcode Generator untuk Label Produk & Stiker Rak -->
   <script src="https://cdn.jsdelivr.net/npm/jsbarcode@3.11.6/dist/JsBarcode.all.min.js"></script>
   <style>
     :root {
-      --bg-canvas: #F4F6F9; --surface: #FFFFFF; --border: #E2E8F0;
-      --primary: #10B981; --blue: #2563EB; --amber: #F59E0B; --red: #DC2626; --violet: #7C3AED;
-      --text-main: #0F172A; --text-muted: #64748B;
+      --bg-canvas: #F1F5F9;
+      --surface: #FFFFFF;
+      --border: #E2E8F0;
+      --sidebar-bg: #0B192C;
+      --sidebar-hover: #152842;
+      --sidebar-active: #1D4ED8;
+      --primary: #10B981;
+      --blue: #2563EB;
+      --amber: #F59E0B;
+      --red: #DC2626;
+      --violet: #7C3AED;
+      --text-main: #0F172A;
+      --text-muted: #64748B;
     }
-    * { box-sizing: border-box; font-family: 'Inter', system-ui, sans-serif; }
-    body { margin: 0; background: var(--bg-canvas); color: var(--text-main); }
 
-    /* Top Navbar */
-    .topbar {
-      min-height: 64px; background: var(--surface); border-bottom: 1px solid var(--border);
-      padding: 10px 24px; display: flex; align-items: center; justify-content: space-between;
-      gap: 12px; flex-wrap: wrap; position: sticky; top: 0; z-index: 10;
+    * { box-sizing: border-box; font-family: 'Inter', system-ui, -apple-system, sans-serif; }
+    body { margin: 0; background: var(--bg-canvas); color: var(--text-main); display: flex; min-height: 100vh; }
+
+    /* ========================================================= */
+    /* SIDEBAR KIRI GELAP (ENTERPRISE STYLE)                     */
+    /* ========================================================= */
+    .sidebar {
+      width: 250px; background: var(--sidebar-bg); color: #E2E8F0;
+      display: flex; flex-direction: column; flex-shrink: 0;
+      position: sticky; top: 0; height: 100vh; z-index: 20;
+      transition: width 0.25s ease;
     }
-    .nav-tabs { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; }
+    .sidebar.collapsed { width: 74px; }
+    .sidebar.collapsed .brand-text,
+    .sidebar.collapsed .nav-label,
+    .sidebar.collapsed .sidebar-widget { display: none; }
+
+    .sidebar-brand {
+      height: 66px; padding: 0 18px; display: flex; align-items: center; gap: 12px;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+    }
+    .brand-logo {
+      width: 38px; height: 38px; border-radius: 10px;
+      background: linear-gradient(135deg, #3B82F6, #10B981);
+      display: flex; align-items: center; justify-content: center;
+      font-weight: 900; font-size: 18px; color: #fff; flex-shrink: 0;
+    }
+    .brand-text strong { display: block; font-size: 15px; color: #fff; letter-spacing: 0.2px; }
+    .brand-text small { font-size: 11px; color: #94A3B8; }
+
+    .sidebar-menu {
+      flex: 1; padding: 12px 10px; overflow-y: auto; display: flex; flex-direction: column; gap: 4px;
+    }
     .tab-btn {
-      padding: 8px 12px; border-radius: 10px; border: 1px solid transparent;
-      background: transparent; font-weight: 600; cursor: pointer; color: var(--text-muted); font-size: 13px;
+      width: 100%; padding: 10px 14px; border-radius: 10px; border: none;
+      background: transparent; color: #CBD5E1; font-weight: 500; font-size: 13px;
+      display: flex; align-items: center; gap: 12px; cursor: pointer; text-align: left;
+      transition: all 0.15s ease;
     }
-    .tab-btn.active { background: #ECFDF5; color: var(--primary); border-color: #A7F3D0; }
+    .tab-btn:hover { background: var(--sidebar-hover); color: #fff; }
+    .tab-btn.active {
+      background: linear-gradient(90deg, #2563EB, #1D4ED8);
+      color: #FFFFFF; font-weight: 700; box-shadow: 0 4px 12px rgba(37, 99, 235, 0.35);
+    }
+    .nav-icon { font-size: 16px; width: 20px; text-align: center; flex-shrink: 0; }
 
-    /* Bento Grid Layout */
-    .container { max-width: 1380px; margin: 20px auto; padding: 0 20px; }
+    .sidebar-divider { height: 1px; background: rgba(255,255,255,0.08); margin: 8px 6px; }
+
+    .sidebar-widget {
+      margin: 12px; padding: 14px; border-radius: 12px;
+      background: linear-gradient(145deg, #132744, #0F1F38);
+      border: 1px solid rgba(59, 130, 246, 0.25); font-size: 12px;
+    }
+    .sidebar-widget-title { color: #FBBF24; font-weight: 700; margin-bottom: 6px; display: flex; align-items: center; gap: 6px; }
+    .sidebar-widget-row { display: flex; justify-content: space-between; margin-top: 4px; color: #CBD5E1; }
+
+    /* ========================================================= */
+    /* AREA KANAN: TOPBAR + KONTEN UTAMA                         */
+    /* ========================================================= */
+    .main-wrapper { flex: 1; display: flex; flex-direction: column; min-width: 0; }
+
+    .topbar {
+      height: 66px; background: var(--surface); border-bottom: 1px solid var(--border);
+      padding: 0 24px; display: flex; align-items: center; justify-content: space-between;
+      gap: 16px; position: sticky; top: 0; z-index: 10;
+    }
+    .topbar-left { display: flex; align-items: center; gap: 14px; flex: 1; }
+    .toggle-btn {
+      background: #F8FAFC; border: 1px solid var(--border); border-radius: 8px;
+      padding: 7px 10px; cursor: pointer; font-size: 15px; color: var(--text-main);
+    }
+    .top-search {
+      max-width: 340px; width: 100%; padding: 8px 14px; border-radius: 99px;
+      border: 1px solid var(--border); background: #F8FAFC; font-size: 13px;
+    }
+
+    .topbar-right { display: flex; align-items: center; gap: 12px; }
+    .date-pill {
+      background: #F8FAFC; border: 1px solid var(--border); padding: 6px 12px;
+      border-radius: 8px; font-size: 12px; font-weight: 600; color: var(--text-main);
+    }
+    .kasir-shortcut-btn {
+      background: linear-gradient(135deg, #2563EB, #1D4ED8); color: #fff;
+      border: none; padding: 8px 14px; border-radius: 8px; font-weight: 700;
+      font-size: 12px; cursor: pointer; display: flex; align-items: center; gap: 6px;
+    }
+    .user-profile-box {
+      display: flex; align-items: center; gap: 10px; padding-left: 10px;
+      border-left: 1px solid var(--border);
+    }
+    .user-avatar {
+      width: 36px; height: 36px; border-radius: 50%;
+      background: linear-gradient(135deg, #10B981, #059669);
+      color: #fff; font-weight: 800; display: flex; align-items: center; justify-content: center;
+      font-size: 14px;
+    }
+
+    .container { max-width: 1440px; width: 100%; margin: 20px auto; padding: 0 24px 32px; }
+
+    /* ========================================================= */
+    /* KARTU KPI GRADIEN WARNA-WARNI (SEPERTI REFERENSI)         */
+    /* ========================================================= */
     .bento-kpi { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; margin-bottom: 20px; }
+    .kpi-grad-card {
+      border-radius: 16px; padding: 20px; color: #FFFFFF; position: relative;
+      overflow: hidden; box-shadow: 0 8px 20px rgba(15, 23, 42, 0.12);
+      display: flex; flex-direction: column; justify-content: space-between; min-height: 118px;
+    }
+    .kpi-grad-purple { background: linear-gradient(135deg, #6366F1 0%, #4F46E5 100%); }
+    .kpi-grad-green  { background: linear-gradient(135deg, #10B981 0%, #059669 100%); }
+    .kpi-grad-amber  { background: linear-gradient(135deg, #F59E0B 0%, #D97706 100%); }
+    .kpi-grad-red    { background: linear-gradient(135deg, #F43F5E 0%, #E11D48 100%); }
+
+    .kpi-grad-card .kpi-label { font-size: 13px; color: rgba(255,255,255,0.9); font-weight: 600; z-index: 1; }
+    .kpi-grad-card .kpi-val {
+      font-size: 26px; font-weight: 800; margin-top: 6px; color: #FFFFFF !important;
+      font-variant-numeric: tabular-nums; z-index: 1;
+    }
+    .kpi-grad-sub { font-size: 11px; color: rgba(255,255,255,0.85); margin-top: 6px; z-index: 1; }
+    .kpi-bg-icon {
+      position: absolute; right: 16px; top: 50%; transform: translateY(-50%);
+      font-size: 46px; opacity: 0.22; pointer-events: none;
+    }
+
+    /* Standard Cards & Grids */
     .card {
       background: var(--surface); border-radius: 16px; border: 1px solid var(--border);
       box-shadow: 0 4px 12px rgba(15, 23, 42, 0.04); padding: 20px;
@@ -57,13 +174,13 @@
     .btn-sm { padding: 5px 10px; font-size: 12px; border-radius: 8px; }
     .form-row { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin-bottom: 12px; }
     input, select { padding: 10px; border-radius: 8px; border: 1px solid var(--border); width: 100%; font-size: 13px; }
-    input:focus, select:focus { outline: none; border-color: var(--primary); }
+    input:focus, select:focus { outline: none; border-color: var(--blue); }
     .section { display: none; }
     .section.active { display: block; }
     .badge { padding: 4px 8px; border-radius: 6px; font-size: 11px; font-weight: 700; }
     .badge-danger { background: #FEF2F2; color: var(--red); }
     .badge-ok { background: #ECFDF5; color: var(--primary); }
-    .badge-warn { background: #FFFBEB; color: var(--amber); }
+    .badge-warn { background: #FFFBEB; color: #B45309; }
 
     /* Modal Overlay (Kartu Stok & Barcode Studio) */
     .modal-backdrop {
@@ -103,456 +220,535 @@
       }
       .no-print { display: none !important; }
     }
+
+    @media (max-width: 1024px) {
+      .bento-kpi { grid-template-columns: repeat(2, 1fr); }
+      .bento-main, .bento-2col { grid-template-columns: 1fr; }
+    }
   </style>
 </head>
 <body>
-  <header class="topbar no-print">
-    <div>
-      <strong id="storeTitle">SIS Backoffice</strong> •
-      <span id="userBadge" style="font-size: 13px; color: var(--text-muted);">Loading...</span>
+  <!-- ========================================================= -->
+  <!-- SIDEBAR NAVIGASI KIRI                                     -->
+  <!-- ========================================================= -->
+  <aside class="sidebar no-print" id="adminSidebar">
+    <div class="sidebar-brand">
+      <div class="brand-logo">D</div>
+      <div class="brand-text">
+        <strong>Danish POS & SIS</strong>
+        <small>Smart Retail v3.5</small>
+      </div>
     </div>
-    <div class="nav-tabs">
-      <button class="tab-btn active" onclick="switchTab('dashboard', this)">Dashboard KPI</button>
-      <button class="tab-btn" onclick="switchTab('master', this)">Master & Barcode</button>
-      <button class="tab-btn" onclick="switchTab('members', this)">Member & Piutang</button>
-      <button class="tab-btn" onclick="switchTab('gudang', this)">Gudang & Mutasi</button>
-      <button class="tab-btn" onclick="switchTab('so', this)">Stock Opname</button>
-      <button class="tab-btn" onclick="switchTab('brankas', this)">Brankas & Setoran</button>
-      <button class="tab-btn" onclick="switchTab('users', this)">User & Device</button>
-      <button class="tab-btn" onclick="switchTab('suppliers', this)">Supplier & Beli</button>
-      <button class="tab-btn" onclick="switchTab('reports', this)">Laporan Laba Rugi</button>
-      <button class="btn btn-blue" onclick="goKasir()">Buka Layar Kasir</button>
-      <button class="btn btn-red" onclick="logout()">Keluar</button>
-    </div>
-  </header>
 
-  <main class="container">
-    <!-- TAB 1: DASHBOARD KPI -->
-    <div id="tab-dashboard" class="section active">
-      <div class="bento-kpi">
-        <div class="card">
-          <div class="kpi-label">Omzet Hari Ini</div>
-          <div class="kpi-val" id="kpiOmzet">Rp 0</div>
-        </div>
-        <div class="card">
-          <div class="kpi-label">Jumlah Transaksi</div>
-          <div class="kpi-val" id="kpiStruk">0</div>
-        </div>
-        <div class="card">
-          <div class="kpi-label">Peringatan Stok Menipis</div>
-          <div class="kpi-val" id="kpiLowStock" style="color: var(--amber);">0 SKU</div>
-        </div>
-        <div class="card">
-          <div class="kpi-label">Anomali / Flagged Fraud</div>
-          <div class="kpi-val" id="kpiFraud" style="color: var(--red);">0</div>
-        </div>
+    <nav class="sidebar-menu">
+      <button class="tab-btn active" onclick="switchTab('dashboard', this)">
+        <span class="nav-icon">&#127968;</span><span class="nav-label">Dashboard KPI</span>
+      </button>
+      <button class="tab-btn" onclick="switchTab('master', this)">
+        <span class="nav-icon">&#127991;</span><span class="nav-label">Master & Barcode</span>
+      </button>
+      <button class="tab-btn" onclick="switchTab('members', this)">
+        <span class="nav-icon">&#128101;</span><span class="nav-label">Member & Piutang</span>
+      </button>
+      <button class="tab-btn" onclick="switchTab('gudang', this)">
+        <span class="nav-icon">&#128230;</span><span class="nav-label">Gudang & Mutasi</span>
+      </button>
+      <button class="tab-btn" onclick="switchTab('so', this)">
+        <span class="nav-icon">&#128203;</span><span class="nav-label">Stock Opname</span>
+      </button>
+      <button class="tab-btn" onclick="switchTab('brankas', this)">
+        <span class="nav-icon">&#127974;</span><span class="nav-label">Brankas & Setoran</span>
+      </button>
+      <button class="tab-btn" onclick="switchTab('suppliers', this)">
+        <span class="nav-icon">&#128666;</span><span class="nav-label">Supplier & Beli</span>
+      </button>
+      <button class="tab-btn" onclick="switchTab('reports', this)">
+        <span class="nav-icon">&#128202;</span><span class="nav-label">Laporan Laba Rugi</span>
+      </button>
+      <button class="tab-btn" onclick="switchTab('users', this)">
+        <span class="nav-icon">&#128274;</span><span class="nav-label">User & Device</span>
+      </button>
+
+      <div class="sidebar-divider"></div>
+
+      <button class="tab-btn" onclick="goKasir()" style="color:#60A5FA; font-weight:700;">
+        <span class="nav-icon">&#128187;</span><span class="nav-label">Buka Layar Kasir</span>
+      </button>
+      <button class="tab-btn" onclick="logout()" style="color:#F87171;">
+        <span class="nav-icon">&#128682;</span><span class="nav-label">Keluar Sistem</span>
+      </button>
+    </nav>
+
+    <div class="sidebar-widget">
+      <div class="sidebar-widget-title">&#9889; Status Operasional</div>
+      <div class="sidebar-widget-row"><span>Mode Cloud</span><strong style="color:#34D399;">GAS Sync</strong></div>
+      <div class="sidebar-widget-row"><span>Engine POS</span><strong style="color:#60A5FA;">RENE v3.5</strong></div>
+    </div>
+  </aside>
+
+  <!-- ========================================================= -->
+  <!-- AREA KONTEN KANAN                                         -->
+  <!-- ========================================================= -->
+  <div class="main-wrapper">
+    <header class="topbar no-print">
+      <div class="topbar-left">
+        <button class="toggle-btn" onclick="document.getElementById('adminSidebar').classList.toggle('collapsed')" title="Perkecil/Perbesar Sidebar">&#9776;</button>
+        <input type="text" class="top-search" placeholder="Cari cepat SKU / Barcode di Katalog..." onkeydown="if(event.key==='Enter'){ const sb = document.querySelectorAll('.sidebar-menu .tab-btn')[1]; switchTab('master', sb); document.getElementById('masterSearchInput').value=this.value; filterMasterCatalog(); }">
       </div>
 
-      <div class="bento-main">
-        <div class="card">
-          <h3 style="margin-top:0;">Log Keamanan & Audit Trail Terbaru</h3>
-          <table>
-            <thead>
-              <tr><th>Waktu</th><th>Toko</th><th>User</th><th>Aktivitas</th><th>Keterangan</th></tr>
-            </thead>
-            <tbody id="auditTableBody"></tbody>
-          </table>
+      <div class="topbar-right">
+        <div class="date-pill" id="topbarTodayDate">&#128197; Hari Ini</div>
+        <button class="kasir-shortcut-btn" onclick="goKasir()">&#128722; Layar Kasir</button>
+        <div class="user-profile-box">
+          <div class="user-avatar">A</div>
+          <div style="line-height:1.25;">
+            <strong id="storeTitle" style="display:block; font-size:13px;">SIS Backoffice</strong>
+            <span id="userBadge" style="font-size:11px; color:var(--text-muted);">Loading...</span>
+          </div>
         </div>
-        <div class="card">
+      </div>
+    </header>
+
+    <main class="container">
+      <!-- TAB 1: DASHBOARD KPI -->
+      <div id="tab-dashboard" class="section active">
+        <div class="bento-kpi">
+          <div class="kpi-grad-card kpi-grad-purple">
+            <div class="kpi-label">Omzet Hari Ini</div>
+            <div class="kpi-val" id="kpiOmzet">Rp 0</div>
+            <div class="kpi-grad-sub">Pendapatan kotor harian toko</div>
+            <div class="kpi-bg-icon">&#128176;</div>
+          </div>
+          <div class="kpi-grad-card kpi-grad-green">
+            <div class="kpi-label">Jumlah Transaksi</div>
+            <div class="kpi-val" id="kpiStruk">0</div>
+            <div class="kpi-grad-sub">Total struk tercatat hari ini</div>
+            <div class="kpi-bg-icon">&#129534;</div>
+          </div>
+          <div class="kpi-grad-card kpi-grad-amber">
+            <div class="kpi-label">Peringatan Stok Menipis</div>
+            <div class="kpi-val" id="kpiLowStock">0 SKU</div>
+            <div class="kpi-grad-sub">Stok &lt; 10 pcs butuh Reorder</div>
+            <div class="kpi-bg-icon">&#128230;</div>
+          </div>
+          <div class="kpi-grad-card kpi-grad-red">
+            <div class="kpi-label">Anomali / Flagged Fraud</div>
+            <div class="kpi-val" id="kpiFraud">0</div>
+            <div class="kpi-grad-sub">Memerlukan investigasi audit</div>
+            <div class="kpi-bg-icon">&#128737;</div>
+          </div>
+        </div>
+
+        <div class="bento-main">
+          <div class="card">
+            <h3 style="margin-top:0;">Log Keamanan & Audit Trail Terbaru</h3>
+            <table>
+              <thead>
+                <tr><th>Waktu</th><th>Toko</th><th>User</th><th>Aktivitas</th><th>Keterangan</th></tr>
+              </thead>
+              <tbody id="auditTableBody"></tbody>
+            </table>
+          </div>
+          <div class="card">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
+              <h3 style="margin:0;">Antrean Cetak Price Tag Rak</h3>
+              <button class="btn btn-amber btn-sm" onclick="printPendingPriceTags()">Cetak Label Rak</button>
+            </div>
+            <table>
+              <thead>
+                <tr><th>SKU / Barang</th><th>Harga Baru</th></tr>
+              </thead>
+              <tbody id="priceTagBody"></tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- PANEL PERINGATAN FEFO (KEDALUWARSA) & REORDER POINT (AUTO-PO) -->
+        <div class="bento-2col" style="margin-top:16px;">
+          <div class="card">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
+              <h3 style="margin:0;">Peringatan Stok Menipis & Reorder (Auto-PO)</h3>
+              <span class="badge badge-warn">Stok &lt; 10 Pcs</span>
+            </div>
+            <table>
+              <thead>
+                <tr><th>SKU / Barang</th><th>Sisa Stok</th><th>Aksi Cepat</th></tr>
+              </thead>
+              <tbody id="lowStockTableBody"></tbody>
+            </table>
+          </div>
+
+          <div class="card">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
+              <h3 style="margin:0;">Watchlist Kedaluwarsa (FEFO &le; 30 Hari)</h3>
+              <span class="badge badge-danger">Prioritas Jual / NRB</span>
+            </div>
+            <table>
+              <thead>
+                <tr><th>SKU / Barang</th><th>Tgl Expired</th><th>Status</th></tr>
+              </thead>
+              <tbody id="fefoTableBody"></tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- PANEL INVESTIGASI ANOMALI & FLAGGED FRAUD -->
+        <div class="card" style="margin-top:16px;">
           <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
-            <h3 style="margin:0;">Antrean Cetak Price Tag Rak</h3>
-            <button class="btn btn-amber btn-sm" onclick="printPendingPriceTags()">Cetak Label Rak</button>
+            <div>
+              <h3 style="margin:0;">Monitor Anomali & Investigasi Fraud (Anti-Tampering)</h3>
+              <small style="color:var(--text-muted);">Transaksi dengan ketidaksesuaian harga/checksum/promo yang memerlukan verifikasi manajemen.</small>
+            </div>
+            <span class="badge badge-danger">Audit Keamanan</span>
           </div>
           <table>
             <thead>
-              <tr><th>SKU / Barang</th><th>Harga Baru</th></tr>
+              <tr><th>No. Struk</th><th>Toko</th><th>Waktu</th><th>Kasir</th><th>Total Server</th><th>Aksi Investigasi</th></tr>
             </thead>
-            <tbody id="priceTagBody"></tbody>
+            <tbody id="fraudTableBody"></tbody>
           </table>
         </div>
       </div>
 
-      <!-- PANEL PERINGATAN FEFO (KEDALUWARSA) & REORDER POINT (AUTO-PO) -->
-      <div class="bento-2col" style="margin-top:16px;">
+      <!-- TAB 2: MASTER BARANG, PROMO & CETAK BARCODE -->
+      <div id="tab-master" class="section">
+        <div class="bento-2col">
+          <div class="card">
+            <h3 style="margin-top:0;">Tambah / Ubah Master Barang</h3>
+            <div class="form-row">
+              <input type="text" id="prdSku" placeholder="SKU (misal: SKU-1005)">
+              <input type="text" id="prdBarcode" placeholder="Barcode (pisah koma jika >1)">
+              <input type="text" id="prdNama" placeholder="Nama Barang">
+            </div>
+            <div class="form-row">
+              <input type="text" id="prdKategori" placeholder="Kategori (Minuman/Snack)">
+              <input type="text" id="prdSatuan" placeholder="Satuan (PCS / PACK:12 / DUS:40)">
+              <select id="prdHighRisk">
+                <option value="false">Risiko Normal</option>
+                <option value="true">High-Risk Item (SO Harian)</option>
+              </select>
+            </div>
+            <div class="form-row">
+              <input type="number" id="prdModal" placeholder="Harga Modal / HPP (Rp)">
+              <input type="number" id="prdJual" placeholder="Harga Jual Toko (Rp)">
+              <button class="btn btn-green" onclick="submitProduct()">Simpan Barang</button>
+            </div>
+          </div>
+
+          <div class="card">
+            <h3 style="margin-top:0;">Buat Promo Otomatis (Tiered / Bundling / PWP)</h3>
+            <div class="form-row">
+              <select id="prmJenis">
+                <option value="DISCOUNT">DISCOUNT - Potongan Langsung</option>
+                <option value="TIERED">TIERED - Harga Grosir Bertingkat</option>
+                <option value="BUNDLING">BUNDLING - Paket Mix & Match</option>
+                <option value="PWP">PWP - Tebus Murah</option>
+              </select>
+              <input type="text" id="prmBarcodeSyarat" placeholder="Barcode Syarat">
+              <input type="number" id="prmMinQty" placeholder="Min Qty / Min Belanja">
+            </div>
+            <div class="form-row">
+              <input type="text" id="prmBarcodeHadiah" placeholder="Barcode Hadiah (Khusus PWP)">
+              <input type="number" id="prmHarga" placeholder="Harga Promo / Potongan (Rp)">
+              <button class="btn btn-violet" onclick="submitPromo()">Simpan Promo</button>
+            </div>
+            <div class="form-row">
+              <input type="date" id="prmMulai" title="Tanggal Mulai">
+              <input type="date" id="prmSelesai" title="Tanggal Selesai">
+              <div></div>
+            </div>
+          </div>
+        </div>
+
         <div class="card">
-          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
-            <h3 style="margin:0;">Peringatan Stok Menipis & Reorder (Auto-PO)</h3>
-            <span class="badge badge-warn">Stok &lt; 10 Pcs</span>
+          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px; flex-wrap:wrap; gap:10px;">
+            <div>
+              <h3 style="margin:0;">Katalog Master Barang & Studio Cetak Barcode</h3>
+              <small style="color:var(--text-muted);">Pilih produk untuk cetak stiker barcode kemasan atau cek Kartu Stok.</small>
+            </div>
+            <div style="display:flex; gap:8px; align-items:center;">
+              <input type="text" id="masterSearchInput" onkeyup="filterMasterCatalog()" placeholder="Cari SKU / Barcode / Nama..." style="width:230px;">
+              <button class="btn btn-dark" onclick="openBarcodeStudioModal()">Cetak Barcode Massal (<span id="selectedBarcodeCount">0</span>)</button>
+            </div>
           </div>
           <table>
             <thead>
-              <tr><th>SKU / Barang</th><th>Sisa Stok</th><th>Aksi Cepat</th></tr>
+              <tr>
+                <th style="width:36px;"><input type="checkbox" id="selectAllBarcode" onchange="toggleAllBarcodeCheckboxes(this)"></th>
+                <th>SKU</th><th>Barcode</th><th>Nama Barang</th><th>Kategori</th><th>Satuan</th><th>HPP</th><th>Harga Jual</th><th>Aksi</th>
+              </tr>
             </thead>
-            <tbody id="lowStockTableBody"></tbody>
+            <tbody id="masterCatalogBody"></tbody>
           </table>
+        </div>
+      </div>
+
+      <!-- TAB 3: MEMBER & PIUTANG PELANGGAN (RENE CRM) -->
+      <div id="tab-members" class="section">
+        <div class="card" style="margin-bottom:16px;">
+          <h3 style="margin-top:0;">Tambah / Perbarui Data Member & Limit Piutang</h3>
+          <div class="form-row">
+            <input type="text" id="mbrCardCode" placeholder="Kode Kartu / No. Member">
+            <input type="text" id="mbrNama" placeholder="Nama Pelanggan">
+            <input type="text" id="mbrPhone" placeholder="Nomor HP (WhatsApp)">
+          </div>
+          <div class="form-row">
+            <select id="mbrLevel">
+              <option value="SILVER">SILVER (Member Reguler)</option>
+              <option value="GOLD">GOLD (Member VIP)</option>
+              <option value="GROSIR">GROSIR / RESELLER</option>
+            </select>
+            <input type="number" id="mbrDiscountPct" placeholder="Diskon Member Otomatis (%)" min="0" max="100">
+            <input type="number" id="mbrCreditLimit" placeholder="Limit Kredit / Tempo (Rp)" min="0">
+          </div>
+          <button class="btn btn-green" onclick="submitMemberAdmin()">Simpan Data Member</button>
         </div>
 
         <div class="card">
-          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
-            <h3 style="margin:0;">Watchlist Kedaluwarsa (FEFO &le; 30 Hari)</h3>
-            <span class="badge badge-danger">Prioritas Jual / NRB</span>
-          </div>
+          <h3 style="margin-top:0;">Daftar Member, Saldo Poin & Kartu Piutang</h3>
           <table>
             <thead>
-              <tr><th>SKU / Barang</th><th>Tgl Expired</th><th>Status</th></tr>
+              <tr>
+                <th>ID</th><th>Kode Kartu</th><th>Nama Pelanggan</th><th>No. HP</th>
+                <th>Level</th><th>Diskon</th><th>Saldo Poin</th><th>Limit Piutang</th><th>Sisa Piutang</th><th>Aksi</th>
+              </tr>
             </thead>
-            <tbody id="fefoTableBody"></tbody>
+            <tbody id="membersTableBody"></tbody>
           </table>
         </div>
       </div>
 
-      <!-- PANEL INVESTIGASI ANOMALI & FLAGGED FRAUD -->
-      <div class="card" style="margin-top:16px;">
-        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
-          <div>
-            <h3 style="margin:0;">Monitor Anomali & Investigasi Fraud (Anti-Tampering)</h3>
-            <small style="color:var(--text-muted);">Transaksi dengan ketidaksesuaian harga/checksum/promo yang memerlukan verifikasi manajemen.</small>
-          </div>
-          <span class="badge badge-danger">Audit Keamanan</span>
-        </div>
-        <table>
-          <thead>
-            <tr><th>No. Struk</th><th>Toko</th><th>Waktu</th><th>Kasir</th><th>Total Server</th><th>Aksi Investigasi</th></tr>
-          </thead>
-          <tbody id="fraudTableBody"></tbody>
-        </table>
-      </div>
-    </div>
-
-    <!-- TAB 2: MASTER BARANG, PROMO & CETAK BARCODE -->
-    <div id="tab-master" class="section">
-      <div class="bento-2col">
-        <div class="card">
-          <h3 style="margin-top:0;">Tambah / Ubah Master Barang</h3>
+      <!-- TAB 4: GUDANG LPB, NRB & MUTASI ANTAR TOKO -->
+      <div id="tab-gudang" class="section">
+        <div class="card" style="margin-bottom: 16px;">
+          <h3 style="margin-top:0;">Input Penerimaan (LPB) / Retur Rusak (NRB) / Mutasi Antar Toko</h3>
           <div class="form-row">
-            <input type="text" id="prdSku" placeholder="SKU (misal: SKU-1005)">
-            <input type="text" id="prdBarcode" placeholder="Barcode (pisah koma jika >1)">
-            <input type="text" id="prdNama" placeholder="Nama Barang">
-          </div>
-          <div class="form-row">
-            <input type="text" id="prdKategori" placeholder="Kategori (Minuman/Snack)">
-            <input type="text" id="prdSatuan" placeholder="Satuan (PCS / PACK:12 / DUS:40)">
-            <select id="prdHighRisk">
-              <option value="false">Risiko Normal</option>
-              <option value="true">High-Risk Item (SO Harian)</option>
+            <select id="docTipe">
+              <option value="LPB">LPB - Penerimaan Barang Masuk</option>
+              <option value="NRB">NRB - Retur Barang Rusak / Kedaluwarsa</option>
+              <option value="MUTASI_OUT">Mutasi Keluar Antar Toko (Transfer Out)</option>
+              <option value="MUTASI_IN">Mutasi Masuk Antar Toko (Transfer In)</option>
             </select>
+            <input type="text" id="docAsal" autocomplete="off" placeholder="Asal Gudang / Supplier / Kode Toko Tujuan">
+            <input type="password" id="docPin" autocomplete="new-password" placeholder="PIN Supervisor (Jika Pramuniaga)">
           </div>
           <div class="form-row">
-            <input type="number" id="prdModal" placeholder="Harga Modal / HPP (Rp)">
-            <input type="number" id="prdJual" placeholder="Harga Jual Toko (Rp)">
-            <button class="btn btn-green" onclick="submitProduct()">Simpan Barang</button>
+            <input type="text" id="docSku" autocomplete="off" placeholder="Kode SKU (misal: SKU-1001)">
+            <input type="number" id="docQty" placeholder="Jumlah Fisik Pcs (Qty)">
+            <input type="date" id="docExpired" title="Tanggal Kedaluwarsa (FEFO)">
           </div>
+          <button class="btn btn-green" onclick="submitGudangDoc()">Simpan & Proses Stok</button>
         </div>
 
         <div class="card">
-          <h3 style="margin-top:0;">Buat Promo Otomatis (Tiered / Bundling / PWP)</h3>
+          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
+            <h3 style="margin:0;">Pecah Kemasan / Konversi Satuan Bertingkat (Repack)</h3>
+            <span class="badge badge-ok">Contoh: 1 DUS &rarr; 40 PCS</span>
+          </div>
+          <p style="font-size:13px; color:var(--text-muted); margin-top:0;">
+            Mengurangi stok SKU kemasan besar dan menambah stok SKU satuan eceran secara otomatis beserta penyesuaian HPP satuan.
+          </p>
           <div class="form-row">
-            <select id="prmJenis">
-              <option value="DISCOUNT">DISCOUNT - Potongan Langsung</option>
-              <option value="TIERED">TIERED - Harga Grosir Bertingkat</option>
-              <option value="BUNDLING">BUNDLING - Paket Mix & Match</option>
-              <option value="PWP">PWP - Tebus Murah</option>
+            <input type="text" id="repSrcSku" autocomplete="off" placeholder="SKU Kemasan Besar (misal: SKU-DUS-01)">
+            <input type="text" id="repTgtSku" autocomplete="off" placeholder="SKU Satuan Eceran (misal: SKU-PCS-01)">
+            <input type="password" id="repPin" autocomplete="new-password" placeholder="PIN Supervisor (Jika Pramuniaga)">
+          </div>
+          <div class="form-row">
+            <input type="number" id="repQtySrc" placeholder="Jumlah Kemasan Dipecah (misal: 2)" min="1" oninput="updateRepackPreview()">
+            <input type="number" id="repFactor" placeholder="Isi per Kemasan (misal: 40)" min="2" oninput="updateRepackPreview()">
+            <div id="repPreviewBox" style="display:flex; align-items:center; padding:0 12px; background:#F8FAFC; border:1px solid var(--border); border-radius:8px; font-size:13px; font-weight:700; color:var(--blue);">
+              Hasil Eceran: 0 Pcs
+            </div>
+          </div>
+          <button class="btn btn-violet" onclick="submitRepackUnit()">Proses Konversi Satuan</button>
+        </div>
+      </div>
+
+      <!-- TAB 5: BLIND STOCK OPNAME (RENE SCANNER MODE) -->
+      <div id="tab-so" class="section">
+        <div class="card">
+          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:14px; flex-wrap:wrap; gap:10px;">
+            <div>
+              <h3 style="margin:0;">Stock Opname (Blind Count + Barcode Scanner)</h3>
+              <small style="color:var(--text-muted);">Scan barcode barang di rak untuk menambah hitungan +1 secara otomatis tanpa mouse.</small>
+            </div>
+            <div style="display:flex; gap:8px; flex-wrap:wrap;">
+              <select id="jenisSO" style="width:180px;">
+                <option value="PARSIAL">SO Parsial (Harian)</option>
+                <option value="GRAND">Grand SO (Bulanan)</option>
+              </select>
+              <input type="password" id="soPin" autocomplete="new-password" placeholder="PIN Kepala Toko" style="width:160px;">
+              <button class="btn btn-green" onclick="submitSO()">Simpan Hasil SO</button>
+            </div>
+          </div>
+
+          <div style="background:#F8FAFC; border:1px dashed #94A3B8; padding:12px; border-radius:12px; margin-bottom:14px; display:flex; gap:10px; align-items:center;">
+            <strong style="font-size:13px; white-space:nowrap;">Scan Barcode Rak:</strong>
+            <input type="text" id="soScannerInput" autocomplete="off" placeholder="Arahkan scanner ke barcode barang lalu Enter..." onkeydown="handleSOScannerKey(event)" style="max-width:340px; background:#fff;">
+            <span id="soScannerFeedback" style="font-size:12px; font-weight:600; color:var(--primary);"></span>
+          </div>
+
+          <table>
+            <thead>
+              <tr><th>SKU</th><th>Barcode</th><th>Nama Barang</th><th>Satuan</th><th>Input Hitungan Fisik Rak</th></tr>
+            </thead>
+            <tbody id="soTableBody"></tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- TAB 6: BRANKAS & SETORAN -->
+      <div id="tab-brankas" class="section">
+        <div class="card" style="max-width: 600px;">
+          <h3 style="margin-top:0;">Pencatatan Kas Brankas & Setoran Bank</h3>
+          <div style="display:flex; flex-direction:column; gap:12px;">
+            <select id="kasJenis">
+              <option value="SETOR_BANK">Setoran Tunai ke Bank</option>
+              <option value="CASH_DROP">Cash Drop dari Laci Kasir</option>
+              <option value="BIAYA_OPS">Pengeluaran Operasional Toko</option>
             </select>
-            <input type="text" id="prmBarcodeSyarat" placeholder="Barcode Syarat">
-            <input type="number" id="prmMinQty" placeholder="Min Qty / Min Belanja">
+            <input type="number" id="kasNominal" placeholder="Nominal (Rp)">
+            <input type="text" id="kasKet" placeholder="Keterangan / Nomor Referensi Bukti Setor">
+            <button class="btn btn-green" onclick="submitKasBrankas()">Catat Transaksi Brankas</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- TAB 7: MANAJEMEN USER & DEVICE BINDING -->
+      <div id="tab-users" class="section">
+        <div class="card" style="margin-bottom:16px;">
+          <h3 style="margin-top:0;">Tambah Pengguna Baru (RBAC)</h3>
+          <div class="form-row">
+            <input type="text" id="usrNama" placeholder="Nama Lengkap Karyawan">
+            <input type="text" id="usrUsername" autocomplete="off" placeholder="Username Login">
+            <input type="password" id="usrPassword" autocomplete="new-password" placeholder="Password Login">
           </div>
           <div class="form-row">
-            <input type="text" id="prmBarcodeHadiah" placeholder="Barcode Hadiah (Khusus PWP)">
-            <input type="number" id="prmHarga" placeholder="Harga Promo / Potongan (Rp)">
-            <button class="btn btn-violet" onclick="submitPromo()">Simpan Promo</button>
-          </div>
-          <div class="form-row">
-            <input type="date" id="prmMulai" title="Tanggal Mulai">
-            <input type="date" id="prmSelesai" title="Tanggal Selesai">
-            <div></div>
-          </div>
-        </div>
-      </div>
-
-      <div class="card">
-        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px; flex-wrap:wrap; gap:10px;">
-          <div>
-            <h3 style="margin:0;">Katalog Master Barang & Studio Cetak Barcode</h3>
-            <small style="color:var(--text-muted);">Pilih produk untuk cetak stiker barcode kemasan atau cek Kartu Stok.</small>
-          </div>
-          <div style="display:flex; gap:8px; align-items:center;">
-            <input type="text" id="masterSearchInput" onkeyup="filterMasterCatalog()" placeholder="Cari SKU / Barcode / Nama..." style="width:230px;">
-            <button class="btn btn-dark" onclick="openBarcodeStudioModal()">Cetak Barcode Massal (<span id="selectedBarcodeCount">0</span>)</button>
-          </div>
-        </div>
-        <table>
-          <thead>
-            <tr>
-              <th style="width:36px;"><input type="checkbox" id="selectAllBarcode" onchange="toggleAllBarcodeCheckboxes(this)"></th>
-              <th>SKU</th><th>Barcode</th><th>Nama Barang</th><th>Kategori</th><th>Satuan</th><th>HPP</th><th>Harga Jual</th><th>Aksi</th>
-            </tr>
-          </thead>
-          <tbody id="masterCatalogBody"></tbody>
-        </table>
-      </div>
-    </div>
-
-    <!-- TAB 3: MEMBER & PIUTANG PELANGGAN (RENE CRM) -->
-    <div id="tab-members" class="section">
-      <div class="card" style="margin-bottom:16px;">
-        <h3 style="margin-top:0;">Tambah / Perbarui Data Member & Limit Piutang</h3>
-        <div class="form-row">
-          <input type="text" id="mbrCardCode" placeholder="Kode Kartu / No. Member">
-          <input type="text" id="mbrNama" placeholder="Nama Pelanggan">
-          <input type="text" id="mbrPhone" placeholder="Nomor HP (WhatsApp)">
-        </div>
-        <div class="form-row">
-          <select id="mbrLevel">
-            <option value="SILVER">SILVER (Member Reguler)</option>
-            <option value="GOLD">GOLD (Member VIP)</option>
-            <option value="GROSIR">GROSIR / RESELLER</option>
-          </select>
-          <input type="number" id="mbrDiscountPct" placeholder="Diskon Member Otomatis (%)" min="0" max="100">
-          <input type="number" id="mbrCreditLimit" placeholder="Limit Kredit / Tempo (Rp)" min="0">
-        </div>
-        <button class="btn btn-green" onclick="submitMemberAdmin()">Simpan Data Member</button>
-      </div>
-
-      <div class="card">
-        <h3 style="margin-top:0;">Daftar Member, Saldo Poin & Kartu Piutang</h3>
-        <table>
-          <thead>
-            <tr>
-              <th>ID</th><th>Kode Kartu</th><th>Nama Pelanggan</th><th>No. HP</th>
-              <th>Level</th><th>Diskon</th><th>Saldo Poin</th><th>Limit Piutang</th><th>Sisa Piutang</th><th>Aksi</th>
-            </tr>
-          </thead>
-          <tbody id="membersTableBody"></tbody>
-        </table>
-      </div>
-    </div>
-
-    <!-- TAB 4: GUDANG LPB, NRB & MUTASI ANTAR TOKO -->
-    <div id="tab-gudang" class="section">
-      <div class="card" style="margin-bottom: 16px;">
-        <h3 style="margin-top:0;">Input Penerimaan (LPB) / Retur Rusak (NRB) / Mutasi Antar Toko</h3>
-        <div class="form-row">
-          <select id="docTipe">
-            <option value="LPB">LPB - Penerimaan Barang Masuk</option>
-            <option value="NRB">NRB - Retur Barang Rusak / Kedaluwarsa</option>
-            <option value="MUTASI_OUT">Mutasi Keluar Antar Toko (Transfer Out)</option>
-            <option value="MUTASI_IN">Mutasi Masuk Antar Toko (Transfer In)</option>
-          </select>
-          <input type="text" id="docAsal" autocomplete="off" placeholder="Asal Gudang / Supplier / Kode Toko Tujuan">
-          <input type="password" id="docPin" autocomplete="new-password" placeholder="PIN Supervisor (Jika Pramuniaga)">
-        </div>
-        <div class="form-row">
-          <input type="text" id="docSku" autocomplete="off" placeholder="Kode SKU (misal: SKU-1001)">
-          <input type="number" id="docQty" placeholder="Jumlah Fisik Pcs (Qty)">
-          <input type="date" id="docExpired" title="Tanggal Kedaluwarsa (FEFO)">
-        </div>
-        <button class="btn btn-green" onclick="submitGudangDoc()">Simpan & Proses Stok</button>
-      </div>
-
-      <div class="card">
-        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
-          <h3 style="margin:0;">Pecah Kemasan / Konversi Satuan Bertingkat (Repack)</h3>
-          <span class="badge badge-ok">Contoh: 1 DUS &rarr; 40 PCS</span>
-        </div>
-        <p style="font-size:13px; color:var(--text-muted); margin-top:0;">
-          Mengurangi stok SKU kemasan besar dan menambah stok SKU satuan eceran secara otomatis beserta penyesuaian HPP satuan.
-        </p>
-        <div class="form-row">
-          <input type="text" id="repSrcSku" autocomplete="off" placeholder="SKU Kemasan Besar (misal: SKU-DUS-01)">
-          <input type="text" id="repTgtSku" autocomplete="off" placeholder="SKU Satuan Eceran (misal: SKU-PCS-01)">
-          <input type="password" id="repPin" autocomplete="new-password" placeholder="PIN Supervisor (Jika Pramuniaga)">
-        </div>
-        <div class="form-row">
-          <input type="number" id="repQtySrc" placeholder="Jumlah Kemasan Dipecah (misal: 2)" min="1" oninput="updateRepackPreview()">
-          <input type="number" id="repFactor" placeholder="Isi per Kemasan (misal: 40)" min="2" oninput="updateRepackPreview()">
-          <div id="repPreviewBox" style="display:flex; align-items:center; padding:0 12px; background:#F8FAFC; border:1px solid var(--border); border-radius:8px; font-size:13px; font-weight:700; color:var(--blue);">
-            Hasil Eceran: 0 Pcs
-          </div>
-        </div>
-        <button class="btn btn-violet" onclick="submitRepackUnit()">Proses Konversi Satuan</button>
-      </div>
-    </div>
-
-    <!-- TAB 5: BLIND STOCK OPNAME (RENE SCANNER MODE) -->
-    <div id="tab-so" class="section">
-      <div class="card">
-        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:14px; flex-wrap:wrap; gap:10px;">
-          <div>
-            <h3 style="margin:0;">Stock Opname (Blind Count + Barcode Scanner)</h3>
-            <small style="color:var(--text-muted);">Scan barcode barang di rak untuk menambah hitungan +1 secara otomatis tanpa mouse.</small>
-          </div>
-          <div style="display:flex; gap:8px; flex-wrap:wrap;">
-            <select id="jenisSO" style="width:180px;">
-              <option value="PARSIAL">SO Parsial (Harian)</option>
-              <option value="GRAND">Grand SO (Bulanan)</option>
+            <input type="password" id="usrPin" autocomplete="new-password" placeholder="PIN Otorisasi (Kosongkan untuk Kasir)">
+            <select id="usrRole">
+              <option value="Kasir">Kasir</option>
+              <option value="Pramuniaga">Pramuniaga</option>
+              <option value="Kepala Toko">Kepala Toko</option>
+              <option value="Korwil">Korwil</option>
             </select>
-            <input type="password" id="soPin" autocomplete="new-password" placeholder="PIN Kepala Toko" style="width:160px;">
-            <button class="btn btn-green" onclick="submitSO()">Simpan Hasil SO</button>
+            <input type="text" id="usrToko" placeholder="Kode Toko (misal: TK-001 atau ALL)">
           </div>
+          <button class="btn btn-green" onclick="submitNewUser()">Simpan User Baru</button>
         </div>
 
-        <!-- Bar Scanner Cepat ala RENE POS -->
-        <div style="background:#F8FAFC; border:1px dashed #94A3B8; padding:12px; border-radius:12px; margin-bottom:14px; display:flex; gap:10px; align-items:center;">
-          <strong style="font-size:13px; white-space:nowrap;">Scan Barcode Rak:</strong>
-          <input type="text" id="soScannerInput" autocomplete="off" placeholder="Arahkan scanner ke barcode barang lalu Enter..." onkeydown="handleSOScannerKey(event)" style="max-width:340px; background:#fff;">
-          <span id="soScannerFeedback" style="font-size:12px; font-weight:600; color:var(--primary);"></span>
-        </div>
-
-        <table>
-          <thead>
-            <tr><th>SKU</th><th>Barcode</th><th>Nama Barang</th><th>Satuan</th><th>Input Hitungan Fisik Rak</th></tr>
-          </thead>
-          <tbody id="soTableBody"></tbody>
-        </table>
-      </div>
-    </div>
-
-    <!-- TAB 6: BRANKAS & SETORAN -->
-    <div id="tab-brankas" class="section">
-      <div class="card" style="max-width: 600px;">
-        <h3 style="margin-top:0;">Pencatatan Kas Brankas & Setoran Bank</h3>
-        <div style="display:flex; flex-direction:column; gap:12px;">
-          <select id="kasJenis">
-            <option value="SETOR_BANK">Setoran Tunai ke Bank</option>
-            <option value="CASH_DROP">Cash Drop dari Laci Kasir</option>
-            <option value="BIAYA_OPS">Pengeluaran Operasional Toko</option>
-          </select>
-          <input type="number" id="kasNominal" placeholder="Nominal (Rp)">
-          <input type="text" id="kasKet" placeholder="Keterangan / Nomor Referensi Bukti Setor">
-          <button class="btn btn-green" onclick="submitKasBrankas()">Catat Transaksi Brankas</button>
-        </div>
-      </div>
-    </div>
-
-    <!-- TAB 7: MANAJEMEN USER & DEVICE BINDING -->
-    <div id="tab-users" class="section">
-      <div class="card" style="margin-bottom:16px;">
-        <h3 style="margin-top:0;">Tambah Pengguna Baru (RBAC)</h3>
-        <div class="form-row">
-          <input type="text" id="usrNama" placeholder="Nama Lengkap Karyawan">
-          <input type="text" id="usrUsername" autocomplete="off" placeholder="Username Login">
-          <input type="password" id="usrPassword" autocomplete="new-password" placeholder="Password Login">
-        </div>
-        <div class="form-row">
-          <input type="password" id="usrPin" autocomplete="new-password" placeholder="PIN Otorisasi (Kosongkan untuk Kasir)">
-          <select id="usrRole">
-            <option value="Kasir">Kasir</option>
-            <option value="Pramuniaga">Pramuniaga</option>
-            <option value="Kepala Toko">Kepala Toko</option>
-            <option value="Korwil">Korwil</option>
-          </select>
-          <input type="text" id="usrToko" placeholder="Kode Toko (misal: TK-001 atau ALL)">
-        </div>
-        <button class="btn btn-green" onclick="submitNewUser()">Simpan User Baru</button>
-      </div>
-
-      <div class="card">
-        <h3 style="margin-top:0;">Daftar Pengguna & Kontrol Device Binding</h3>
-        <table>
-          <thead>
-            <tr><th>ID</th><th>Nama</th><th>Username</th><th>Role</th><th>Akses Toko</th><th>Registered Device ID</th><th>Aksi Device</th></tr>
-          </thead>
-          <tbody id="usersTableBody"></tbody>
-        </table>
-      </div>
-    </div>
-
-    <!-- TAB 8: SUPPLIER, PEMBELIAN LPB & HUTANG USAHA -->
-    <div id="tab-suppliers" class="section">
-      <div class="bento-2col">
         <div class="card">
-          <h3 style="margin-top:0;">Master Pemasok (Supplier)</h3>
-          <div class="form-row">
-            <input type="text" id="supId" placeholder="Kode (Otomatis jika kosong)">
-            <input type="text" id="supNama" placeholder="Nama PT / Supplier">
-            <input type="text" id="supHp" placeholder="No. HP / Sales">
+          <h3 style="margin-top:0;">Daftar Pengguna & Kontrol Device Binding</h3>
+          <table>
+            <thead>
+              <tr><th>ID</th><th>Nama</th><th>Username</th><th>Role</th><th>Akses Toko</th><th>Registered Device ID</th><th>Aksi Device</th></tr>
+            </thead>
+            <tbody id="usersTableBody"></tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- TAB 8: SUPPLIER, PEMBELIAN LPB & HUTANG USAHA -->
+      <div id="tab-suppliers" class="section">
+        <div class="bento-2col">
+          <div class="card">
+            <h3 style="margin-top:0;">Master Pemasok (Supplier)</h3>
+            <div class="form-row">
+              <input type="text" id="supId" placeholder="Kode (Otomatis jika kosong)">
+              <input type="text" id="supNama" placeholder="Nama PT / Supplier">
+              <input type="text" id="supHp" placeholder="No. HP / Sales">
+            </div>
+            <div class="form-row">
+              <input type="text" id="supAlamat" placeholder="Alamat / Kota">
+              <input type="number" id="supTermin" placeholder="Termin Tempo (Hari)" value="14">
+              <button class="btn btn-green" onclick="submitSupplier()">Simpan Supplier</button>
+            </div>
           </div>
-          <div class="form-row">
-            <input type="text" id="supAlamat" placeholder="Alamat / Kota">
-            <input type="number" id="supTermin" placeholder="Termin Tempo (Hari)" value="14">
-            <button class="btn btn-green" onclick="submitSupplier()">Simpan Supplier</button>
+
+          <div class="card">
+            <h3 style="margin-top:0;">Faktur Pembelian Barang (Update Stok & HPP)</h3>
+            <div class="form-row">
+              <select id="purSupplierId"></select>
+              <input type="text" id="purNoFaktur" placeholder="No. Faktur Supplier">
+              <select id="purPayMethod">
+                <option value="TUNAI">Bayar Lunas / Tunai</option>
+                <option value="TEMPO">Kredit / Tempo Supplier</option>
+              </select>
+            </div>
+            <div class="form-row">
+              <input type="text" id="purSku" placeholder="Kode SKU (misal: SKU-1001)">
+              <input type="number" id="purQty" placeholder="Qty Beli (Pcs)">
+              <input type="number" id="purBuyPrice" placeholder="Harga Beli Satuan (Rp)">
+            </div>
+            <button class="btn btn-blue" onclick="submitPurchaseInvoice()">Simpan Faktur Pembelian</button>
           </div>
         </div>
 
         <div class="card">
-          <h3 style="margin-top:0;">Faktur Pembelian Barang (Update Stok & HPP)</h3>
-          <div class="form-row">
-            <select id="purSupplierId"></select>
-            <input type="text" id="purNoFaktur" placeholder="No. Faktur Supplier">
-            <select id="purPayMethod">
-              <option value="TUNAI">Bayar Lunas / Tunai</option>
-              <option value="TEMPO">Kredit / Tempo Supplier</option>
-            </select>
+          <h3 style="margin-top:0;">Daftar Supplier & Kartu Hutang Usaha</h3>
+          <table>
+            <thead>
+              <tr><th>Kode</th><th>Nama Supplier</th><th>Kontak</th><th>Termin</th><th>Sisa Hutang Toko</th><th>Aksi</th></tr>
+            </thead>
+            <tbody id="suppliersTableBody"></tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- TAB 9: LAPORAN PENJUALAN & LABA RUGI (X/Z-REPORT + EXPORT) -->
+      <div id="tab-reports" class="section">
+        <div class="card no-print" style="margin-bottom:16px; display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:12px;">
+          <div style="display:flex; gap:10px; align-items:center; flex-wrap:wrap;">
+            <strong>Periode Laporan:</strong>
+            <input type="date" id="repStartDate" style="width:165px;">
+            <span>s/d</span>
+            <input type="date" id="repEndDate" style="width:165px;">
+            <button class="btn btn-blue" onclick="loadSalesProfitReport()">Tampilkan</button>
           </div>
-          <div class="form-row">
-            <input type="text" id="purSku" placeholder="Kode SKU (misal: SKU-1001)">
-            <input type="number" id="purQty" placeholder="Qty Beli (Pcs)">
-            <input type="number" id="purBuyPrice" placeholder="Harga Beli Satuan (Rp)">
-          </div>
-          <button class="btn btn-blue" onclick="submitPurchaseInvoice()">Simpan Faktur Pembelian</button>
-        </div>
-      </div>
-
-      <div class="card">
-        <h3 style="margin-top:0;">Daftar Supplier & Kartu Hutang Usaha</h3>
-        <table>
-          <thead>
-            <tr><th>Kode</th><th>Nama Supplier</th><th>Kontak</th><th>Termin</th><th>Sisa Hutang Toko</th><th>Aksi</th></tr>
-          </thead>
-          <tbody id="suppliersTableBody"></tbody>
-        </table>
-      </div>
-    </div>
-
-    <!-- TAB 9: LAPORAN PENJUALAN & LABA RUGI (X/Z-REPORT + EXPORT) -->
-    <div id="tab-reports" class="section">
-      <div class="card no-print" style="margin-bottom:16px; display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:12px;">
-        <div style="display:flex; gap:10px; align-items:center; flex-wrap:wrap;">
-          <strong>Periode Laporan:</strong>
-          <input type="date" id="repStartDate" style="width:165px;">
-          <span>s/d</span>
-          <input type="date" id="repEndDate" style="width:165px;">
-          <button class="btn btn-blue" onclick="loadSalesProfitReport()">Tampilkan</button>
-        </div>
-        <div style="display:flex; gap:8px;">
-          <button class="btn btn-green" onclick="exportReportToExcel()">Ekspor Excel (.CSV)</button>
-          <button class="btn btn-dark" onclick="printSalesReportPDF()">Cetak / Simpan PDF</button>
-        </div>
-      </div>
-
-      <div class="bento-kpi">
-        <div class="card">
-          <div class="kpi-label">Penjualan Bersih (Net Sales)</div>
-          <div class="kpi-val" id="repNetSales">Rp 0</div>
-          <small id="repReturnInfo" style="color:var(--red);">Retur: Rp 0</small>
-        </div>
-        <div class="card">
-          <div class="kpi-label">Total HPP Terjual</div>
-          <div class="kpi-val" id="repTotalHpp" style="color:var(--text-muted);">Rp 0</div>
-        </div>
-        <div class="card">
-          <div class="kpi-label">Estimasi Laba Kotor (Gross Profit)</div>
-          <div class="kpi-val" id="repGrossProfit" style="color:var(--primary);">Rp 0</div>
-        </div>
-        <div class="card">
-          <div class="kpi-label">Rincian Pembayaran</div>
-          <div style="font-size:12px; margin-top:6px; line-height:1.6;" id="repPaymentBreakdown">
-            Tunai: Rp 0 | QRIS: Rp 0<br>EDC: Rp 0 | Tempo: Rp 0
+          <div style="display:flex; gap:8px;">
+            <button class="btn btn-green" onclick="exportReportToExcel()">Ekspor Excel (.CSV)</button>
+            <button class="btn btn-dark" onclick="printSalesReportPDF()">Cetak / Simpan PDF</button>
           </div>
         </div>
-      </div>
 
-      <div class="card">
-        <h3 style="margin-top:0;">Rincian Transaksi Periode Terpilih</h3>
-        <table>
-          <thead>
-            <tr><th>No. Struk</th><th>Waktu</th><th>Kasir</th><th>Tipe</th><th>Total</th></tr>
-          </thead>
-          <tbody id="repTrxTableBody"></tbody>
-        </table>
+        <div class="bento-kpi">
+          <div class="kpi-grad-card kpi-grad-purple">
+            <div class="kpi-label">Penjualan Bersih (Net Sales)</div>
+            <div class="kpi-val" id="repNetSales">Rp 0</div>
+            <div class="kpi-grad-sub" id="repReturnInfo">Retur: Rp 0</div>
+            <div class="kpi-bg-icon">&#128200;</div>
+          </div>
+          <div class="kpi-grad-card kpi-grad-amber">
+            <div class="kpi-label">Total HPP Terjual</div>
+            <div class="kpi-val" id="repTotalHpp">Rp 0</div>
+            <div class="kpi-grad-sub">Harga Pokok Penjualan</div>
+            <div class="kpi-bg-icon">&#128230;</div>
+          </div>
+          <div class="kpi-grad-card kpi-grad-green">
+            <div class="kpi-label">Estimasi Laba Kotor</div>
+            <div class="kpi-val" id="repGrossProfit">Rp 0</div>
+            <div class="kpi-grad-sub">Net Sales dikurangi HPP</div>
+            <div class="kpi-bg-icon">&#128181;</div>
+          </div>
+          <div class="card">
+            <div class="kpi-label">Rincian Pembayaran</div>
+            <div style="font-size:12px; margin-top:8px; line-height:1.7;" id="repPaymentBreakdown">
+              Tunai: Rp 0 | QRIS: Rp 0<br>EDC: Rp 0 | Tempo: Rp 0
+            </div>
+          </div>
+        </div>
+
+        <div class="card">
+          <h3 style="margin-top:0;">Rincian Transaksi Periode Terpilih</h3>
+          <table>
+            <thead>
+              <tr><th>No. Struk</th><th>Waktu</th><th>Kasir</th><th>Tipe</th><th>Total</th></tr>
+            </thead>
+            <tbody id="repTrxTableBody"></tbody>
+          </table>
+        </div>
       </div>
-    </div>
-  </main>
+    </main>
+  </div>
 
   <!-- MODAL 1: KARTU STOK DIGITAL PER SKU (RENE INVENTORY CARD) -->
   <div id="stockCardModal" class="modal-backdrop">
@@ -616,6 +812,10 @@
   <div id="priceTagPrintArea"></div>
   <div id="barcodeStickerPrintArea"></div>
 
+  <script>
+    const dEl = document.getElementById('topbarTodayDate');
+    if (dEl) dEl.textContent = '\uD83D\uDCC5 ' + new Date().toLocaleDateString('id-ID', { day: '2-digit', month: 'short', year: 'numeric' });
+  </script>
   <script src="JS/js_api.js"></script>
   <script src="JS/js_admin.js"></script>
 </body>
