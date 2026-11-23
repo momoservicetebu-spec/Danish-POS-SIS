@@ -4,7 +4,6 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
   <title>Danish POS & SIS v3.5 - Enterprise Backoffice</title>
-  <!-- Library Barcode Generator untuk Label Produk & Stiker Rak -->
   <script src="https://cdn.jsdelivr.net/npm/jsbarcode@3.11.6/dist/JsBarcode.all.min.js"></script>
   <style>
     :root {
@@ -110,23 +109,63 @@
     .sidebar-widget-row { display: flex; justify-content: space-between; margin-top: 4px; color: #CBD5E1; }
 
     /* ========================================================= */
-    /* AREA KANAN: TOPBAR + KONTEN UTAMA (FULL WIDTH TANPA GAP)  */
+    /* AREA KANAN: TOPBAR + RUNNING TEXT + KONTEN UTAMA          */
     /* ========================================================= */
     .main-wrapper { flex: 1; display: flex; flex-direction: column; min-width: 0; width: 100%; }
 
     .topbar {
       height: 66px; background: var(--surface); border-bottom: 1px solid var(--border);
       padding: 0 24px; display: flex; align-items: center; justify-content: space-between;
-      gap: 16px; position: sticky; top: 0; z-index: 15;
+      gap: 14px; position: sticky; top: 0; z-index: 15; overflow: hidden;
     }
-    .topbar-left { display: flex; align-items: center; gap: 14px; flex: 1; min-width: 0; }
+    .topbar-left {
+      display: flex; align-items: center; gap: 12px; flex: 1; min-width: 0; overflow: hidden;
+    }
     .toggle-btn {
       background: #F8FAFC; border: 1px solid var(--border); border-radius: 8px;
       padding: 7px 11px; cursor: pointer; font-size: 16px; color: var(--text-main); flex-shrink: 0;
     }
     .top-search {
-      max-width: 360px; width: 100%; padding: 8px 14px; border-radius: 99px;
-      border: 1px solid var(--border); background: #F8FAFC; font-size: 13px;
+      width: 240px; min-width: 180px; padding: 8px 14px; border-radius: 99px;
+      border: 1px solid var(--border); background: #F8FAFC; font-size: 13px; flex-shrink: 0;
+    }
+
+    /* RUNNING TEXT WATERMARK PERUSAHAAN (ANTI-TUMPUK / 1 BARIS RAPI) */
+    .company-watermark-marquee {
+      flex: 1;
+      min-width: 0;
+      height: 36px;
+      overflow: hidden !important;
+      background: linear-gradient(90deg, #0B192C 0%, #162E4D 50%, #0B192C 100%);
+      color: #F8FAFC;
+      padding: 0 14px;
+      border-radius: 99px;
+      border: 1px solid rgba(59, 130, 246, 0.4);
+      font-size: 12px;
+      line-height: 36px;
+      white-space: nowrap !important;
+      display: flex;
+      align-items: center;
+      position: relative;
+      box-shadow: inset 0 1px 4px rgba(0, 0, 0, 0.35);
+    }
+    .company-watermark-track {
+      display: inline-block;
+      white-space: nowrap !important;
+      padding-left: 100%;
+      will-change: transform;
+      animation: marqueeRun 30s linear infinite;
+    }
+    .company-watermark-marquee:hover .company-watermark-track {
+      animation-play-state: paused;
+    }
+    .wm-gold {
+      color: #FBBF24;
+      font-weight: 800;
+    }
+    @keyframes marqueeRun {
+      0%   { transform: translate3d(0, 0, 0); }
+      100% { transform: translate3d(-100%, 0, 0); }
     }
 
     .topbar-right { display: flex; align-items: center; gap: 12px; flex-shrink: 0; }
@@ -150,7 +189,6 @@
       font-size: 14px; flex-shrink: 0;
     }
 
-    /* Full Width tanpa batas max-width 1440px agar tidak ada gap di monitor lebar */
     .container { width: 100%; max-width: 100%; margin: 0; padding: 20px 24px 32px; }
 
     /* ========================================================= */
@@ -220,7 +258,7 @@
     .badge-ok { background: #ECFDF5; color: var(--primary); }
     .badge-warn { background: #FFFBEB; color: #B45309; }
 
-    /* Modal Overlay (Kartu Stok & Barcode Studio) */
+    /* Modal Overlay */
     .modal-backdrop {
       display: none; position: fixed; inset: 0; background: rgba(15, 23, 42, 0.55);
       z-index: 50; align-items: center; justify-content: center; padding: 16px;
@@ -237,7 +275,7 @@
     }
     .modal-body { padding: 20px; overflow-y: auto; }
 
-    /* Print Styling untuk Price Tag & Stiker Barcode */
+    /* Print Styling */
     #priceTagPrintArea, #barcodeStickerPrintArea { display: none; }
     @media print {
       body * { visibility: hidden; }
@@ -263,11 +301,11 @@
     /* RESPONSIF TABLET & MOBILE (<= 1100px)                     */
     /* ========================================================= */
     @media (max-width: 1100px) {
+      .company-watermark-marquee { display: none !important; }
       .bento-kpi { grid-template-columns: repeat(2, 1fr); }
       .bento-main, .bento-2col, .bento-3col-top, .bento-3col-mid { grid-template-columns: 1fr; }
       .form-row { grid-template-columns: repeat(2, 1fr); }
 
-      /* Sidebar menjadi Off-Canvas Drawer tersembunyi di Tablet/HP */
       .sidebar {
         position: fixed !important;
         left: -265px !important;
@@ -306,9 +344,7 @@
   </style>
 </head>
 <body>
-  <!-- ========================================================= -->
-  <!-- GLOBAL LOADING SCREEN OVERLAY                             -->
-  <!-- ========================================================= -->
+  <!-- GLOBAL LOADING SCREEN OVERLAY -->
   <div id="globalLoadingOverlay" class="loading-overlay no-print">
     <div class="loading-card">
       <div class="spinner-ring"></div>
@@ -320,9 +356,7 @@
   <!-- BACKDROP GELAP UNTUK SIDEBAR DI TABLET / HP -->
   <div id="sidebarOverlay" class="sidebar-overlay no-print" onclick="toggleAdminSidebar()"></div>
 
-  <!-- ========================================================= -->
-  <!-- SIDEBAR NAVIGASI KIRI                                     -->
-  <!-- ========================================================= -->
+  <!-- SIDEBAR NAVIGASI KIRI -->
   <aside class="sidebar no-print" id="adminSidebar">
     <div class="sidebar-brand">
       <div class="brand-logo">D</div>
@@ -378,25 +412,25 @@
     </div>
   </aside>
 
-  <!-- ========================================================= -->
-  <!-- AREA KONTEN KANAN                                         -->
-  <!-- ========================================================= -->
+  <!-- AREA KONTEN KANAN -->
   <div class="main-wrapper">
     <header class="topbar no-print">
       <div class="topbar-left">
         <button class="toggle-btn" onclick="toggleAdminSidebar()" title="Menu Navigasi">&#9776;</button>
-        <input type="text" class="top-search" placeholder="Cari cepat SKU / Barcode di Katalog..." onkeydown="if(event.key==='Enter'){ const sb = document.querySelectorAll('.sidebar-menu .tab-btn')[1]; switchTab('master', sb); document.getElementById('masterSearchInput').value=this.value; filterMasterCatalog(); }">
-      </div>
-      <!-- Running Text Watermark Perusahaan -->
+        <input type="text" class="top-search" placeholder="Cari cepat SKU / Barcode..." onkeydown="if(event.key==='Enter'){ const sb = document.querySelectorAll('.sidebar-menu .tab-btn')[1]; switchTab('master', sb); document.getElementById('masterSearchInput').value=this.value; filterMasterCatalog(); }">
+
+        <!-- Running Text Watermark Perusahaan -->
         <div class="company-watermark-marquee">
           <div class="company-watermark-track">
-            ⚡ <strong>DANISH SHOP</strong> — Danish POS & SSI &amp; Smart Retail &nbsp;&bull;&nbsp;
+            &#9889; <strong>DANISH SHOP</strong> &mdash; Danish POS &amp; SIS Smart Retail &nbsp;&bull;&nbsp;
             Official Developer: <span class="wm-gold">MOMO SERVICE</span> &nbsp;&bull;&nbsp;
             Melayani Jasa Pembuatan <strong>Aplikasi Apa Saja &amp; Sistem Full Custom</strong> (Web, Android, Sekolah, Instansi, Kasir/POS &amp; Perusahaan) Sesuai Permintaan &nbsp;&bull;&nbsp;
             Konsultasi &amp; Order WA: <strong>0812-7361-3498</strong> &nbsp;&bull;&nbsp;
             Hak Cipta &copy; 2026 <span class="wm-gold">MOMO SERVICE</span> &mdash; <em>All Rights Reserved</em>
           </div>
         </div>
+      </div>
+
       <div class="topbar-right">
         <div class="date-pill" id="topbarTodayDate">&#128197; Hari Ini</div>
         <button class="kasir-shortcut-btn" onclick="goKasir()">&#128722; Layar Kasir</button>
@@ -440,7 +474,7 @@
           </div>
         </div>
 
-        <!-- BARIS ANALITIK 1: SALES OVERVIEW + SALES BY CATEGORY + COLLECTION SUMMARY -->
+        <!-- BARIS ANALITIK 1 -->
         <div class="bento-3col-top">
           <div class="card">
             <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
@@ -464,7 +498,7 @@
           </div>
         </div>
 
-        <!-- BARIS ANALITIK 2: TOP 5 BEST SELLING + STOCK SUMMARY + MONTHLY PROFIT -->
+        <!-- BARIS ANALITIK 2 -->
         <div class="bento-3col-mid">
           <div class="card">
             <h3 style="margin:0 0 10px 0; font-size:15px;">Top 5 Best Selling Items</h3>
@@ -487,7 +521,7 @@
           </div>
         </div>
 
-        <!-- BARIS ANALITIK 3: RECENT TRANSACTIONS + BRANCH WISE SALES -->
+        <!-- BARIS ANALITIK 3 -->
         <div class="bento-2col">
           <div class="card">
             <h3 style="margin:0 0 10px 0; font-size:15px;">Recent Transactions</h3>
@@ -524,7 +558,7 @@
           </div>
         </div>
 
-        <!-- PANEL PERINGATAN FEFO (KEDALUWARSA) & REORDER POINT (AUTO-PO) -->
+        <!-- PANEL PERINGATAN FEFO & AUTO-PO -->
         <div class="bento-2col" style="margin-top:16px;">
           <div class="card">
             <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
@@ -553,7 +587,7 @@
           </div>
         </div>
 
-        <!-- PANEL INVESTIGASI ANOMALI & FLAGGED FRAUD -->
+        <!-- PANEL INVESTIGASI FRAUD -->
         <div class="card" style="margin-top:16px;">
           <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px; flex-wrap:wrap; gap:8px;">
             <div>
@@ -644,7 +678,7 @@
         </div>
       </div>
 
-      <!-- TAB 3: MEMBER & PIUTANG PELANGGAN (RENE CRM) -->
+      <!-- TAB 3: MEMBER & PIUTANG PELANGGAN -->
       <div id="tab-members" class="section">
         <div class="card" style="margin-bottom:16px;">
           <h3 style="margin-top:0;">Tambah / Perbarui Data Member & Limit Piutang</h3>
@@ -679,7 +713,7 @@
         </div>
       </div>
 
-      <!-- TAB 4: GUDANG LPB, NRB & MUTASI ANTAR TOKO -->
+      <!-- TAB 4: GUDANG LPB, NRB & MUTASI -->
       <div id="tab-gudang" class="section">
         <div class="card" style="margin-bottom: 16px;">
           <h3 style="margin-top:0;">Input Penerimaan (LPB) / Retur Rusak (NRB) / Mutasi Antar Toko</h3>
@@ -725,7 +759,7 @@
         </div>
       </div>
 
-      <!-- TAB 5: BLIND STOCK OPNAME (RENE SCANNER MODE) -->
+      <!-- TAB 5: BLIND STOCK OPNAME -->
       <div id="tab-so" class="section">
         <div class="card">
           <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:14px; flex-wrap:wrap; gap:10px;">
@@ -808,7 +842,7 @@
         </div>
       </div>
 
-      <!-- TAB 8: SUPPLIER, PEMBELIAN LPB & HUTANG USAHA -->
+      <!-- TAB 8: SUPPLIER & PEMBELIAN -->
       <div id="tab-suppliers" class="section">
         <div class="bento-2col">
           <div class="card">
@@ -855,7 +889,7 @@
         </div>
       </div>
 
-      <!-- TAB 9: LAPORAN PENJUALAN & LABA RUGI (X/Z-REPORT + EXPORT) -->
+      <!-- TAB 9: LAPORAN PENJUALAN & LABA RUGI -->
       <div id="tab-reports" class="section">
         <div class="card no-print" style="margin-bottom:16px; display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:12px;">
           <div style="display:flex; gap:10px; align-items:center; flex-wrap:wrap;">
@@ -969,7 +1003,7 @@
     </div>
   </div>
 
-  <!-- AREA KHUSUS CETAK (HIDDEN DI LAYAR, TAMPIL SAAT PRINT) -->
+  <!-- AREA KHUSUS CETAK -->
   <div id="priceTagPrintArea"></div>
   <div id="barcodeStickerPrintArea"></div>
 
