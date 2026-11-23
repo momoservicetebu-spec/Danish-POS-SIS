@@ -262,3 +262,40 @@ html, body {
     border-radius: 14px;
   }
 }
+
+/* Running Text Watermark Perusahaan di Topbar */
+    .company-watermark-marquee {
+      flex: 1;
+      min-width: 0;
+      overflow: hidden;
+      background: linear-gradient(90deg, #0B192C, #152842);
+      color: #F8FAFC;
+      padding: 7px 14px;
+      border-radius: 99px;
+      border: 1px solid rgba(59, 130, 246, 0.35);
+      font-size: 12px;
+      white-space: nowrap;
+      display: flex;
+      align-items: center;
+      box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.25);
+    }
+    .company-watermark-track {
+      display: inline-block;
+      padding-left: 100%;
+      animation: marqueeRun 28s linear infinite;
+    }
+    .company-watermark-marquee:hover .company-watermark-track {
+      animation-play-state: paused;
+    }
+    .wm-gold {
+      color: #FBBF24;
+      font-weight: 800;
+    }
+    @keyframes marqueeRun {
+      0%   { transform: translateX(0); }
+      100% { transform: translateX(-100%); }
+    }
+
+    @media (max-width: 1200px) {
+      .company-watermark-marquee { display: none; }
+    }

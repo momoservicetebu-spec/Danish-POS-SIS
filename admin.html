@@ -387,7 +387,16 @@
         <button class="toggle-btn" onclick="toggleAdminSidebar()" title="Menu Navigasi">&#9776;</button>
         <input type="text" class="top-search" placeholder="Cari cepat SKU / Barcode di Katalog..." onkeydown="if(event.key==='Enter'){ const sb = document.querySelectorAll('.sidebar-menu .tab-btn')[1]; switchTab('master', sb); document.getElementById('masterSearchInput').value=this.value; filterMasterCatalog(); }">
       </div>
-
+      <!-- Running Text Watermark Perusahaan -->
+        <div class="company-watermark-marquee">
+          <div class="company-watermark-track">
+            ⚡ <strong>DANISH SHOP</strong> — Danish POS & SSI &amp; Smart Retail &nbsp;&bull;&nbsp;
+            Official Developer: <span class="wm-gold">MOMO SERVICE</span> &nbsp;&bull;&nbsp;
+            Melayani Jasa Pembuatan <strong>Aplikasi Apa Saja &amp; Sistem Full Custom</strong> (Web, Android, Sekolah, Instansi, Kasir/POS &amp; Perusahaan) Sesuai Permintaan &nbsp;&bull;&nbsp;
+            Konsultasi &amp; Order WA: <strong>0812-7361-3498</strong> &nbsp;&bull;&nbsp;
+            Hak Cipta &copy; 2026 <span class="wm-gold">MOMO SERVICE</span> &mdash; <em>All Rights Reserved</em>
+          </div>
+        </div>
       <div class="topbar-right">
         <div class="date-pill" id="topbarTodayDate">&#128197; Hari Ini</div>
         <button class="kasir-shortcut-btn" onclick="goKasir()">&#128722; Layar Kasir</button>
