@@ -98,6 +98,24 @@ function loadDashboard() {
   });
 }
 
+// Render Tabel Monitor Anomali & Investigasi Fraud
+    const fraudBody = document.getElementById('fraudTableBody');
+    if (fraudBody) {
+      fraudBody.innerHTML = (data.flaggedTransactions || []).map(f => `
+        <tr>
+          <td><strong>${f.trxId}</strong></td>
+          <td>${f.toko}</td>
+          <td>${f.waktu}</td>
+          <td>${f.kasir}</td>
+          <td><strong>Rp ${Number(f.total).toLocaleString('id-ID')}</strong></td>
+          <td style="display:flex; gap:6px;">
+            <button class="btn btn-green btn-sm" onclick="resolveFraudItem('${f.trxId}', 'VERIFIED_OK')">Tandai Wajar (OK)</button>
+            <button class="btn btn-red btn-sm" onclick="resolveFraudItem('${f.trxId}', 'CONFIRMED_FRAUD')">Konfirmasi Fraud</button>
+          </td>
+        </tr>
+      `).join('') || '<tr><td colspan="6">Tidak ada transaksi anomali (FLAGGED_FRAUD) yang tertunda.</td></tr>';
+    }
+
 function quickReorderPO(sku, lastHpp) {
   const supplierTabBtn = Array.from(document.querySelectorAll('.tab-btn'))
     .find(b => b.getAttribute('onclick') && b.getAttribute('onclick').includes("'suppliers'"));
@@ -114,6 +132,17 @@ function quickReorderPO(sku, lastHpp) {
     qtyInp.focus();
     qtyInp.select();
   }
+}
+
+function resolveFraudItem(trxId, resolution) {
+  const label = resolution === 'VERIFIED_OK' ? 'WAJAR / AMAN (VERIFIED_OK)' : 'PELANGGARAN / FRAUD (CONFIRMED_FRAUD)';
+  const note = prompt(`INVESTIGASI AUDIT TRANSAKSI: ${trxId}\nStatus Baru: ${label}\n\nMasukkan catatan hasil pemeriksaan:`, '');
+  if (note === null) return;
+
+  callAdminApi('security/resolve-fraud', { trxId, resolution, note: note || '-' }, res => {
+    alert(res.message);
+    loadDashboard();
+  });
 }
 
 function printPendingPriceTags() {
@@ -577,6 +606,32 @@ function submitGudangDoc() {
     alert(res.message);
     document.getElementById('docSku').value = '';
     document.getElementById('docQty').value = '';
+  });
+}
+
+function updateRepackPreview() {
+  const qty = Number(document.getElementById('repQtySrc').value) || 0;
+  const factor = Number(document.getElementById('repFactor').value) || 0;
+  const total = qty * factor;
+  const box = document.getElementById('repPreviewBox');
+  if (box) box.textContent = `Hasil Eceran: +${total.toLocaleString('id-ID')} Pcs`;
+}
+
+function submitRepackUnit() {
+  const payload = {
+    sourceSku: document.getElementById('repSrcSku').value.trim().toUpperCase(),
+    targetSku: document.getElementById('repTgtSku').value.trim().toUpperCase(),
+    qtySource: Number(document.getElementById('repQtySrc').value) || 0,
+    conversionFactor: Number(document.getElementById('repFactor').value) || 0,
+    supervisorPin: document.getElementById('repPin').value
+  };
+  callAdminApi('inventory/repack', payload, res => {
+    alert(res.message);
+    document.getElementById('repSrcSku').value = '';
+    document.getElementById('repTgtSku').value = '';
+    document.getElementById('repQtySrc').value = '';
+    document.getElementById('repFactor').value = '';
+    updateRepackPreview();
   });
 }
 

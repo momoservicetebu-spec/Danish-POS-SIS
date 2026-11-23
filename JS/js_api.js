@@ -1,4 +1,4 @@
-// JS/js_api.js - Konfigurasi Endpoint Backend GAS & Service Worker
+// JS/js_api.js - Konfigurasi Endpoint Backend GAS, Auto-Sync & Indikator Status Jaringan
 const GAS_API_URL = 'https://script.google.com/macros/s/AKfycbzyFxohvFDWhh73ZX8PZpnQXoBzB5pEM-HLTcN8Twu9-ABYvRMHU8CfhgF72Bk1uST0/exec';
 
 const SESSION = JSON.parse(localStorage.getItem('POS_SESSION') || 'null');
@@ -11,6 +11,8 @@ if (!SESSION && !currentPath.endsWith('login.html') && !currentPath.endsWith('di
 }
 
 const ApiClient = {
+  _isSyncing: false,
+
   call: async function(endpoint, payload, isPublic = false) {
     const body = {
       endpoint: endpoint,
@@ -35,39 +37,95 @@ const ApiClient = {
     }
   },
 
-  syncQueue: async function() {
+  updateSyncBadge: function(state, pendingCount = 0) {
     const pill = document.getElementById('syncStatusPill');
+    if (!pill) return;
+
+    pill.style.cursor = 'pointer';
+    pill.title = 'Klik untuk memaksa sinkronisasi sekarang';
+    if (!pill.dataset.boundClick) {
+      pill.dataset.boundClick = '1';
+      pill.addEventListener('click', () => ApiClient.syncQueue());
+    }
+
+    if (state === 'OFFLINE') {
+      pill.className = 'status-pill status-offline';
+      pill.textContent = pendingCount > 0
+        ? `● OFFLINE (${pendingCount} Struk Lokal)`
+        : '● MODE OFFLINE (Tersimpan Lokal)';
+    } else if (state === 'SYNCING') {
+      pill.className = 'status-pill status-offline';
+      pill.textContent = `↻ MENYINKRONKAN (${pendingCount} Struk)...`;
+    } else if (state === 'PENDING') {
+      pill.className = 'status-pill status-offline';
+      pill.textContent = `● ANTREAN TERTUNDA (${pendingCount} Struk)`;
+    } else {
+      pill.className = 'status-pill status-online';
+      pill.textContent = '● ONLINE & SYNCED';
+    }
+  },
+
+  syncQueue: async function() {
     if (typeof LocalDB === 'undefined') return;
+    if (this._isSyncing) return;
+
+    let pendingTrx = [];
+    try {
+      pendingTrx = await LocalDB.getPendingTransactions();
+    } catch (e) {
+      pendingTrx = [];
+    }
 
     if (!navigator.onLine) {
-      if (pill) {
-        pill.className = 'status-pill status-offline';
-        pill.textContent = '● OFFLINE (Local Queue)';
-      }
+      this.updateSyncBadge('OFFLINE', pendingTrx.length);
       return;
     }
 
+    this._isSyncing = true;
     try {
-      const pending = await LocalDB.getPendingTransactions();
-      if (pending.length > 0) {
-        const res = await this.call('pos/sync-trx', { transactions: pending });
+      // 1. Sinkronkan Transaksi Penjualan / PPOB / Cash Out yang tertunda
+      if (pendingTrx.length > 0) {
+        this.updateSyncBadge('SYNCING', pendingTrx.length);
+        const res = await this.call('pos/sync-trx', { transactions: pendingTrx });
         if (res.syncedIds && res.syncedIds.length > 0) {
           await LocalDB.markTransactionsSynced(res.syncedIds);
         }
       }
-      if (pill) {
-        pill.className = 'status-pill status-online';
-        pill.textContent = '● ONLINE & SYNCED';
+
+      // 2. Sinkronkan Log Audit Lokal (Void Item / Reprint Struk) jika ada
+      if (typeof db !== 'undefined' && db.audit_logs) {
+        const pendingLogs = await db.audit_logs.where('sync_status').equals('PENDING').toArray();
+        for (const log of pendingLogs) {
+          try {
+            await this.call('security/audit-log', {
+              supervisorId: log.supervisor_id || (SESSION ? SESSION.user.userId : ''),
+              actionType: log.action_type,
+              detail: log.detail
+            });
+            await db.audit_logs.update(log.id, { sync_status: 'SYNCED' });
+          } catch (logErr) {
+            break; // Hentikan sementara jika jaringan kembali terputus
+          }
+        }
+      }
+
+      const remaining = await LocalDB.getPendingTransactions();
+      if (remaining.length > 0) {
+        this.updateSyncBadge('PENDING', remaining.length);
+      } else {
+        this.updateSyncBadge('ONLINE', 0);
       }
     } catch (e) {
-      if (pill) {
-        pill.className = 'status-pill status-offline';
-        pill.textContent = '● QUEUE PENDING';
-      }
+      const remaining = await LocalDB.getPendingTransactions().catch(() => pendingTrx);
+      this.updateSyncBadge('PENDING', remaining.length);
+    } finally {
+      this._isSyncing = false;
     }
   }
 };
 
+// Jalankan pengecekan awal segera setelah DOM siap, lalu setiap 15 detik
+window.addEventListener('DOMContentLoaded', () => ApiClient.syncQueue());
 setInterval(() => ApiClient.syncQueue(), 15000);
 window.addEventListener('online', () => ApiClient.syncQueue());
 window.addEventListener('offline', () => ApiClient.syncQueue());

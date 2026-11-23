@@ -202,6 +202,25 @@
         </div>
       </div>
 
+      <!-- PANEL INVESTIGASI ANOMALI & FLAGGED FRAUD -->
+      <div class="card" style="margin-top:16px;">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
+          <div>
+            <h3 style="margin:0;">Monitor Anomali & Investigasi Fraud (Anti-Tampering)</h3>
+            <small style="color:var(--text-muted);">Transaksi dengan ketidaksesuaian harga/checksum/promo yang memerlukan verifikasi manajemen.</small>
+          </div>
+          <span class="badge badge-danger">Audit Keamanan</span>
+        </div>
+        <table>
+          <thead>
+            <tr><th>No. Struk</th><th>Toko</th><th>Waktu</th><th>Kasir</th><th>Total Server</th><th>Aksi Investigasi</th></tr>
+          </thead>
+          <tbody id="fraudTableBody"></tbody>
+        </table>
+      </div>
+
+      
+
     <!-- TAB 2: MASTER BARANG, PROMO & CETAK BARCODE -->
     <div id="tab-master" class="section">
       <div class="bento-2col">
@@ -332,6 +351,29 @@
         <button class="btn btn-green" onclick="submitGudangDoc()">Simpan & Proses Stok</button>
       </div>
     </div>
+
+    <div class="card">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
+          <h3 style="margin:0;">Pecah Kemasan / Konversi Satuan Bertingkat (Repack)</h3>
+          <span class="badge badge-ok">Contoh: 1 DUS &rarr; 40 PCS</span>
+        </div>
+        <p style="font-size:13px; color:var(--text-muted); margin-top:0;">
+          Mengurangi stok SKU kemasan besar dan menambah stok SKU satuan eceran secara otomatis beserta penyesuaian HPP satuan.
+        </p>
+        <div class="form-row">
+          <input type="text" id="repSrcSku" placeholder="SKU Kemasan Besar (misal: SKU-DUS-01)">
+          <input type="text" id="repTgtSku" placeholder="SKU Satuan Eceran (misal: SKU-PCS-01)">
+          <input type="password" id="repPin" placeholder="PIN Supervisor (Jika Pramuniaga)">
+        </div>
+        <div class="form-row">
+          <input type="number" id="repQtySrc" placeholder="Jumlah Kemasan Dipecah (misal: 2)" min="1" oninput="updateRepackPreview()">
+          <input type="number" id="repFactor" placeholder="Isi per Kemasan (misal: 40)" min="2" oninput="updateRepackPreview()">
+          <div id="repPreviewBox" style="display:flex; align-items:center; padding:0 12px; background:#F8FAFC; border:1px solid var(--border); border-radius:8px; font-size:13px; font-weight:700; color:var(--blue);">
+            Hasil Eceran: 0 Pcs
+          </div>
+        </div>
+        <button class="btn btn-violet" onclick="submitRepackUnit()">Proses Konversi Satuan</button>
+      </div>
 
     <!-- TAB 5: BLIND STOCK OPNAME (RENE SCANNER MODE) -->
     <div id="tab-so" class="section">
