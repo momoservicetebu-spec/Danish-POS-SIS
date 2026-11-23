@@ -16,11 +16,11 @@
 
     /* Top Navbar */
     .topbar {
-      height: 64px; background: var(--surface); border-bottom: 1px solid var(--border);
-      padding: 0 24px; display: flex; align-items: center; justify-content: space-between;
-      position: sticky; top: 0; z-index: 10;
+      min-height: 64px; background: var(--surface); border-bottom: 1px solid var(--border);
+      padding: 10px 24px; display: flex; align-items: center; justify-content: space-between;
+      gap: 12px; flex-wrap: wrap; position: sticky; top: 0; z-index: 10;
     }
-    .nav-tabs { display: flex; gap: 6px; flex-wrap: wrap; }
+    .nav-tabs { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; }
     .tab-btn {
       padding: 8px 12px; border-radius: 10px; border: 1px solid transparent;
       background: transparent; font-weight: 600; cursor: pointer; color: var(--text-muted); font-size: 13px;
@@ -171,9 +171,8 @@
           </table>
         </div>
       </div>
-    </div>
 
-    <!-- PANEL PERINGATAN FEFO (KEDALUWARSA) & REORDER POINT (AUTO-PO) -->
+      <!-- PANEL PERINGATAN FEFO (KEDALUWARSA) & REORDER POINT (AUTO-PO) -->
       <div class="bento-2col" style="margin-top:16px;">
         <div class="card">
           <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
@@ -218,8 +217,7 @@
           <tbody id="fraudTableBody"></tbody>
         </table>
       </div>
-
-      
+    </div>
 
     <!-- TAB 2: MASTER BARANG, PROMO & CETAK BARCODE -->
     <div id="tab-master" class="section">
@@ -340,19 +338,18 @@
             <option value="MUTASI_OUT">Mutasi Keluar Antar Toko (Transfer Out)</option>
             <option value="MUTASI_IN">Mutasi Masuk Antar Toko (Transfer In)</option>
           </select>
-          <input type="text" id="docAsal" placeholder="Asal Gudang / Supplier / Kode Toko Tujuan">
-          <input type="password" id="docPin" placeholder="PIN Supervisor (Jika Pramuniaga)">
+          <input type="text" id="docAsal" autocomplete="off" placeholder="Asal Gudang / Supplier / Kode Toko Tujuan">
+          <input type="password" id="docPin" autocomplete="new-password" placeholder="PIN Supervisor (Jika Pramuniaga)">
         </div>
         <div class="form-row">
-          <input type="text" id="docSku" placeholder="Kode SKU (misal: SKU-1001)">
+          <input type="text" id="docSku" autocomplete="off" placeholder="Kode SKU (misal: SKU-1001)">
           <input type="number" id="docQty" placeholder="Jumlah Fisik Pcs (Qty)">
           <input type="date" id="docExpired" title="Tanggal Kedaluwarsa (FEFO)">
         </div>
         <button class="btn btn-green" onclick="submitGudangDoc()">Simpan & Proses Stok</button>
       </div>
-    </div>
 
-    <div class="card">
+      <div class="card">
         <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
           <h3 style="margin:0;">Pecah Kemasan / Konversi Satuan Bertingkat (Repack)</h3>
           <span class="badge badge-ok">Contoh: 1 DUS &rarr; 40 PCS</span>
@@ -361,9 +358,9 @@
           Mengurangi stok SKU kemasan besar dan menambah stok SKU satuan eceran secara otomatis beserta penyesuaian HPP satuan.
         </p>
         <div class="form-row">
-          <input type="text" id="repSrcSku" placeholder="SKU Kemasan Besar (misal: SKU-DUS-01)">
-          <input type="text" id="repTgtSku" placeholder="SKU Satuan Eceran (misal: SKU-PCS-01)">
-          <input type="password" id="repPin" placeholder="PIN Supervisor (Jika Pramuniaga)">
+          <input type="text" id="repSrcSku" autocomplete="off" placeholder="SKU Kemasan Besar (misal: SKU-DUS-01)">
+          <input type="text" id="repTgtSku" autocomplete="off" placeholder="SKU Satuan Eceran (misal: SKU-PCS-01)">
+          <input type="password" id="repPin" autocomplete="new-password" placeholder="PIN Supervisor (Jika Pramuniaga)">
         </div>
         <div class="form-row">
           <input type="number" id="repQtySrc" placeholder="Jumlah Kemasan Dipecah (misal: 2)" min="1" oninput="updateRepackPreview()">
@@ -374,6 +371,7 @@
         </div>
         <button class="btn btn-violet" onclick="submitRepackUnit()">Proses Konversi Satuan</button>
       </div>
+    </div>
 
     <!-- TAB 5: BLIND STOCK OPNAME (RENE SCANNER MODE) -->
     <div id="tab-so" class="section">
@@ -388,7 +386,7 @@
               <option value="PARSIAL">SO Parsial (Harian)</option>
               <option value="GRAND">Grand SO (Bulanan)</option>
             </select>
-            <input type="password" id="soPin" placeholder="PIN Kepala Toko" style="width:160px;">
+            <input type="password" id="soPin" autocomplete="new-password" placeholder="PIN Kepala Toko" style="width:160px;">
             <button class="btn btn-green" onclick="submitSO()">Simpan Hasil SO</button>
           </div>
         </div>
@@ -396,7 +394,7 @@
         <!-- Bar Scanner Cepat ala RENE POS -->
         <div style="background:#F8FAFC; border:1px dashed #94A3B8; padding:12px; border-radius:12px; margin-bottom:14px; display:flex; gap:10px; align-items:center;">
           <strong style="font-size:13px; white-space:nowrap;">Scan Barcode Rak:</strong>
-          <input type="text" id="soScannerInput" placeholder="Arahkan scanner ke barcode barang lalu Enter..." onkeydown="handleSOScannerKey(event)" style="max-width:340px; background:#fff;">
+          <input type="text" id="soScannerInput" autocomplete="off" placeholder="Arahkan scanner ke barcode barang lalu Enter..." onkeydown="handleSOScannerKey(event)" style="max-width:340px; background:#fff;">
           <span id="soScannerFeedback" style="font-size:12px; font-weight:600; color:var(--primary);"></span>
         </div>
 
@@ -432,11 +430,11 @@
         <h3 style="margin-top:0;">Tambah Pengguna Baru (RBAC)</h3>
         <div class="form-row">
           <input type="text" id="usrNama" placeholder="Nama Lengkap Karyawan">
-          <input type="text" id="usrUsername" placeholder="Username Login">
-          <input type="password" id="usrPassword" placeholder="Password Login">
+          <input type="text" id="usrUsername" autocomplete="off" placeholder="Username Login">
+          <input type="password" id="usrPassword" autocomplete="new-password" placeholder="Password Login">
         </div>
         <div class="form-row">
-          <input type="password" id="usrPin" placeholder="PIN Otorisasi (Kosongkan untuk Kasir)">
+          <input type="password" id="usrPin" autocomplete="new-password" placeholder="PIN Otorisasi (Kosongkan untuk Kasir)">
           <select id="usrRole">
             <option value="Kasir">Kasir</option>
             <option value="Pramuniaga">Pramuniaga</option>
