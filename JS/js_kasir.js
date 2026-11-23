@@ -202,7 +202,14 @@ function renderCart() {
       </tr>
     `;
   }).join('');
-
+// Kirim pembaruan real-time ke Layar Pelanggan (display.html)
+  customerChannel.postMessage({
+    type: CART.length > 0 ? 'CART_UPDATE' : 'IDLE',
+    storeName: SESSION.store.namaToko,
+    member: ACTIVE_MEMBER,
+    items: CART,
+    summary: evalResult
+  });
   document.getElementById('lblSubtotal').textContent = 'Rp ' + evalResult.subtotal.toLocaleString('id-ID');
   document.getElementById('lblDiscount').textContent = 'Rp ' + evalResult.totalDiscount.toLocaleString('id-ID');
   document.getElementById('lblGrandTotal').textContent = 'Rp ' + evalResult.grandTotal.toLocaleString('id-ID');
