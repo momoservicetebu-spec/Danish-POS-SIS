@@ -3631,3 +3631,22 @@ function printDesignLabelsNow() {
   window.print();
   setTimeout(() => area.classList.remove('printing'), 500);
 }
+
+async function saveAdminQrisConfig() {
+  const kodeToko = document.getElementById('storeFilterSelect')?.value || SESSION.store.kodeToko;
+  const payload = {
+    kodeToko,
+    mode: document.getElementById('cfgQrisMode').value,
+    gatewayProvider: document.getElementById('cfgQrisProvider').value,
+    staticPayload: document.getElementById('cfgQrisStaticPayload').value.trim(),
+    serverKey: document.getElementById('cfgQrisServerKey').value.trim(),
+    isProduction: document.getElementById('cfgQrisIsProd').checked
+  };
+  localStorage.setItem('DANISH_STATIC_QRIS_' + kodeToko, payload.staticPayload);
+  try {
+    const res = await ApiClient.call('admin/save-qris', payload);
+    alert(res.message);
+  } catch (e) {
+    alert('Tersimpan lokal, gagal sinkron cloud: ' + e.message);
+  }
+}
