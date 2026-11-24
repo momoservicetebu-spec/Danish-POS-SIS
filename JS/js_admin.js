@@ -1,4 +1,4 @@
-// JS/js_admin.js - Logika Backoffice & Admin SIS v3.5 (Enterprise Edition + Instant Cache)
+// JS/js_admin.js - Logika Backoffice & Admin SIS v3.5 (Enterprise Edition + Instant Cache + Desain)
 let PENDING_TAGS_CACHE = [];
 let MASTER_PRODUCTS_CACHE = [];
 let SELECTED_BARCODE_SKUS = new Set();
@@ -10,6 +10,12 @@ let SET_HARGA_ROWS = [];
 let MEMBERS_CACHE = [];
 let KOMISI_ROWS = [];
 let GUDANG_SUPPLIERS_CACHE = [];
+
+function getActiveTokoCode() {
+  return (typeof SESSION !== 'undefined' && SESSION && SESSION.store && SESSION.store.kodeToko)
+    ? SESSION.store.kodeToko
+    : 'GLOBAL';
+}
 
 if (SESSION) {
   document.getElementById('storeTitle').textContent = `${SESSION.store.namaToko} (${SESSION.store.kodeToko})`;
@@ -68,7 +74,7 @@ const ADMIN_CACHE_PREFIX = 'DANISH_POS_CACHE_';
 
 function getAdminCache(key) {
   try {
-    const storeCode = (SESSION && SESSION.store && SESSION.store.kodeToko) ? SESSION.store.kodeToko : 'GLOBAL';
+    const storeCode = getActiveTokoCode();
     const raw = localStorage.getItem(ADMIN_CACHE_PREFIX + storeCode + '_' + key);
     return raw ? JSON.parse(raw) : null;
   } catch (e) {
@@ -78,7 +84,7 @@ function getAdminCache(key) {
 
 function setAdminCache(key, data) {
   try {
-    const storeCode = (SESSION && SESSION.store && SESSION.store.kodeToko) ? SESSION.store.kodeToko : 'GLOBAL';
+    const storeCode = getActiveTokoCode();
     localStorage.setItem(ADMIN_CACHE_PREFIX + storeCode + '_' + key, JSON.stringify(data));
   } catch (e) { /* abaikan jika kuota penuh */ }
 }
@@ -114,12 +120,14 @@ async function callAdminApi(endpoint, payload, onSuccess, loadingLabel, silent =
   try {
     const data = await ApiClient.call(endpoint, payload || {});
     if (!silent) setLoadingScreen(false);
-    onSuccess(data);
+    if (typeof onSuccess === 'function') onSuccess(data);
+    return data;
   } catch (err) {
     if (!silent) {
       setLoadingScreen(false);
       alert('Error: ' + err.message);
     }
+    return null;
   }
 }
 
@@ -131,7 +139,8 @@ function closeModal(modalId) {
 function switchTab(tabName, btn) {
   document.querySelectorAll('.section').forEach(el => el.classList.remove('active'));
   document.querySelectorAll('.tab-btn').forEach(el => el.classList.remove('active'));
-  document.getElementById('tab-' + tabName).classList.add('active');
+  const targetSection = document.getElementById('tab-' + tabName);
+  if (targetSection) targetSection.classList.add('active');
   if (btn) btn.classList.add('active');
   closeMobileSidebar();
 
@@ -147,6 +156,7 @@ function switchTab(tabName, btn) {
   if (tabName === 'so') loadBlindSOItems();
   if (tabName === 'users') loadUsersTable();
   if (tabName === 'company') loadCompanyPreferences();
+  if (tabName === 'design') loadDesignSettings();
 }
 
 // =========================================================
@@ -702,8 +712,8 @@ function renderMasterCatalogTable(items) {
       </td>
       <td>${p.kategori}</td>
       <td>${p.satuan}</td>
-      <td>${p.hargaModal !== null ? 'Rp ' + p.hargaModal.toLocaleString('id-ID') : '<span style="color:#94A3B8;">Hidden</span>'}</td>
-      <td><strong>Rp ${p.hargaJual.toLocaleString('id-ID')}</strong></td>
+      <td>${p.hargaModal !== null ? 'Rp ' + Number(p.hargaModal).toLocaleString('id-ID') : '<span style="color:#94A3B8;">Hidden</span>'}</td>
+      <td><strong>Rp ${Number(p.hargaJual || 0).toLocaleString('id-ID')}</strong></td>
       <td style="display:flex; gap:6px; flex-wrap:wrap;">
         <button class="btn btn-blue btn-sm" onclick='fillProductForm(${JSON.stringify(p)})'>Edit</button>
         <button class="btn btn-violet btn-sm" onclick="openStockCardModal('${p.sku}', '${p.nama.replace(/'/g, "\\'")}')">Kartu Stok</button>
@@ -770,8 +780,8 @@ function openBarcodeStudioModal() {
         <td><strong>${p.sku}</strong></td>
         <td><code>${primaryBarcode}</code></td>
         <td>${p.nama}</td>
-        <td>Rp ${p.hargaJual.toLocaleString('id-ID')}</td>
-        <td><input type="number" class="barcode-qty-inp" data-sku="${p.sku}" data-code="${primaryBarcode}" data-nama="${p.nama}" data-harga="${p.hargaJual}" value="2" min="1" max="200" style="width:85px;"></td>
+        <td>Rp ${Number(p.hargaJual || 0).toLocaleString('id-ID')}</td>
+        <td><input type="number" class="barcode-qty-inp" data-sku="${p.sku}" data-code="${primaryBarcode}" data-nama="${p.nama}" data-harga="${p.hargaJual || 0}" value="2" min="1" max="200" style="width:85px;"></td>
       </tr>
     `;
   }).join('');
@@ -1783,6 +1793,7 @@ function paySupplierDebtModal(supplierId, supplierName, curDebt) {
     loadSuppliersTable();
   }, 'Memproses Pembayaran Hutang...');
 }
+
 // === JEMBATAN KE MODUL LAPORAN BARU (JS/js_report.js) ===
 function initAndLoadReport() {
   if (typeof initReportModule === 'function') {
@@ -2035,7 +2046,6 @@ function submitSO() {
     supervisorPin: document.getElementById('soPin').value,
     counts: counts
   }, res => {
-    // Gunakan rincian resmi yang dihitung langsung oleh server (InventoryController.submitStockOpname)
     const serverRows = (res.summary || []).map(r => ({
       sku: r.sku,
       nama: nameMap[r.sku] || r.sku,
@@ -2497,7 +2507,6 @@ function renderGudangLogs(dashData) {
 }
 
 function loadGudangOverview() {
-  // 1. Tampilkan instan dari cache lokal (0 detik, tanpa popup loading)
   const cachedProd = getAdminCache('PRODUCTS');
   if (cachedProd) {
     MASTER_PRODUCTS_CACHE = cachedProd;
@@ -2516,7 +2525,6 @@ function loadGudangOverview() {
     renderGudangLogs(cachedDash);
   }
 
-  // 2. Sinkronkan ke server secara diam-diam (silent = true) di latar belakang
   callAdminApi('admin/products', {}, items => {
     MASTER_PRODUCTS_CACHE = items || [];
     setAdminCache('PRODUCTS', MASTER_PRODUCTS_CACHE);
@@ -3195,30 +3203,368 @@ setTimeout(() => {
 }, 1500);
 
 document.addEventListener('DOMContentLoaded', function() {
-    if (typeof initReportModule === 'function') {
-        initReportModule();
-    }
-    document.querySelectorAll('[onclick*="reports"]').forEach(function(el) {
-        el.addEventListener('click', function() {
-            setTimeout(initReportModule, 50);
-        });
+  if (typeof initReportModule === 'function') {
+    initReportModule();
+  }
+  document.querySelectorAll('[onclick*="reports"]').forEach(function(el) {
+    el.addEventListener('click', function() {
+      if (typeof initReportModule === 'function') {
+        setTimeout(initReportModule, 50);
+      }
     });
-});
-document.addEventListener('DOMContentLoaded', function() {
-    if (typeof initReportModule === 'function') {
-        initReportModule();
-    }
-    document.querySelectorAll('[onclick*="reports"]').forEach(function(el) {
-        el.addEventListener('click', function() {
-            if (typeof initReportModule === 'function') {
-                setTimeout(initReportModule, 50);
-            }
-        });
-    });
+  });
 });
 
 if (document.readyState === 'complete' || document.readyState === 'interactive') {
-    setTimeout(function() {
-        if (typeof initReportModule === 'function') initReportModule();
-    }, 50);
+  setTimeout(function() {
+    if (typeof initReportModule === 'function') initReportModule();
+  }, 50);
+}
+
+/* ============================================================================
+   MODUL DESAIN: LAYAR KASIR, CETAK STRUK/DOKUMEN, & CETAK LABEL HARGA/RAK
+   ============================================================================ */
+const KASIR_PRESETS = ['Minimarket 1', 'Supermarket / Touch', 'Cafe & Resto'];
+let currentKasirPresetIdx = 0;
+let activeStrukDocType = 'pembayaran';
+
+function switchDesignSubModule(modName, btnEl) {
+  document.querySelectorAll('.design-submod').forEach(el => el.style.display = 'none');
+  const target = document.getElementById('design-mod-' + modName);
+  if (target) target.style.display = 'block';
+
+  document.querySelectorAll('.design-top-btn').forEach(b => {
+    b.classList.remove('btn-blue');
+    b.classList.add('btn-dark');
+  });
+  if (btnEl) {
+    btnEl.classList.remove('btn-dark');
+    btnEl.classList.add('btn-blue');
+  }
+
+  if (modName === 'kasir') renderKasirDesignPreview();
+  if (modName === 'struk') renderStrukDocPreview();
+  if (modName === 'label') initDesignLabelCatalog();
+}
+
+function cycleKasirPreset(step) {
+  currentKasirPresetIdx = (currentKasirPresetIdx + step + KASIR_PRESETS.length) % KASIR_PRESETS.length;
+  const lbl = document.getElementById('dsgKasirPresetLabel');
+  if (lbl) lbl.textContent = KASIR_PRESETS[currentKasirPresetIdx];
+
+  const isResto = currentKasirPresetIdx === 2;
+  const isTouch = currentKasirPresetIdx === 1;
+  if (document.getElementById('dsgCompTableNo')) document.getElementById('dsgCompTableNo').checked = isResto;
+  if (document.getElementById('dsgCompSplit')) document.getElementById('dsgCompSplit').checked = isResto;
+  if (document.getElementById('dsgCompCatMenu')) document.getElementById('dsgCompCatMenu').checked = isResto || isTouch;
+  renderKasirDesignPreview();
+}
+
+function toggleKasirAdvancedDesign() {
+  const box = document.getElementById('dsgKasirAdvancedBox');
+  if (box) box.style.display = box.style.display === 'none' ? 'block' : 'none';
+}
+
+function renderKasirDesignPreview() {
+  const storeName = document.getElementById('cfgCompanyName')?.value || document.getElementById('storeTitle')?.textContent || 'DANISH SHOP';
+  const elStore = document.getElementById('dsgPreviewStoreName');
+  if (elStore) elStore.textContent = storeName;
+
+  const accent = document.getElementById('dsgKasirAccentColor')?.value || '#1D4ED8';
+  const hdr = document.getElementById('dsgPreviewHeaderBar');
+  if (hdr) hdr.style.background = accent;
+
+  const totSize = document.getElementById('dsgKasirTotalSize')?.value || '42px';
+  const pvTot = document.getElementById('pvSubTotalVal');
+  if (pvTot) pvTot.style.fontSize = totSize;
+
+  const toggleVis = (id, show, disp = 'block') => {
+    const el = document.getElementById(id);
+    if (el) el.style.display = show ? disp : 'none';
+  };
+
+  toggleVis('pvScanInput', document.getElementById('dsgCompScan')?.checked, 'block');
+  toggleVis('pvActiveItemBar', document.getElementById('dsgCompActiveItem')?.checked, 'flex');
+  toggleVis('pvCategoryBar', document.getElementById('dsgCompCatMenu')?.checked, 'flex');
+  toggleVis('pvCustomerInput', document.getElementById('dsgCompCustomer')?.checked, 'block');
+  toggleVis('pvTableNoInput', document.getElementById('dsgCompTableNo')?.checked, 'block');
+  toggleVis('pvQuickMenuCol', document.getElementById('dsgCompQuickMenu')?.checked, 'flex');
+  toggleVis('pvHoldBtns', document.getElementById('dsgCompHoldRecall')?.checked, 'flex');
+  toggleVis('pvSplitBtn', document.getElementById('dsgCompSplit')?.checked, 'block');
+  toggleVis('pvLogoBox', document.getElementById('dsgCompLogo')?.checked, 'flex');
+}
+
+function openKasirColumnConfigModal() {
+  alert('Kolom Aktif Tabel Kasir: KTS, NAMA BARANG, @ HARGA, DISKON, TOTAL.\n(Gunakan tombol Simpan Desain untuk menerapkan ke layar kasir).');
+}
+
+function saveDesignSettings() {
+  const payload = {
+    preset: KASIR_PRESETS[currentKasirPresetIdx],
+    compScan: document.getElementById('dsgCompScan')?.checked,
+    compActiveItem: document.getElementById('dsgCompActiveItem')?.checked,
+    compCatMenu: document.getElementById('dsgCompCatMenu')?.checked,
+    compCustomer: document.getElementById('dsgCompCustomer')?.checked,
+    compTableNo: document.getElementById('dsgCompTableNo')?.checked,
+    compQuickMenu: document.getElementById('dsgCompQuickMenu')?.checked,
+    compHoldRecall: document.getElementById('dsgCompHoldRecall')?.checked,
+    compSplit: document.getElementById('dsgCompSplit')?.checked,
+    compLogo: document.getElementById('dsgCompLogo')?.checked,
+    accentColor: document.getElementById('dsgKasirAccentColor')?.value || '#1D4ED8',
+    totalSize: document.getElementById('dsgKasirTotalSize')?.value || '42px',
+    strukPaperSize: document.getElementById('strukPaperSizeSelect')?.value || '58mm',
+    strukShowTaxDetail: document.getElementById('strukShowTaxDetail')?.checked,
+    strukShowMemberPoint: document.getElementById('strukShowMemberPoint')?.checked,
+    strukPrintOrderSlip: document.getElementById('strukPrintOrderSlip')?.checked
+  };
+  localStorage.setItem('DANISH_DESIGN_CONFIG_' + getActiveTokoCode(), JSON.stringify(payload));
+  alert('Pengaturan Desain Layar Kasir & Cetak Struk berhasil disimpan!');
+}
+
+function loadDesignSettings() {
+  try {
+    const raw = localStorage.getItem('DANISH_DESIGN_CONFIG_' + getActiveTokoCode());
+    if (!raw) { renderKasirDesignPreview(); return; }
+    const cfg = JSON.parse(raw);
+    if (document.getElementById('dsgCompScan')) document.getElementById('dsgCompScan').checked = cfg.compScan !== false;
+    if (document.getElementById('dsgCompActiveItem')) document.getElementById('dsgCompActiveItem').checked = cfg.compActiveItem !== false;
+    if (document.getElementById('dsgCompCatMenu')) document.getElementById('dsgCompCatMenu').checked = !!cfg.compCatMenu;
+    if (document.getElementById('dsgCompCustomer')) document.getElementById('dsgCompCustomer').checked = cfg.compCustomer !== false;
+    if (document.getElementById('dsgCompTableNo')) document.getElementById('dsgCompTableNo').checked = !!cfg.compTableNo;
+    if (document.getElementById('dsgCompQuickMenu')) document.getElementById('dsgCompQuickMenu').checked = cfg.compQuickMenu !== false;
+    if (document.getElementById('dsgCompHoldRecall')) document.getElementById('dsgCompHoldRecall').checked = cfg.compHoldRecall !== false;
+    if (document.getElementById('dsgCompSplit')) document.getElementById('dsgCompSplit').checked = !!cfg.compSplit;
+    if (document.getElementById('dsgCompLogo')) document.getElementById('dsgCompLogo').checked = cfg.compLogo !== false;
+    if (cfg.accentColor && document.getElementById('dsgKasirAccentColor')) document.getElementById('dsgKasirAccentColor').value = cfg.accentColor;
+    if (cfg.totalSize && document.getElementById('dsgKasirTotalSize')) document.getElementById('dsgKasirTotalSize').value = cfg.totalSize;
+    if (cfg.strukPaperSize && document.getElementById('strukPaperSizeSelect')) document.getElementById('strukPaperSizeSelect').value = cfg.strukPaperSize;
+  } catch (e) {}
+  renderKasirDesignPreview();
+}
+
+/* --- SUB-MODUL 2: CETAK STRUK & DOKUMEN --- */
+function switchStrukDocType(docType, btnEl) {
+  activeStrukDocType = docType;
+  document.querySelectorAll('.struk-nav-btn').forEach(b => {
+    b.classList.remove('btn-blue');
+    b.classList.add('btn-dark');
+  });
+  if (btnEl) {
+    btnEl.classList.remove('btn-dark');
+    btnEl.classList.add('btn-blue');
+  }
+
+  const meta = {
+    pembayaran: ['Struk Pembayaran', 'Pilih desain struk pembayaran yang cocok untuk keperluan kasir toko Anda.'],
+    laporan_kasir: ['Laporan Kasir', 'Pilih format laporan rekap shift kasir yang sesuai dengan kebutuhan toko Anda.'],
+    penerimaan: ['Penerimaan Barang (ReceiveItem A4)', 'Format bukti penerimaan barang dari pemasok.'],
+    penyesuaian: ['Penyesuaian Stok (StockAdjustment A4)', 'Format berita acara penyesuaian kuantitas stok persediaan.'],
+    produksi: ['Produksi Harian (Production A4)', 'Format laporan produksi / perakitan paket barang harian.']
+  };
+  document.getElementById('strukDocTitle').textContent = meta[docType][0];
+  document.getElementById('strukDocSubtitle').textContent = meta[docType][1];
+  renderStrukDocPreview();
+}
+
+function renderStrukDocPreview() {
+  const canvas = document.getElementById('strukPreviewCanvas');
+  if (!canvas) return;
+  const storeName = document.getElementById('cfgCompanyName')?.value || 'DANISH SHOP';
+  const storeAddr = document.getElementById('cfgCompanyAddress')?.value || 'Jl. Raya Utama No. 44';
+  const storePhone = document.getElementById('cfgCompanyPhone')?.value || '0812-7361-3498';
+  const paper = document.getElementById('strukPaperSizeSelect')?.value || '58mm';
+  const wThermal = paper === '80mm' ? '310px' : '245px';
+  const showTax = document.getElementById('strukShowTaxDetail')?.checked;
+  const showPoint = document.getElementById('strukShowMemberPoint')?.checked;
+  const showOrder = document.getElementById('strukPrintOrderSlip')?.checked;
+
+  if (activeStrukDocType === 'pembayaran') {
+    canvas.innerHTML = `
+      <div style="background:#fff; width:${wThermal}; padding:14px; font-family:monospace; font-size:11px; line-height:1.45; box-shadow:0 6px 18px rgba(0,0,0,0.3);">
+        <div style="text-align:center; font-weight:700;">${storeName}</div>
+        <div style="text-align:center;">${storeAddr}</div>
+        <div style="text-align:center; margin-bottom:6px;">Telp. ${storePhone}</div>
+        <div>No# : STRUK# 001</div>
+        <div>Kasir : Administrator</div>
+        <div style="border-bottom:1px dashed #64748B; padding-bottom:4px; margin-bottom:4px;">Tanggal : 24-11-2026 20:06</div>
+        <div style="display:flex; justify-content:space-between; font-weight:700;"><span>Kts Nama Barang</span><span>Jumlah</span></div>
+        <div style="display:flex; justify-content:space-between;"><span>3 Barang/Menu #1</span><span>7.000 *</span></div>
+        <div style="display:flex; justify-content:space-between;"><span>4 Barang/Menu #2</span><span>12.000 *</span></div>
+        <div style="border-top:1px dashed #64748B; margin-top:4px; padding-top:4px;">Total barang dibeli 7</div>
+        <div style="display:flex; justify-content:space-between;"><span>SUBTOTAL</span><span>19.000</span></div>
+        <div style="display:flex; justify-content:space-between;"><span>DISKON</span><span>0</span></div>
+        <div style="display:flex; justify-content:space-between;"><span>PEMBULATAN</span><span>-20</span></div>
+        <div style="display:flex; justify-content:space-between; font-weight:700; border-top:1px dashed #64748B; margin-top:4px; padding-top:4px;"><span>TOTAL</span><span>21.450</span></div>
+        <div style="display:flex; justify-content:space-between;"><span>TUNAI</span><span>25.000</span></div>
+        <div style="display:flex; justify-content:space-between;"><span>KEMBALI</span><span>3.550</span></div>
+        ${showTax ? `<div style="border-top:1px dashed #64748B; margin-top:6px; padding-top:4px;">PAJAK &nbsp; TARIF &nbsp; DPP &nbsp;&nbsp;&nbsp; PPN<br>* &nbsp;&nbsp;&nbsp;&nbsp;&nbsp; 11% &nbsp;&nbsp;&nbsp; 19.000 &nbsp; 2.090</div>` : ''}
+        ${showPoint ? `<div style="border-top:1px dashed #64748B; margin-top:6px; padding-top:4px;">MEMBER ${storeName}<br>&nbsp;&nbsp;ANDA DAPAT POIN : 3<br>&nbsp;&nbsp;TOTAL POIN &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;: 15</div>` : ''}
+        <div style="text-align:center; margin-top:8px;">TERIMA KASIH<br># Barang yang sudah dibeli tidak dapat ditukar/dikembalikan</div>
+      </div>
+      ${showOrder ? `
+      <div style="background:#fff; width:220px; padding:14px; font-family:monospace; font-size:11px; line-height:1.5; align-self:flex-start; box-shadow:0 6px 18px rgba(0,0,0,0.3);">
+        <div><strong>ID : Umum</strong></div>
+        <div style="text-align:center; font-size:14px; font-weight:700; margin:8px 0; border-top:1px dashed #64748B; border-bottom:1px dashed #64748B; padding:4px 0;">PESANAN / DELIVERY</div>
+        <div>3 Barang/Menu #1</div>
+        <div>4 Barang/Menu #2</div>
+        <div style="border-top:1px dashed #64748B; margin-top:6px; padding-top:4px;">Total Menu 7</div>
+        <div style="margin-top:8px;">STRUK# 001<br>Administrator 24-11-2026</div>
+      </div>` : ''}
+    `;
+  } else if (activeStrukDocType === 'laporan_kasir') {
+    canvas.innerHTML = `
+      <div style="background:#fff; width:${wThermal}; padding:14px; font-family:monospace; font-size:11px; line-height:1.45; box-shadow:0 6px 18px rgba(0,0,0,0.3);">
+        <div style="text-align:center; font-weight:700; border-bottom:1px dashed #64748B; padding-bottom:4px; margin-bottom:6px;">LAPORAN SHIFT KASIR</div>
+        <div>KASIR &nbsp;: Administrator</div>
+        <div>LOGIN &nbsp;: 24-11-2026 07.00</div>
+        <div style="border-bottom:1px dashed #64748B; padding-bottom:4px; margin-bottom:6px;">DICETAK: 24-11-2026 20.07</div>
+        <div style="display:flex; justify-content:space-between; font-weight:700;"><span>TOTAL BELANJA :</span><span>21.450</span></div>
+        <div style="margin-top:6px; font-weight:700;">PEMBAYARAN</div>
+        <div style="display:flex; justify-content:space-between;"><span>&nbsp;Tunai :</span><span>21.450</span></div>
+        <div style="display:flex; justify-content:space-between;"><span>&nbsp;QRIS / EDC :</span><span>0</span></div>
+        <div style="margin-top:6px; font-weight:700;">SETORAN</div>
+        <div style="display:flex; justify-content:space-between;"><span>&nbsp;Setor Awal :</span><span>100.000</span></div>
+        <div style="display:flex; justify-content:space-between;"><span>&nbsp;Pembayaran Tunai :</span><span>21.450</span></div>
+        <div style="display:flex; justify-content:space-between; font-weight:700; border-top:1px dashed #64748B; padding-top:4px;"><span>TOTAL SETORAN :</span><span>121.450</span></div>
+      </div>
+    `;
+  } else {
+    const titleMap = {
+      penerimaan: 'PENERIMAAN BARANG',
+      penyesuaian: 'PENYESUAIAN STOK',
+      produksi: 'PRODUKSI HARIAN'
+    };
+    const colMap = {
+      penerimaan: '<th>No</th><th>Kode Barang</th><th>Nama Barang</th><th>Kuantitas</th><th>Satuan</th>',
+      penyesuaian: '<th>No</th><th>Kode Barang</th><th>Nama Barang</th><th>Kts Perubahan</th><th>Satuan</th>',
+      produksi: '<th>No</th><th>Kode Paket</th><th>Nama Produksi</th><th>Qty Hasil</th><th>Satuan</th>'
+    };
+    canvas.innerHTML = `
+      <div style="background:#fff; width:100%; max-width:650px; min-height:380px; padding:24px; font-family:sans-serif; font-size:12px; box-shadow:0 6px 18px rgba(0,0,0,0.3);">
+        <div style="font-size:16px; font-weight:800; margin-bottom:12px;">${titleMap[activeStrukDocType]}</div>
+        <div style="display:grid; grid-template-columns: 1fr 1fr; gap:8px; margin-bottom:14px; font-size:11px;">
+          <div>No# &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;: DOC-20261124-001<br>Operator : Administrator<br>Tanggal &nbsp;: 24-11-2026</div>
+          <div>Keterangan : Dokumen operasional ${storeName}</div>
+        </div>
+        <table style="width:100%; border-collapse:collapse; font-size:11px;">
+          <thead><tr style="border-top:1px solid #0f172a; border-bottom:1px solid #0f172a;">${colMap[activeStrukDocType]}</tr></thead>
+          <tbody>
+            <tr><td>1</td><td>SKU-1001</td><td>Contoh Barang Persediaan</td><td>10</td><td>PCS</td></tr>
+          </tbody>
+        </table>
+      </div>
+    `;
+  }
+}
+
+function printStrukSampleTest() {
+  const area = document.getElementById('stockAdjPrintArea');
+  const canvas = document.getElementById('strukPreviewCanvas');
+  if (!area || !canvas) return;
+  area.innerHTML = canvas.innerHTML;
+  area.classList.add('printing');
+  window.print();
+  setTimeout(() => area.classList.remove('printing'), 500);
+}
+
+/* --- SUB-MODUL 3: CETAK LABEL HARGA & RAK --- */
+function initDesignLabelCatalog() {
+  const catSel = document.getElementById('lblCategorySelect');
+  const masterCat = document.getElementById('masterCategoryFilter');
+  if (catSel && masterCat && catSel.options.length <= 1) {
+    catSel.innerHTML = masterCat.innerHTML;
+  }
+  if (!MASTER_PRODUCTS_CACHE || MASTER_PRODUCTS_CACHE.length === 0) {
+    const cached = getAdminCache('PRODUCTS');
+    if (cached) MASTER_PRODUCTS_CACHE = cached;
+  }
+  filterDesignLabelProducts();
+}
+
+function filterDesignLabelProducts() {
+  const listEl = document.getElementById('lblProductChecklist');
+  if (!listEl) return;
+  const kw = (document.getElementById('lblProductSearch')?.value || '').toLowerCase();
+  const cat = document.getElementById('lblCategorySelect')?.value || '';
+  const items = (typeof MASTER_PRODUCTS_CACHE !== 'undefined' ? MASTER_PRODUCTS_CACHE : [])
+    .filter(p => {
+      const matchKw = !kw || String(p.sku || '').toLowerCase().includes(kw) || String(p.nama || '').toLowerCase().includes(kw);
+      const matchCat = !cat || String(p.kategori || '') === cat;
+      return matchKw && matchCat;
+    })
+    .slice(0, 60);
+
+  if (!items.length) {
+    listEl.innerHTML = '<div style="color:#94a3b8; padding:8px;">Tidak ada data barang.</div>';
+    return;
+  }
+
+  listEl.innerHTML = items.map(p => `
+    <label style="display:flex; align-items:center; justify-content:space-between; gap:6px; padding:4px 6px; border-bottom:1px solid #F1F5F9; cursor:pointer;">
+      <span style="display:flex; align-items:center; gap:6px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">
+        <input type="checkbox" class="dsg-lbl-chk" value="${p.sku}" data-nama="${p.nama}" data-harga="${p.hargaJual || 0}" data-barcode="${p.barcode || p.sku}" style="width:14px; height:14px;">
+        <span>${p.nama}</span>
+      </span>
+      <input type="number" class="dsg-lbl-qty" data-sku="${p.sku}" value="1" min="1" max="50" style="width:48px; padding:2px 4px; text-align:center; font-size:11px;">
+    </label>
+  `).join('');
+}
+
+function renderLabelPreviewSheet() {
+  const paper = document.getElementById('lblPrintPaper');
+  if (!paper) return;
+  const model = document.getElementById('lblModelSelect')?.value || 'PRICE_TAG_2';
+  const cols = model.includes('_1') || model.startsWith('LABEL_') ? 1 : (model.includes('_3') ? 3 : (model.includes('_4') ? 4 : 2));
+  const isRackTag = model.startsWith('RACK_TAG');
+  paper.style.gridTemplateColumns = `repeat(${cols}, 1fr)`;
+
+  const checked = Array.from(document.querySelectorAll('.dsg-lbl-chk:checked'));
+  const cards = [];
+
+  if (!checked.length) {
+    for (let i = 1; i <= cols * 2; i++) {
+      cards.push({ sku: 'SKU-100' + i, barcode: '89910020030' + i, nama: 'CONTOH BARANG #' + i, harga: 15000 * i });
+    }
+  } else {
+    checked.forEach(chk => {
+      const qtyInput = document.querySelector(`.dsg-lbl-qty[data-sku="${chk.value}"]`);
+      const qty = Math.max(1, Number(qtyInput?.value || 1));
+      for (let q = 0; q < qty; q++) {
+        cards.push({
+          sku: chk.value,
+          barcode: chk.dataset.barcode || chk.value,
+          nama: chk.dataset.nama,
+          harga: Number(chk.dataset.harga || 0)
+        });
+      }
+    });
+  }
+
+  paper.innerHTML = cards.map(c => isRackTag ? `
+    <div style="border:2px solid #0F172A; border-radius:6px; overflow:hidden; background:#fff;">
+      <div style="background:#FACC15; color:#0F172A; font-weight:800; font-size:11px; padding:4px 8px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${c.nama}</div>
+      <div style="padding:6px 8px; display:flex; justify-content:space-between; align-items:flex-end;">
+        <span style="font-size:10px; font-family:monospace;">${c.barcode}</span>
+        <span style="font-size:18px; font-weight:900; color:#DC2626;">Rp ${c.harga.toLocaleString('id-ID')}</span>
+      </div>
+    </div>
+  ` : `
+    <div style="border:1px dashed #64748B; border-radius:6px; padding:8px; text-align:center; background:#fff;">
+      <div style="font-size:11px; font-weight:700; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${c.nama}</div>
+      <div style="font-family:monospace; font-size:10px; color:#475569; margin:2px 0;">|||| || ||| |||| (${c.barcode})</div>
+      <div style="font-size:16px; font-weight:900; color:#0F172A;">Rp ${c.harga.toLocaleString('id-ID')}</div>
+    </div>
+  `).join('');
+}
+
+function printDesignLabelsNow() {
+  renderLabelPreviewSheet();
+  const area = document.getElementById('priceTagPrintArea');
+  const paper = document.getElementById('lblPrintPaper');
+  if (!area || !paper) return;
+  area.innerHTML = paper.innerHTML;
+  area.style.gridTemplateColumns = paper.style.gridTemplateColumns;
+  area.classList.add('printing');
+  window.print();
+  setTimeout(() => area.classList.remove('printing'), 500);
 }
