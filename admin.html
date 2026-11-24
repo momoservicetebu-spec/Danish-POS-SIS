@@ -2665,13 +2665,13 @@
     </div>
   </div>
 
-  <!-- MODAL 19: FILE DATABASE (BACKUP & EXPORT JSON) -->
+  <!-- MODAL 19: FILE DATABASE (BACKUP & RESTORE JSON) -->
   <div id="databaseBackupModal" class="modal-backdrop">
     <div class="modal-box" style="max-width:560px;">
       <div class="modal-header">
         <div>
           <h3 style="margin:0;">File Database &amp; Backup Cloud</h3>
-          <small style="color:var(--text-muted);">Unduh salinan cadangan (backup) seluruh katalog barang, pelanggan, dan pengaturan toko.</small>
+          <small style="color:var(--text-muted);">Unduh salinan cadangan (backup) atau pulihkan (restore) katalog barang, pelanggan, dan pengaturan toko.</small>
         </div>
         <button type="button" class="btn btn-dark btn-sm" onclick="closeModal('databaseBackupModal')">&#10006;</button>
       </div>
@@ -2679,7 +2679,19 @@
         <div style="padding:12px; background:#ECFDF5; border:1px solid #A7F3D0; border-radius:10px; font-size:13px;">
           <strong>Status Sinkronisasi:</strong> Terhubung langsung dengan Google Sheets Cloud Database (GAS Sync).
         </div>
+        
         <button type="button" class="btn btn-green" onclick="downloadFullBackupJson()">&#128190; Unduh Full Backup Database (.JSON)</button>
+
+        <hr style="border:none; border-top:1px dashed var(--border); margin:4px 0;">
+
+        <div style="padding:12px; background:#FFFBEB; border:1px solid #FDE68A; border-radius:10px; display:flex; flex-direction:column; gap:8px;">
+          <strong style="font-size:13px; color:#92400E;">&#9888;&#65039; Restore / Pulihkan Database (.JSON)</strong>
+          <small style="color:#78350F; line-height:1.4;">
+            Pilih file <code>Backup_DanishPOS_*.json</code> yang pernah diunduh. Data akan dipulihkan ke cache lokal dan disinkronkan ke Google Sheets Cloud.
+          </small>
+          <input type="file" id="restoreBackupFile" accept=".json,application/json" style="font-size:12px; background:#fff; padding:6px; border-radius:6px; border:1px solid #FCD34D;">
+          <button type="button" class="btn btn-amber" onclick="restoreFullBackupJson()">&#128260; Restore Database Sekarang</button>
+        </div>
       </div>
     </div>
   </div>

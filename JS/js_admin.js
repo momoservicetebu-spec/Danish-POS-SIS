@@ -2843,23 +2843,86 @@ function processCsvImport() {
 }
 
 function openDatabaseBackupModal() {
+  const fileInp = document.getElementById('restoreBackupFile');
+  if (fileInp) fileInp.value = '';
   document.getElementById('databaseBackupModal').classList.add('open');
 }
 
 function downloadFullBackupJson() {
-  const backupData = {
-    exportedAt: new Date().toISOString(),
-    store: SESSION ? SESSION.store : {},
-    preferences: JSON.parse(localStorage.getItem(COMPANY_PREF_STORAGE_KEY) || '{}'),
-    products: MASTER_PRODUCTS_CACHE,
-    members: MEMBERS_CACHE,
-    suppliers: GUDANG_SUPPLIERS_CACHE
+  callAdminApi('admin/full-backup', {}, backupData => {
+    const blob = new Blob([JSON.stringify(backupData, null, 2)], { type: 'application/json' });
+    const link = document.createElement('a');
+    link.href = URL.createObjectURL(blob);
+    link.download = `Backup_DanishPOS_${backupData.storeCode || 'STORE'}_${getTodayIsoDate()}.json`;
+    link.click();
+  }, 'Mengunduh Full Backup dari Cloud...');
+}
+
+function restoreFullBackupJson() {
+  const fileInput = document.getElementById('restoreBackupFile');
+  if (!fileInput || !fileInput.files || !fileInput.files[0]) {
+    return alert('Pilih file backup (.JSON) terlebih dahulu!');
+  }
+
+  const reader = new FileReader();
+  reader.onload = function(e) {
+    try {
+      const data = JSON.parse(e.target.result);
+      if (!data || (!data.preferences && !data.products && !data.members && !data.suppliers && !data.categories)) {
+        return alert('Format file JSON tidak dikenali sebagai file backup Danish POS!');
+      }
+
+      const jmlProduk = Array.isArray(data.products) ? data.products.length : 0;
+      const jmlKat = Array.isArray(data.categories) ? data.categories.length : 0;
+      const jmlMember = Array.isArray(data.members) ? data.members.length : 0;
+      const jmlSup = Array.isArray(data.suppliers) ? data.suppliers.length : 0;
+
+      const konfirmasi = confirm(
+        `KONFIRMASI RESTORE DATABASE CLOUD\n` +
+        `Waktu Backup: ${data.exportedAt || '-'}\n\n` +
+        `Data yang akan dipulihkan ke Google Sheets:\n` +
+        `• Katalog Barang: ${jmlProduk} item\n` +
+        `• Kategori Barang: ${jmlKat} data\n` +
+        `• Pelanggan / Member: ${jmlMember} data\n` +
+        `• Pemasok / Supplier: ${jmlSup} data\n` +
+        `• Preferensi & Pengaturan Toko\n\n` +
+        `Lanjutkan proses restore sekarang?`
+      );
+      if (!konfirmasi) return;
+
+      callAdminApi('admin/full-restore', data, res => {
+        if (data.preferences && Object.keys(data.preferences).length > 0) {
+          localStorage.setItem(COMPANY_PREF_STORAGE_KEY, JSON.stringify(data.preferences));
+          applyPreferencesToForm(data.preferences);
+        }
+        if (Array.isArray(data.products)) {
+          MASTER_PRODUCTS_CACHE = data.products;
+          setAdminCache('PRODUCTS', data.products);
+        }
+        if (Array.isArray(data.categories)) {
+          cachedCategories = data.categories;
+          setAdminCache('CATEGORIES', data.categories);
+        }
+        if (Array.isArray(data.members)) {
+          MEMBERS_CACHE = data.members;
+          setAdminCache('MEMBERS', data.members);
+        }
+        if (Array.isArray(data.suppliers)) {
+          GUDANG_SUPPLIERS_CACHE = data.suppliers;
+          setAdminCache('SUPPLIERS', data.suppliers);
+        }
+
+        fileInput.value = '';
+        closeModal('databaseBackupModal');
+        alert(res.message || 'Restore database berhasil!');
+        loadDashboard();
+      }, 'Memulihkan Database ke Google Sheets...');
+    } catch (err) {
+      alert('File JSON rusak atau tidak valid: ' + err.message);
+    }
   };
-  const blob = new Blob([JSON.stringify(backupData, null, 2)], { type: 'application/json' });
-  const link = document.createElement('a');
-  link.href = URL.createObjectURL(blob);
-  link.download = `Backup_DanishPOS_${getTodayIsoDate()}.json`;
-  link.click();
+
+  reader.readAsText(fileInput.files[0]);
 }
 
 function openCustomerDisplayWindow() {
