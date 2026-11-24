@@ -1329,3 +1329,80 @@ document.addEventListener('keydown', function(e) {
     }
   }
 });
+
+// === HYBRID QRIS ENGINE (OFFLINE EMVCo DINAMIS + API GATEWAY) ===
+let QRIS_POLL_TIMER = null;
+
+function convertStaticQrisToDynamic(staticQris, amount) {
+  if (!staticQris || staticQris.length < 20) return '';
+  // Hapus 4 digit CRC lama di akhir & ubah tag 010211 (statis) -> 010212 (dinamis)
+  let base = staticQris.trim().slice(0, -4).replace('010211', '010212');
+  const amtStr = String(Math.round(amount));
+  const tag54 = '54' + String(amtStr.length).padStart(2, '0') + amtStr;
+
+  // Sisipkan Tag 54 (Nominal) tepat sebelum Tag 5802ID (Kode Negara)
+  const idx58 = base.indexOf('5802ID');
+  if (idx58 !== -1) {
+    base = base.slice(0, idx58) + tag54 + base.slice(idx58);
+  } else {
+    base += tag54;
+  }
+
+  const payloadWithCrcTag = base + '6304';
+  return payloadWithCrcTag + computeCrc16Ccitt(payloadWithCrcTag);
+}
+
+function computeCrc16Ccitt(str) {
+  let crc = 0xFFFF;
+  for (let i = 0; i < str.length; i++) {
+    crc ^= str.charCodeAt(i) << 8;
+    for (let j = 0; j < 8; j++) {
+      crc = (crc & 0x8000) ? ((crc << 1) ^ 0x1021) : (crc << 1);
+    }
+  }
+  return (crc & 0xFFFF).toString(16).toUpperCase().padStart(4, '0');
+}
+
+async function triggerHybridQrisDisplay(amount) {
+  if (QRIS_POLL_TIMER) clearInterval(QRIS_POLL_TIMER);
+  const storeCode = SESSION?.store?.kodeToko || 'GLOBAL';
+  const orderId = `QR-${storeCode}-${Date.now()}`;
+
+  try {
+    const res = await ApiClient.call('pos/qris-create', { kodeToko: storeCode, orderId, amount });
+    if (!res.fallbackOffline && (res.qrString || res.qrImageUrl)) {
+      // Mode 2: QRIS API Gateway (Midtrans / Xendit) -> Auto-Lunas saat pembeli selesai scan
+      customerChannel.postMessage({
+        type: 'SHOW_QRIS',
+        mode: 'API_GATEWAY',
+        amount,
+        qrString: res.qrString,
+        qrImageUrl: res.qrImageUrl
+      });
+
+      QRIS_POLL_TIMER = setInterval(async () => {
+        try {
+          const st = await ApiClient.call('pos/qris-status', { kodeToko: storeCode, orderId });
+          if (st.status === 'PAID') {
+            clearInterval(QRIS_POLL_TIMER);
+            processFinalPayment(); // Otomatis cetak struk begitu terbayar!
+          }
+        } catch (e) {}
+      }, 3000);
+      return;
+    }
+
+    // Mode 1: QRIS Dinamis Offline EMVCo (Tanpa Token API)
+    const dynString = convertStaticQrisToDynamic(res.staticPayload, amount);
+    customerChannel.postMessage({
+      type: 'SHOW_QRIS',
+      mode: 'OFFLINE_EMVCO',
+      amount,
+      qrString: dynString
+    });
+  } catch (e) {
+    const localStatic = localStorage.getItem('DANISH_STATIC_QRIS_' + storeCode) || '';
+    const dynString = convertStaticQrisToDynamic(localStatic, amount);
+    customerChannel.postMessage({ type: 'SHOW_QRIS', mode: 'OFFLINE_EMVCO', amount, qrString: dynString });
+  }
+}
