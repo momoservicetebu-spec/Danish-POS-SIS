@@ -115,10 +115,12 @@ function switchTab(tabName, btn) {
     loadMasterCatalog();
   }
   if (tabName === 'members') loadMembersTable();
+  if (tabName === 'gudang') loadGudangOverview();
   if (tabName === 'suppliers') loadSuppliersTable();
   if (tabName === 'reports') initAndLoadReport();
   if (tabName === 'so') loadBlindSOItems();
   if (tabName === 'users') loadUsersTable();
+  if (tabName === 'company') loadCompanyPreferences();
 }
 
 // =========================================================
