@@ -2171,62 +2171,80 @@ function printPenerimaanBarang() {
 // =========================================================
 // READ & MONITORING STOK GUDANG + RIWAYAT MUTASI
 // =========================================================
+let GUDANG_SUPPLIERS_CACHE = [];
+
 function loadGudangOverview() {
+  // 1. Muat Monitoring Stok Gudang
   callAdminApi('admin/products', {}, items => {
     MASTER_PRODUCTS_CACHE = items || [];
     populateCatalogDataList();
     filterGudangStockTable();
   }, 'Memuat Data Stok Gudang...');
+
+  // 2. Muat Daftar Pemasok (Supplier)
+  callAdminApi('supplier/list', {}, suppliers => {
+    GUDANG_SUPPLIERS_CACHE = suppliers || [];
+    filterGudangPemasokTable();
+  }, 'Memuat Daftar Pemasok...');
+
+  // 3. Muat Riwayat Penerimaan Barang & Mutasi dari Log Aktivitas
+  callAdminApi('finance/dashboard', {}, data => {
+    const tbody = document.getElementById('gudangHistoryTableBody');
+    if (!tbody) return;
+    const logs = (data.recentLogs || []).filter(l => {
+      const act = String(l.aktivitas || '').toUpperCase();
+      return act.includes('LPB') || act.includes('NRB') || act.includes('MUTASI') || act.includes('REPACK') || act.includes('PENERIMAAN') || act.includes('PURCHASE');
+    });
+
+    if (logs.length === 0) {
+      tbody.innerHTML = '<tr><td colspan="4" style="text-align:center; color:var(--text-muted); padding:16px;">Belum ada riwayat penerimaan / mutasi terbaru.</td></tr>';
+      return;
+    }
+
+    tbody.innerHTML = logs.map(l => `
+      <tr>
+        <td style="white-space:nowrap;">${l.waktu}</td>
+        <td><span class="badge badge-ok">${l.aktivitas}</span></td>
+        <td>${l.keterangan}</td>
+        <td>${l.user}</td>
+      </tr>
+    `).join('');
+  }, 'Memuat Riwayat Gudang...');
 }
 
-function filterGudangStockTable() {
-  const tbody = document.getElementById('gudangStockTableBody');
+function filterGudangPemasokTable() {
+  const tbody = document.getElementById('gudangPemasokTableBody');
   if (!tbody) return;
 
-  const q = (document.getElementById('gudangSearchInput')?.value || '').toLowerCase().trim();
-  const statusFilter = document.getElementById('gudangStockFilter')?.value || 'ALL';
-
-  const filtered = MASTER_PRODUCTS_CACHE.filter(p => {
-    const stok = p.stokTerkini != null ? Number(p.stokTerkini) : (Number(p.saldoAwal) || 0);
-    const minStok = p.minStock != null ? Number(p.minStock) : 10;
-
-    const matchText = !q ||
-      String(p.sku || '').toLowerCase().includes(q) ||
-      String(p.barcode || '').toLowerCase().includes(q) ||
-      String(p.nama || '').toLowerCase().includes(q);
-
-    if (!matchText) return false;
-    if (statusFilter === 'EMPTY') return stok <= 0;
-    if (statusFilter === 'LOW') return stok > 0 && stok < minStok;
-    return true;
-  });
+  const q = (document.getElementById('gudangSupSearch')?.value || '').toLowerCase().trim();
+  const filtered = GUDANG_SUPPLIERS_CACHE.filter(s =>
+    !q ||
+    String(s.supplier_id || '').toLowerCase().includes(q) ||
+    String(s.nama_supplier || '').toLowerCase().includes(q) ||
+    String(s.kontak_hp || '').toLowerCase().includes(q)
+  );
 
   if (filtered.length === 0) {
-    tbody.innerHTML = '<tr><td colspan="9" style="text-align:center; color:var(--text-muted); padding:20px;">Data barang tidak ditemukan.</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="4" style="text-align:center; color:var(--text-muted); padding:16px;">Belum ada data pemasok.</td></tr>';
     return;
   }
 
-  tbody.innerHTML = filtered.map(p => {
-    const stok = p.stokTerkini != null ? Number(p.stokTerkini) : (Number(p.saldoAwal) || 0);
-    const minStok = p.minStock != null ? Number(p.minStock) : 10;
-    let statusBadge = '<span class="badge badge-ok">Aman</span>';
-    if (stok <= 0) statusBadge = '<span class="badge badge-danger">Habis</span>';
-    else if (stok < minStok) statusBadge = '<span class="badge badge-warn">Menipis</span>';
+  tbody.innerHTML = filtered.map(s => `
+    <tr>
+      <td><strong>${s.supplier_id}</strong></td>
+      <td>${s.nama_supplier}<br><small style="color:var(--text-muted);">${s.alamat || '-'}</small></td>
+      <td>${s.kontak_hp || '-'}</td>
+      <td>
+        <button type="button" class="btn btn-blue btn-sm" onclick='editPemasokFromGudang(${JSON.stringify(s)})'>Edit</button>
+      </td>
+    </tr>
+  `).join('');
+}
 
-    return `
-      <tr>
-        <td><strong>${p.sku}</strong></td>
-        <td><code>${p.barcode || '-'}</code></td>
-        <td>${p.nama}</td>
-        <td>${p.kategori || 'Umum'}</td>
-        <td>${p.satuan || 'PCS'}</td>
-        <td>${p.lokasiRak || '-'}</td>
-        <td style="text-align:right; font-weight:800; font-size:14px;">${stok.toLocaleString('id-ID')}</td>
-        <td>${statusBadge}</td>
-        <td>
-          <button type="button" class="btn btn-violet btn-sm" onclick="openStockCardModal('${p.sku}', '${String(p.nama || '').replace(/'/g, "\\'")}')">&#128203; Kartu Stok</button>
-        </td>
-      </tr>
-    `;
-  }).join('');
+function editPemasokFromGudang(s) {
+  openPemasokModal();
+  document.getElementById('pmsId').value = s.supplier_id || '';
+  document.getElementById('pmsNama').value = s.nama_supplier || '';
+  document.getElementById('pmsTelepon').value = s.kontak_hp || '';
+  document.getElementById('pmsAlamat1').value = s.alamat || '';
 }

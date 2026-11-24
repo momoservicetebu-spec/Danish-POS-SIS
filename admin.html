@@ -673,7 +673,59 @@
             <button type="button" class="btn btn-dark" onclick="loadGudangOverview()">&#128260; Refresh Data Gudang</button>
           </div>
         </div>
+         <!-- BLOK READ: DAFTAR PEMASOK & RIWAYAT PENERIMAAN BARANG (DI ATAS MONITORING STOK) -->
+        <div class="bento-2col" style="margin-bottom: 16px;">
+          <!-- KIRI: READ DATA PEMASOK -->
+          <div class="card">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px; gap:8px; flex-wrap:wrap;">
+              <div>
+                <h3 style="margin:0; font-size:15px;">Daftar Pemasok (Supplier)</h3>
+                <small style="color:var(--text-muted);">Data pemasok terdaftar beserta kontak &amp; alamat.</small>
+              </div>
+              <input type="text" id="gudangSupSearch" onkeyup="filterGudangPemasokTable()" placeholder="Cari pemasok..." style="width:165px; padding:6px 10px;">
+            </div>
+            <div class="table-responsive" style="max-height:230px; overflow-y:auto;">
+              <table>
+                <thead>
+                  <tr>
+                    <th>ID</th>
+                    <th>Nama Pemasok</th>
+                    <th>Telepon / PIC</th>
+                    <th>Aksi</th>
+                  </tr>
+                </thead>
+                <tbody id="gudangPemasokTableBody">
+                  <tr><td colspan="4" style="text-align:center; color:var(--text-muted);">Memuat data pemasok...</td></tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
 
+          <!-- KANAN: READ RIWAYAT PENERIMAAN BARANG / MUTASI -->
+          <div class="card">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px; gap:8px; flex-wrap:wrap;">
+              <div>
+                <h3 style="margin:0; font-size:15px;">Riwayat Penerimaan &amp; Mutasi Gudang</h3>
+                <small style="color:var(--text-muted);">Log aktivitas LPB, Penerimaan Multi-Item, NRB &amp; Repack terbaru.</small>
+              </div>
+            </div>
+            <div class="table-responsive" style="max-height:230px; overflow-y:auto;">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Waktu</th>
+                    <th>Tipe</th>
+                    <th>Keterangan / No. Dokumen</th>
+                    <th>Petugas</th>
+                  </tr>
+                </thead>
+                <tbody id="gudangHistoryTableBody">
+                  <tr><td colspan="4" style="text-align:center; color:var(--text-muted);">Memuat riwayat penerimaan...</td></tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
         <!-- TABEL READ: MONITORING STOK GUDANG & KARTU MUTASI -->
         <div class="card">
           <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px; flex-wrap:wrap; gap:10px;">
