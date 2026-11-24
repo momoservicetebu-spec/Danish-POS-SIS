@@ -43,8 +43,7 @@ function toggleAdminSidebar() {
   } else {
     sidebar.classList.toggle('collapsed');
   }
-}
-
+} 
 function closeMobileSidebar() {
   if (window.innerWidth <= 1100) {
     const sidebar = document.getElementById('adminSidebar');
