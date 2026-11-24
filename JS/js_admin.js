@@ -1989,3 +1989,188 @@ function logout() {
 }
 
 loadDashboard();
+
+/* ============================================================================
+   MODUL GUDANG, PEMASOK, PENERIMAAN BARANG (MULTI-ITEM) & REPACK
+   ============================================================================ */
+
+let pbItemsList = [];
+
+function openPemasokModal() {
+  document.getElementById('pmsId').value = '';
+  document.getElementById('pmsNama').value = '';
+  document.getElementById('pmsTelepon').value = '';
+  document.getElementById('pmsFaks').value = '';
+  document.getElementById('pmsKontak').value = '';
+  document.getElementById('pmsAlamat1').value = '';
+  document.getElementById('pmsAlamat2').value = '';
+  document.getElementById('pmsKota').value = '';
+  document.getElementById('pmsPropinsi').value = '';
+  document.getElementById('pmsCatatan').value = '';
+
+  const modal = document.getElementById('pemasokModal');
+  if (modal) modal.classList.add('open');
+}
+
+function submitPemasokModal(keepOpen) {
+  const nama = document.getElementById('pmsNama').value.trim();
+  if (!nama) {
+    alert('Nama Perusahaan / Pemasok wajib diisi!');
+    return;
+  }
+
+  const payload = {
+    id: document.getElementById('pmsId').value.trim(),
+    nama: nama,
+    hp: document.getElementById('pmsTelepon').value.trim(),
+    faks: document.getElementById('pmsFaks').value.trim(),
+    kontak: document.getElementById('pmsKontak').value.trim(),
+    alamat: [
+      document.getElementById('pmsAlamat1').value.trim(),
+      document.getElementById('pmsAlamat2').value.trim(),
+      document.getElementById('pmsKota').value.trim(),
+      document.getElementById('pmsPropinsi').value.trim()
+    ].filter(Boolean).join(', '),
+    catatan: document.getElementById('pmsCatatan').value.trim(),
+    termin: 14
+  };
+
+  if (typeof showLoading === 'function') showLoading('Menyimpan Pemasok...', 'Menyinkronkan data pemasok ke server');
+
+  // Sesuaikan dengan pemanggilan API backend Anda (apiCall / google.script.run)
+  apiCall('admin/save-supplier', payload)
+    .then(res => {
+      if (typeof hideLoading === 'function') hideLoading();
+      alert(res.message || 'Data pemasok berhasil disimpan.');
+      if (typeof loadSuppliersTable === 'function') loadSuppliersTable();
+      if (keepOpen) {
+        openPemasokModal();
+      } else {
+        closeModal('pemasokModal');
+      }
+    })
+    .catch(err => {
+      if (typeof hideLoading === 'function') hideLoading();
+      alert('Gagal menyimpan pemasok: ' + err.message);
+    });
+}
+
+function openPenerimaanBarangModal() {
+  const today = new Date().toISOString().split('T')[0];
+  document.getElementById('pbNomor').value = 'PB-' + Date.now().toString().slice(-6);
+  document.getElementById('pbTanggal').value = today;
+  document.getElementById('pbKeterangan').value = '';
+  document.getElementById('pbSearchInput').value = '';
+  pbItemsList = [];
+  renderPenerimaanBarangTable();
+
+  // Salin opsi supplier dari dropdown tab Supplier jika tersedia
+  const srcSup = document.getElementById('purSupplierId');
+  const dstSup = document.getElementById('pbPemasok');
+  if (srcSup && dstSup) {
+    dstSup.innerHTML = srcSup.innerHTML || '<option value="UMUM">-- Pemasok Umum --</option>';
+  }
+
+  const modal = document.getElementById('penerimaanBarangModal');
+  if (modal) modal.classList.add('open');
+}
+
+function addPenerimaanBarangItem() {
+  const input = document.getElementById('pbSearchInput');
+  const keyword = (input.value || '').trim().toUpperCase();
+  if (!keyword) return;
+
+  // Cari dari variabel global masterCatalog (jika ada di js_admin.js)
+  const catalog = (typeof masterCatalog !== 'undefined' && Array.isArray(masterCatalog)) ? masterCatalog : [];
+  const found = catalog.find(item =>
+    String(item.sku).toUpperCase() === keyword ||
+    String(item.barcode).toUpperCase() === keyword ||
+    String(item.nama).toUpperCase().includes(keyword)
+  );
+
+  const sku = found ? found.sku : keyword;
+  const nama = found ? found.nama : keyword;
+  const satuan = found ? (found.satuan || 'PCS') : 'PCS';
+
+  const existing = pbItemsList.find(x => x.sku === sku);
+  if (existing) {
+    existing.qty += 1;
+  } else {
+    pbItemsList.push({ sku: sku, nama: nama, qty: 1, satuan: satuan, expired: '' });
+  }
+
+  input.value = '';
+  renderPenerimaanBarangTable();
+}
+
+function renderPenerimaanBarangTable() {
+  const tbody = document.getElementById('pbTableBody');
+  if (!tbody) return;
+
+  if (pbItemsList.length === 0) {
+    tbody.innerHTML = '<tr><td colspan="6" style="text-align:center; color:var(--text-muted); padding:16px;">Belum ada barang ditambahkan.</td></tr>';
+    return;
+  }
+
+  tbody.innerHTML = pbItemsList.map((item, idx) => `
+    <tr>
+      <td><strong>${item.sku}</strong></td>
+      <td>${item.nama}</td>
+      <td><input type="number" min="1" value="${item.qty}" onchange="pbItemsList[${idx}].qty = Number(this.value) || 1" style="text-align:right; padding:6px;"></td>
+      <td>${item.satuan}</td>
+      <td><input type="date" value="${item.expired}" onchange="pbItemsList[${idx}].expired = this.value" style="padding:6px;"></td>
+      <td><button type="button" class="btn btn-red btn-sm" onclick="pbItemsList.splice(${idx}, 1); renderPenerimaanBarangTable();">&#10006;</button></td>
+    </tr>
+  `).join('');
+}
+
+function clearPenerimaanBarangRows() {
+  pbItemsList = [];
+  renderPenerimaanBarangTable();
+}
+
+function submitPenerimaanBarang(keepOpen) {
+  if (pbItemsList.length === 0) {
+    alert('Daftar barang yang diterima masih kosong!');
+    return;
+  }
+
+  const payload = {
+    nomor: document.getElementById('pbNomor').value.trim(),
+    tanggal: document.getElementById('pbTanggal').value,
+    pemasok: document.getElementById('pbPemasok').value,
+    keterangan: document.getElementById('pbKeterangan').value.trim(),
+    items: pbItemsList
+  };
+
+  if (typeof showLoading === 'function') showLoading('Menyimpan Penerimaan Barang...', 'Memperbarui stok gudang');
+
+  apiCall('inventory/receive-batch', payload)
+    .then(res => {
+      if (typeof hideLoading === 'function') hideLoading();
+      alert(res.message || 'Penerimaan barang berhasil disimpan.');
+      if (keepOpen) {
+        openPenerimaanBarangModal();
+      } else {
+        closeModal('penerimaanBarangModal');
+      }
+    })
+    .catch(err => {
+      if (typeof hideLoading === 'function') hideLoading();
+      alert('Gagal menyimpan penerimaan barang: ' + err.message);
+    });
+}
+
+function printPenerimaanBarang() {
+  window.print();
+}
+
+function openGudangDocModal() {
+  const modal = document.getElementById('gudangDocModal');
+  if (modal) modal.classList.add('open');
+}
+
+function openRepackModal() {
+  const modal = document.getElementById('repackModal');
+  if (modal) modal.classList.add('open');
+}
