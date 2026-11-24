@@ -3163,3 +3163,18 @@ setTimeout(() => {
     }, '', true);
   }
 }, 1500);
+
+document.addEventListener('DOMContentLoaded', function() {
+    if (typeof initReportModule === 'function') {
+        initReportModule();
+    }
+    document.querySelectorAll('[onclick*="reports"]').forEach(function(el) {
+        el.addEventListener('click', function() {
+            setTimeout(initReportModule, 50);
+        });
+    });
+});
+
+if (document.readyState === 'complete' || document.readyState === 'interactive') {
+    setTimeout(initReportModule, 50);
+}
