@@ -776,28 +776,99 @@
               <h3 style="margin:0;">Stock Opname (Blind Count + Barcode Scanner)</h3>
               <small style="color:var(--text-muted);">Scan barcode barang di rak untuk menambah hitungan +1 secara otomatis tanpa mouse.</small>
             </div>
-            <div style="display:flex; gap:8px; flex-wrap:wrap;">
+            <div style="display:flex; gap:8px; flex-wrap:wrap; align-items:center;">
+              <button type="button" id="btnToggleSystemStockSO" class="btn btn-dark btn-sm" style="display:none;" onclick="toggleSystemStockInSO()">
+                &#128065;&#65039; Tampilkan Stok Sistem
+              </button>
               <select id="jenisSO" style="width:180px;">
                 <option value="PARSIAL">SO Parsial (Harian)</option>
                 <option value="GRAND">Grand SO (Bulanan)</option>
               </select>
               <input type="password" id="soPin" autocomplete="new-password" placeholder="PIN Kepala Toko" style="width:160px;">
-              <button class="btn btn-green" onclick="submitSO()">Simpan Hasil SO</button>
+              <button type="button" class="btn btn-green" onclick="submitSO()">Simpan Hasil SO</button>
             </div>
           </div>
 
           <div style="background:#F8FAFC; border:1px dashed #94A3B8; padding:12px; border-radius:12px; margin-bottom:14px; display:flex; gap:10px; align-items:center; flex-wrap:wrap;">
             <strong style="font-size:13px; white-space:nowrap;">Scan Barcode Rak:</strong>
             <input type="text" id="soScannerInput" autocomplete="off" placeholder="Arahkan scanner ke barcode barang lalu Enter..." onkeydown="handleSOScannerKey(event)" style="max-width:340px; background:#fff;">
+            <input type="text" id="soFilterText" oninput="filterSOTableRows()" placeholder="Cari SKU / Nama..." style="width:190px; background:#fff;">
             <span id="soScannerFeedback" style="font-size:12px; font-weight:600; color:var(--primary);"></span>
           </div>
 
-          <table>
-            <thead>
-              <tr><th>SKU</th><th>Barcode</th><th>Nama Barang</th><th>Satuan</th><th>Input Hitungan Fisik Rak</th></tr>
-            </thead>
-            <tbody id="soTableBody"></tbody>
-          </table>
+          <div class="table-responsive">
+            <table>
+              <thead>
+                <tr>
+                  <th>SKU</th>
+                  <th>Barcode</th>
+                  <th>Nama Barang</th>
+                  <th>Satuan</th>
+                  <th class="so-sys-col" style="display:none; text-align:right; background:#EFF6FF; color:#1E40AF;">Stok Sistem</th>
+                  <th>Input Hitungan Fisik Rak</th>
+                  <th class="so-sys-col" style="display:none; text-align:right; background:#FFFBEB; color:#92400E;">Selisih (+/-)</th>
+                </tr>
+              </thead>
+              <tbody id="soTableBody"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <!-- MODAL BERITA ACARA / RINGKASAN SELISIH STOCK OPNAME -->
+      <div id="soSummaryModal" class="modal-backdrop">
+        <div class="modal-box" style="max-width:780px;">
+          <div class="modal-header">
+            <div>
+              <h3 style="margin:0;">Berita Acara &amp; Ringkasan Selisih Stock Opname</h3>
+              <small id="soSummarySubtitle" style="color:var(--text-muted);"></small>
+            </div>
+            <button type="button" class="btn btn-dark btn-sm" onclick="closeModal('soSummaryModal')">&#10006;</button>
+          </div>
+          <div class="modal-body" style="display:flex; flex-direction:column; gap:14px;">
+            <div id="soSummaryPrintArea">
+              <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(170px, 1fr)); gap:10px; margin-bottom:14px;">
+                <div style="padding:10px 12px; background:#F8FAFC; border:1px solid var(--border); border-radius:10px;">
+                  <small style="color:var(--text-muted);">Total Item Dihitung</small>
+                  <div id="soSumTotalSku" style="font-size:18px; font-weight:800;">0 SKU</div>
+                </div>
+                <div style="padding:10px 12px; background:#ECFDF5; border:1px solid #A7F3D0; border-radius:10px;">
+                  <small style="color:#065F46;">Item Cocok (Selisih 0)</small>
+                  <div id="soSumMatchCount" style="font-size:18px; font-weight:800; color:#059669;">0 SKU</div>
+                </div>
+                <div style="padding:10px 12px; background:#FEF2F2; border:1px solid #FECACA; border-radius:10px;">
+                  <small style="color:#991B1B;">Item Selisih (+/-)</small>
+                  <div id="soSumDiffCount" style="font-size:18px; font-weight:800; color:#DC2626;">0 SKU</div>
+                </div>
+                <div style="padding:10px 12px; background:#FFFBEB; border:1px solid #FDE68A; border-radius:10px;">
+                  <small style="color:#92400E;">Estimasi Nilai Selisih (HPP)</small>
+                  <div id="soSumDiffValue" style="font-size:18px; font-weight:800; color:#B45309;">Rp 0</div>
+                </div>
+              </div>
+
+              <div class="table-responsive">
+                <table style="width:100%; font-size:12px;">
+                  <thead>
+                    <tr>
+                      <th>SKU</th>
+                      <th>Nama Barang</th>
+                      <th style="text-align:right;">Stok Komputer</th>
+                      <th style="text-align:right;">Hitungan Fisik</th>
+                      <th style="text-align:right;">Selisih</th>
+                      <th style="text-align:right;">Nilai Selisih (HPP)</th>
+                      <th>Status</th>
+                    </tr>
+                  </thead>
+                  <tbody id="soSummaryTableBody"></tbody>
+                </table>
+              </div>
+            </div>
+
+            <div style="display:flex; justify-content:flex-end; gap:8px; border-top:1px solid var(--border); padding-top:12px;">
+              <button type="button" class="btn btn-blue" onclick="printSOSummaryReport()">&#128424;&#65039; Cetak Berita Acara SO</button>
+              <button type="button" class="btn btn-green" onclick="closeModal('soSummaryModal')">Selesai &amp; Tutup</button>
+            </div>
+          </div>
         </div>
       </div>
 

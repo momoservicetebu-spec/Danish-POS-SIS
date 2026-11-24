@@ -1920,22 +1920,129 @@ function submitRepackUnit() {
   }, 'Memproses Konversi Satuan...');
 }
 
-// === BLIND STOCK OPNAME ===
-function loadBlindSOItems() {
-  callAdminApi('inventory/stok-toko', { blindMode: true }, items => {
-    const tbody = document.getElementById('soTableBody');
-    tbody.innerHTML = items.map(item => `
-      <tr id="so-row-${item.sku}">
+// === BLIND STOCK OPNAME + ROLE-BASED SYSTEM STOCK TOGGLE & VARIANCE REPORT ===
+let SO_SHOW_SYSTEM_STOCK = false;
+let SO_ITEMS_CACHE = [];
+
+function canViewSystemStockInSO() {
+  if (!SESSION || !SESSION.user || !SESSION.user.role) return false;
+  const role = String(SESSION.user.role).toLowerCase();
+  return role.includes('owner') || role.includes('korwil') || role.includes('kepala') || role.includes('supervisor') || role.includes('admin');
+}
+
+function toggleSystemStockInSO() {
+  if (!canViewSystemStockInSO()) {
+    return alert('Akses ditolak: Hanya Owner, Korwil, atau Kepala Toko yang dapat melihat stok komputer saat SO.');
+  }
+  SO_SHOW_SYSTEM_STOCK = !SO_SHOW_SYSTEM_STOCK;
+  applySOColumnsVisibility();
+}
+
+function applySOColumnsVisibility() {
+  const allowed = canViewSystemStockInSO();
+  const toggleBtn = document.getElementById('btnToggleSystemStockSO');
+  if (toggleBtn) {
+    toggleBtn.style.display = allowed ? 'inline-flex' : 'none';
+    toggleBtn.innerHTML = SO_SHOW_SYSTEM_STOCK
+      ? '&#128584; Sembunyikan Stok Sistem (Blind Mode)'
+      : '&#128065;&#65039; Tampilkan Stok Sistem';
+    toggleBtn.classList.toggle('btn-amber', SO_SHOW_SYSTEM_STOCK);
+    toggleBtn.classList.toggle('btn-dark', !SO_SHOW_SYSTEM_STOCK);
+  }
+
+  const showCols = allowed && SO_SHOW_SYSTEM_STOCK;
+  document.querySelectorAll('.so-sys-col').forEach(el => {
+    el.style.display = showCols ? 'table-cell' : 'none';
+  });
+}
+
+function renderSOTableRows(items) {
+  const tbody = document.getElementById('soTableBody');
+  if (!tbody) return;
+
+  const catalogMap = {};
+  (MASTER_PRODUCTS_CACHE || getAdminCache('PRODUCTS') || []).forEach(p => {
+    catalogMap[String(p.sku).toUpperCase()] = p;
+  });
+
+  tbody.innerHTML = items.map(item => {
+    const skuKey = String(item.sku).toUpperCase();
+    const prod = catalogMap[skuKey] || {};
+    const sysStock = item.stokGood != null
+      ? Number(item.stokGood)
+      : (prod.stokTerkini != null ? Number(prod.stokTerkini) : (Number(prod.saldoAwal) || 0));
+    const hpp = Number(prod.hargaModal) || 0;
+
+    return `
+      <tr id="so-row-${item.sku}" class="so-data-row" data-search="${(item.sku + ' ' + item.barcode + ' ' + item.nama).toLowerCase()}">
         <td><strong>${item.sku}</strong></td>
         <td><code>${item.barcode}</code></td>
         <td>${item.nama}</td>
         <td>${item.satuan}</td>
-        <td><input type="number" class="so-input" data-sku="${item.sku}" data-barcode="${item.barcode}" data-nama="${item.nama}" placeholder="0" style="width:110px;"></td>
+        <td class="so-sys-col" style="display:none; text-align:right; font-weight:700; background:#EFF6FF; color:#1E40AF;">${sysStock}</td>
+        <td>
+          <input type="number" class="so-input"
+            data-sku="${item.sku}"
+            data-barcode="${item.barcode}"
+            data-nama="${item.nama}"
+            data-sys="${sysStock}"
+            data-hpp="${hpp}"
+            oninput="updateSORowVariance(this)"
+            placeholder="0" style="width:110px;">
+        </td>
+        <td id="so-diff-${item.sku}" class="so-sys-col" style="display:none; text-align:right; font-weight:700; background:#FFFBEB;">-</td>
       </tr>
-    `).join('');
+    `;
+  }).join('');
+
+  applySOColumnsVisibility();
+}
+
+function updateSORowVariance(inp) {
+  const diffEl = document.getElementById('so-diff-' + inp.dataset.sku);
+  if (!diffEl) return;
+  if (inp.value === '') {
+    diffEl.textContent = '-';
+    diffEl.style.color = 'var(--text-muted)';
+    return;
+  }
+  const fisik = Number(inp.value) || 0;
+  const sys = Number(inp.dataset.sys) || 0;
+  const diff = fisik - sys;
+  diffEl.textContent = diff > 0 ? `+${diff}` : String(diff);
+  diffEl.style.color = diff === 0 ? 'var(--primary)' : (diff < 0 ? 'var(--red)' : '#D97706');
+}
+
+function filterSOTableRows() {
+  const q = (document.getElementById('soFilterText')?.value || '').toLowerCase().trim();
+  document.querySelectorAll('.so-data-row').forEach(row => {
+    const hay = row.dataset.search || '';
+    row.style.display = (!q || hay.includes(q)) ? '' : 'none';
+  });
+}
+
+function loadBlindSOItems() {
+  SO_SHOW_SYSTEM_STOCK = false;
+
+  if (!MASTER_PRODUCTS_CACHE || MASTER_PRODUCTS_CACHE.length === 0) {
+    const cachedProd = getAdminCache('PRODUCTS');
+    if (cachedProd) MASTER_PRODUCTS_CACHE = cachedProd;
+  }
+
+  const cachedSO = getAdminCache('SO_ITEMS');
+  const hasCache = Boolean(cachedSO && Array.isArray(cachedSO) && cachedSO.length > 0);
+  if (hasCache) {
+    SO_ITEMS_CACHE = cachedSO;
+    renderSOTableRows(SO_ITEMS_CACHE);
+  }
+
+  callAdminApi('inventory/stok-toko', { blindMode: !canViewSystemStockInSO() }, items => {
+    SO_ITEMS_CACHE = items || [];
+    setAdminCache('SO_ITEMS', SO_ITEMS_CACHE);
+    renderSOTableRows(SO_ITEMS_CACHE);
     const scanInp = document.getElementById('soScannerInput');
     if (scanInp) scanInp.focus();
-  }, 'Memuat Daftar Stock Opname...');
+  }, 'Memuat Daftar Stock Opname...', hasCache);
 }
 
 function handleSOScannerKey(e) {
@@ -1956,8 +2063,11 @@ function handleSOScannerKey(e) {
   if (matchedInp) {
     const curVal = Number(matchedInp.value) || 0;
     matchedInp.value = curVal + 1;
+    updateSORowVariance(matchedInp);
+
     const row = document.getElementById('so-row-' + matchedInp.dataset.sku);
     if (row) {
+      row.style.display = '';
       row.style.background = '#ECFDF5';
       row.scrollIntoView({ behavior: 'smooth', block: 'center' });
     }
@@ -1972,21 +2082,97 @@ function handleSOScannerKey(e) {
 
 function submitSO() {
   const counts = [];
+  const summaryRows = [];
+
   document.querySelectorAll('.so-input').forEach(inp => {
     if (inp.value !== '') {
-      counts.push({ sku: inp.dataset.sku, stokFisik: Number(inp.value) });
+      const fisik = Number(inp.value) || 0;
+      const sys = Number(inp.dataset.sys) || 0;
+      const hpp = Number(inp.dataset.hpp) || 0;
+      const selisih = fisik - sys;
+      const nilaiSelisih = selisih * hpp;
+
+      counts.push({ sku: inp.dataset.sku, stokFisik: fisik });
+      summaryRows.push({
+        sku: inp.dataset.sku,
+        nama: inp.dataset.nama,
+        sys: sys,
+        fisik: fisik,
+        selisih: selisih,
+        nilaiSelisih: nilaiSelisih
+      });
     }
   });
+
   if (counts.length === 0) return alert('Isi minimal satu hitungan fisik barang.');
 
+  const jenisSO = document.getElementById('jenisSO').value;
   callAdminApi('inventory/stock-opname', {
-    jenisSO: document.getElementById('jenisSO').value,
+    jenisSO: jenisSO,
     supervisorPin: document.getElementById('soPin').value,
     counts: counts
   }, res => {
-    alert(res.message);
-    loadBlindSOItems();
+    callAdminApi('admin/products', {}, items => {
+      MASTER_PRODUCTS_CACHE = items || [];
+      setAdminCache('PRODUCTS', MASTER_PRODUCTS_CACHE);
+      loadBlindSOItems();
+    }, '', true);
+
+    showSOSummaryModal(jenisSO, summaryRows, res.message);
   }, 'Menyimpan Hasil Stock Opname...');
+}
+
+function showSOSummaryModal(jenisSO, rows, serverMsg) {
+  const totalSku = rows.length;
+  const matchCount = rows.filter(r => r.selisih === 0).length;
+  const diffCount = totalSku - matchCount;
+  const totalDiffValue = rows.reduce((sum, r) => sum + r.nilaiSelisih, 0);
+
+  document.getElementById('soSummarySubtitle').textContent =
+    `${jenisSO === 'GRAND' ? 'Grand Stock Opname' : 'SO Parsial Harian'} • ${formatIndoDate(getTodayIsoDate())} • Petugas: ${SESSION ? SESSION.user.nama : '-'}`;
+
+  document.getElementById('soSumTotalSku').textContent = `${totalSku} SKU`;
+  document.getElementById('soSumMatchCount').textContent = `${matchCount} SKU`;
+  document.getElementById('soSumDiffCount').textContent = `${diffCount} SKU`;
+
+  const valEl = document.getElementById('soSumDiffValue');
+  valEl.textContent = (totalDiffValue > 0 ? '+Rp ' : (totalDiffValue < 0 ? '-Rp ' : 'Rp ')) + Math.abs(totalDiffValue).toLocaleString('id-ID');
+  valEl.style.color = totalDiffValue < 0 ? '#DC2626' : (totalDiffValue > 0 ? '#059669' : '#B45309');
+
+  const tbody = document.getElementById('soSummaryTableBody');
+  tbody.innerHTML = rows.map(r => {
+    let badge = '<span class="badge badge-ok">Cocok</span>';
+    if (r.selisih < 0) badge = `<span class="badge badge-danger">Kurang (${r.selisih})</span>`;
+    else if (r.selisih > 0) badge = `<span class="badge badge-warn">Lebih (+${r.selisih})</span>`;
+
+    const rpText = r.nilaiSelisih === 0
+      ? 'Rp 0'
+      : `${r.nilaiSelisih > 0 ? '+' : '-'}Rp ${Math.abs(r.nilaiSelisih).toLocaleString('id-ID')}`;
+
+    return `
+      <tr style="${r.selisih !== 0 ? 'background:#FFFBEB;' : ''}">
+        <td><strong>${r.sku}</strong></td>
+        <td>${r.nama}</td>
+        <td style="text-align:right;">${r.sys}</td>
+        <td style="text-align:right; font-weight:700;">${r.fisik}</td>
+        <td style="text-align:right; font-weight:800; color:${r.selisih < 0 ? '#DC2626' : (r.selisih > 0 ? '#D97706' : '#059669')};">
+          ${r.selisih > 0 ? '+' + r.selisih : r.selisih}
+        </td>
+        <td style="text-align:right; font-weight:700;">${rpText}</td>
+        <td>${badge}</td>
+      </tr>
+    `;
+  }).join('');
+
+  document.getElementById('soSummaryModal').classList.add('open');
+}
+
+function printSOSummaryReport() {
+  const area = document.getElementById('soSummaryPrintArea');
+  if (!area) return window.print();
+  area.classList.add('printing');
+  window.print();
+  area.classList.remove('printing');
 }
 
 // === BRANKAS ===
