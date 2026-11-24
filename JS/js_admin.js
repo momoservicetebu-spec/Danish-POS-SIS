@@ -2307,6 +2307,7 @@ function filterGudangStockTable() {
 // MODUL PERUSAHAAN, PREFERENSI, EDC, PIN & BACKUP (RENE POS)
 // =========================================================
 const COMPANY_PREF_STORAGE_KEY = 'DANISH_POS_COMPANY_PREFS';
+let COMPANY_LOGO_BASE64 = '';
 let EDC_TERMINALS_LIST = [
   { id: 'EDC-1', nama: 'EDC BCA Utama', jenis: 'Debit', mdr: 0.15 },
   { id: 'EDC-2', nama: 'EDC BRI / Mandiri', jenis: 'Debit', mdr: 0.15 },
@@ -2327,78 +2328,307 @@ function switchPrefPanel(panelKey, btn) {
   }
 }
 
-function loadCompanyPreferences() {
-  const saved = JSON.parse(localStorage.getItem(COMPANY_PREF_STORAGE_KEY) || '{}');
-  if (document.getElementById('cfgCompanyName')) {
-    document.getElementById('cfgCompanyName').value = saved.companyName || (SESSION ? SESSION.store.namaToko : '');
-    document.getElementById('cfgCompanyNpwp').value = saved.companyNpwp || '';
-    document.getElementById('cfgCompanyPhone').value = saved.companyPhone || '';
-    document.getElementById('cfgCompanyEmail').value = saved.companyEmail || '';
-    document.getElementById('cfgCompanyAddress').value = saved.companyAddress || '';
-    document.getElementById('cfgReceiptFooter').value = saved.receiptFooter || 'Terima kasih telah berbelanja!';
-    document.getElementById('cfgTaxEnabled').value = String(saved.taxEnabled || false);
-    document.getElementById('cfgTaxPct').value = saved.taxPct != null ? saved.taxPct : 11;
-    document.getElementById('cfgTaxMode').value = saved.taxMode || 'EXCLUSIVE';
-    document.getElementById('cfgRoundMode').value = saved.roundMode || 'NONE';
-    document.getElementById('cfgRoundStep').value = saved.roundStep || '100';
-    document.getElementById('cfgExtraFeeLabel').value = saved.extraFeeLabel || 'Biaya Layanan';
-    document.getElementById('cfgExtraFeeType').value = saved.extraFeeType || 'NONE';
-    document.getElementById('cfgExtraFeeVal').value = saved.extraFeeVal || 0;
-    document.getElementById('cfgBagEnabled').value = String(saved.bagEnabled || false);
-    document.getElementById('cfgBagName').value = saved.bagName || 'Kantong Belanja Ramah Lingkungan';
-    document.getElementById('cfgBagPrice').value = saved.bagPrice || 500;
-    document.getElementById('cfgScaleEnabled').value = String(saved.scaleEnabled || false);
-    document.getElementById('cfgScalePrefix').value = saved.scalePrefix || '20,21';
-    document.getElementById('cfgScaleMode').value = saved.scaleMode || 'WEIGHT_GRAM';
-    document.getElementById('cfgDualDisplayEnabled').checked = Boolean(saved.dualDisplayEnabled);
-    document.getElementById('cfgDualDisplayPromoText').value = saved.dualDisplayPromoText || 'Selamat Datang! Dapatkan Poin Reward setiap belanja.';
-    document.getElementById('cfgDualDisplayBannerUrl').value = saved.dualDisplayBannerUrl || '';
-    document.getElementById('cfgPointEarnStep').value = saved.pointEarnStep || 10000;
-    document.getElementById('cfgPointRedeemVal').value = saved.pointRedeemVal || 100;
-    document.getElementById('cfgPointMinRedeem').value = saved.pointMinRedeem || 50;
-    document.getElementById('cfgPrefixStruk').value = saved.prefixStruk || 'TRX-';
-    document.getElementById('cfgPrefixLpb').value = saved.prefixLpb || 'PB-';
+function handleCompanyLogoUpload(event) {
+  const file = event.target.files && event.target.files[0];
+  if (!file) return;
+  if (file.size > 300 * 1024) {
+    alert('Ukuran file logo maksimal 300 KB agar ringan dicetak pada struk.');
+    return;
   }
-  if (saved.edcTerminals && Array.isArray(saved.edcTerminals)) {
-    EDC_TERMINALS_LIST = saved.edcTerminals;
+  const reader = new FileReader();
+  reader.onload = function(e) {
+    COMPANY_LOGO_BASE64 = e.target.result;
+    renderCompanyLogoPreview(COMPANY_LOGO_BASE64);
+  };
+  reader.readAsDataURL(file);
+}
+
+function clearCompanyLogo() {
+  COMPANY_LOGO_BASE64 = '';
+  renderCompanyLogoPreview('');
+}
+
+function renderCompanyLogoPreview(dataUrl) {
+  const img = document.getElementById('cfgLogoPreviewImg');
+  const ph = document.getElementById('cfgLogoPlaceholder');
+  if (!img || !ph) return;
+  if (dataUrl) {
+    img.src = dataUrl;
+    img.style.display = 'block';
+    ph.style.display = 'none';
+  } else {
+    img.src = '';
+    img.style.display = 'none';
+    ph.style.display = 'inline';
   }
 }
 
+function runRoundingSimulation() {
+  const enabledEl = document.getElementById('cfgRoundEnabled');
+  const stepEl = document.getElementById('cfgRoundStep');
+  const simInEl = document.getElementById('cfgRoundSimInput');
+  if (!stepEl) return;
+
+  const enabled = enabledEl ? (enabledEl.type === 'checkbox' ? enabledEl.checked : enabledEl.value === 'true') : false;
+  const dirUp = document.getElementById('cfgRoundUp') ? document.getElementById('cfgRoundUp').checked : false;
+  const step = Number(stepEl.value || 100);
+  const sample = Number(simInEl ? simInEl.value : 65366) || 0;
+
+  let rounded = sample;
+  if (enabled && step > 0) {
+    rounded = dirUp ? Math.ceil(sample / step) * step : Math.floor(sample / step) * step;
+  }
+  const outEl = document.getElementById('cfgRoundSimOutput');
+  if (outEl) outEl.textContent = rounded.toLocaleString('id-ID');
+
+  const receiptBase = 32044;
+  const receiptRounded = (enabled && step > 0)
+    ? (dirUp ? Math.ceil(receiptBase / step) * step : Math.floor(receiptBase / step) * step)
+    : receiptBase;
+  const diff = receiptRounded - receiptBase;
+  if (document.getElementById('cfgRoundReceiptDiff')) {
+    document.getElementById('cfgRoundReceiptDiff').textContent = (diff > 0 ? '+' : '') + diff;
+    document.getElementById('cfgRoundReceiptTotal').textContent = receiptRounded.toLocaleString('id-ID');
+    document.getElementById('cfgRoundReceiptChange').textContent = (35000 - receiptRounded).toLocaleString('id-ID');
+  }
+}
+
+function runScaleBarcodeSimulation() {
+  const sampleEl = document.getElementById('cfgScaleSampleBarcode');
+  if (!sampleEl) return;
+
+  const raw = String(sampleEl.value || '').trim();
+  const isPrice = document.getElementById('cfgScaleModePrice') ? document.getElementById('cfgScaleModePrice').checked : false;
+  const valLen = Math.max(1, Number(document.getElementById('cfgScaleValueLen')?.value || 6));
+  const ignoreLast = document.getElementById('cfgScaleIgnoreCheckDigit')?.checked || false;
+  const decPos = Math.max(0, Number(document.getElementById('cfgScaleDecimalPos')?.value || 2));
+
+  const effectiveBarcode = ignoreLast && raw.length > 1 ? raw.slice(0, -1) : raw;
+  const pluPart = effectiveBarcode.length > valLen ? effectiveBarcode.slice(0, effectiveBarcode.length - valLen) : '';
+  const valPart = effectiveBarcode.slice(-valLen);
+
+  let parsedDisplay = valPart;
+  if (!isPrice && decPos > 0 && decPos < valPart.length) {
+    const intPart = String(Number(valPart.slice(0, decPos)));
+    const fracPart = valPart.slice(decPos);
+    parsedDisplay = `${intPart},${fracPart} Kg`;
+  } else if (isPrice) {
+    parsedDisplay = `Rp ${Number(valPart || 0).toLocaleString('id-ID')}`;
+  }
+
+  if (document.getElementById('cfgScaleOutPlu')) {
+    document.getElementById('cfgScaleOutPlu').value = pluPart;
+    document.getElementById('cfgScaleOutRaw').value = valPart;
+    document.getElementById('cfgScaleOutParsed').value = parsedDisplay;
+  }
+}
+
+function setFieldVal(id, val) {
+  const el = document.getElementById(id);
+  if (!el || val === undefined || val === null) return;
+  if (el.type === 'checkbox') el.checked = Boolean(val);
+  else el.value = val;
+}
+
+function getFieldVal(id, fallback) {
+  const el = document.getElementById(id);
+  if (!el) return fallback;
+  if (el.type === 'checkbox') return el.checked;
+  return el.value;
+}
+
+function applyPreferencesToForm(saved) {
+  if (!document.getElementById('cfgCompanyName')) return;
+
+  setFieldVal('cfgCompanyName', saved.companyName || (SESSION ? SESSION.store.namaToko : ''));
+  setFieldVal('cfgCompanyType', saved.companyType || 'Retail, Minimarket');
+  setFieldVal('cfgCompanyNpwp', saved.companyNpwp || '');
+  setFieldVal('cfgCompanyPhone', saved.companyPhone || '');
+  setFieldVal('cfgCompanyFax', saved.companyFax || '');
+  setFieldVal('cfgCompanyEmail', saved.companyEmail || '');
+  setFieldVal('cfgCompanyAddress', saved.companyAddress || '');
+  setFieldVal('cfgReceiptFooter', saved.receiptFooter || 'Terima kasih telah berbelanja!');
+  setFieldVal('cfgStartDataDate', saved.startDataDate || getTodayIsoDate());
+
+  COMPANY_LOGO_BASE64 = saved.logoBase64 || '';
+  renderCompanyLogoPreview(COMPANY_LOGO_BASE64);
+
+  // Pajak
+  const taxEl = document.getElementById('cfgTaxEnabled');
+  if (taxEl) {
+    if (taxEl.type === 'checkbox') taxEl.checked = Boolean(saved.taxEnabled);
+    else taxEl.value = String(Boolean(saved.taxEnabled));
+  }
+  setFieldVal('cfgTaxMainName', saved.taxMainName || 'PPN');
+  setFieldVal('cfgTaxMainCode', saved.taxMainCode || 'P');
+  setFieldVal('cfgTaxPct', saved.taxPct != null ? saved.taxPct : 11);
+  setFieldVal('cfgTaxExtraEnabled', Boolean(saved.taxExtraEnabled));
+  setFieldVal('cfgTaxExtraName', saved.taxExtraName || 'PB1');
+  setFieldVal('cfgTaxExtraCode', saved.taxExtraCode || 'B');
+  setFieldVal('cfgTaxExtraPct', saved.taxExtraPct != null ? saved.taxExtraPct : 10);
+  setFieldVal('cfgTaxInclusive', saved.taxInclusive !== undefined ? saved.taxInclusive : true);
+  setFieldVal('cfgTaxBeforeDiscount', Boolean(saved.taxBeforeDiscount));
+  setFieldVal('cfgTaxOnlineEnabled', Boolean(saved.taxOnlineEnabled));
+  setFieldVal('cfgTaxNopd', saved.taxNopd || '');
+  setFieldVal('cfgTaxOnlineFolder', saved.taxOnlineFolder || '');
+  setFieldVal('cfgTaxOnlinePrefix', saved.taxOnlinePrefix || 'R');
+
+  // Pembulatan Struk
+  setFieldVal('cfgRoundEnabled', Boolean(saved.roundEnabled));
+  if (saved.roundMode === 'UP' && document.getElementById('cfgRoundUp')) {
+    document.getElementById('cfgRoundUp').checked = true;
+  } else if (document.getElementById('cfgRoundDown')) {
+    document.getElementById('cfgRoundDown').checked = true;
+  }
+  setFieldVal('cfgRoundStep', saved.roundStep || '100');
+
+  // Biaya Tambahan & Pembungkus
+  setFieldVal('cfgExtraFeeLabel', saved.extraFeeLabel || 'Biaya Layanan');
+  setFieldVal('cfgExtraFeeType', saved.extraFeeType || 'NONE');
+  setFieldVal('cfgExtraFeeVal', saved.extraFeeVal || 0);
+  setFieldVal('cfgBagEnabled', String(saved.bagEnabled || false));
+  setFieldVal('cfgBagName', saved.bagName || 'Kantong Belanja Ramah Lingkungan');
+  setFieldVal('cfgBagPrice', saved.bagPrice || 500);
+
+  // Timbangan
+  const scaleEl = document.getElementById('cfgScaleEnabled');
+  if (scaleEl) {
+    if (scaleEl.type === 'checkbox') scaleEl.checked = Boolean(saved.scaleEnabled);
+    else scaleEl.value = String(Boolean(saved.scaleEnabled));
+  }
+  if (saved.scaleMode === 'PRICE' && document.getElementById('cfgScaleModePrice')) {
+    document.getElementById('cfgScaleModePrice').checked = true;
+  } else if (document.getElementById('cfgScaleModeWeight')) {
+    document.getElementById('cfgScaleModeWeight').checked = true;
+  }
+  setFieldVal('cfgScaleSampleBarcode', saved.scaleSampleBarcode || '8686009007656');
+  setFieldVal('cfgScaleValueLen', saved.scaleValueLen || 6);
+  setFieldVal('cfgScaleIgnoreCheckDigit', Boolean(saved.scaleIgnoreCheckDigit));
+  setFieldVal('cfgScaleDecimalPos', saved.scaleDecimalPos != null ? saved.scaleDecimalPos : 2);
+
+  // Layar Tambahan, Poin & Penomoran
+  setFieldVal('cfgDualDisplayEnabled', Boolean(saved.dualDisplayEnabled));
+  setFieldVal('cfgDualDisplayPromoText', saved.dualDisplayPromoText || 'Selamat Datang! Dapatkan Poin Reward setiap belanja.');
+  setFieldVal('cfgDualDisplayBannerUrl', saved.dualDisplayBannerUrl || '');
+  setFieldVal('cfgPointEarnStep', saved.pointEarnStep || 10000);
+  setFieldVal('cfgPointRedeemVal', saved.pointRedeemVal || 100);
+  setFieldVal('cfgPointMinRedeem', saved.pointMinRedeem || 50);
+  setFieldVal('cfgPrefixStruk', saved.prefixStruk || 'TRX-');
+  setFieldVal('cfgPrefixLpb', saved.prefixLpb || 'PB-');
+
+  // Shift Kasir
+  const shifts = Array.isArray(saved.shifts) ? saved.shifts : [];
+  if (shifts[0]) {
+    setFieldVal('cfgShift1Name', shifts[0].nama || 'Shift-1');
+    setFieldVal('cfgShift1Start', shifts[0].mulai || '09:00');
+    setFieldVal('cfgShift1End', shifts[0].selesai || '15:30');
+  }
+  if (shifts[1]) {
+    setFieldVal('cfgShift2Name', shifts[1].nama || 'Shift-2');
+    setFieldVal('cfgShift2Start', shifts[1].mulai || '15:30');
+    setFieldVal('cfgShift2End', shifts[1].selesai || '22:00');
+  }
+  if (shifts[2]) {
+    setFieldVal('cfgShift3Name', shifts[2].nama || '');
+    setFieldVal('cfgShift3Start', shifts[2].mulai || '23:00');
+    setFieldVal('cfgShift3End', shifts[2].selesai || '07:00');
+  }
+  setFieldVal('cfgShiftRequireModal', String(saved.shiftRequireModal !== undefined ? saved.shiftRequireModal : true));
+  setFieldVal('cfgShiftBlindClose', String(saved.shiftBlindClose !== undefined ? saved.shiftBlindClose : true));
+
+  if (saved.edcTerminals && Array.isArray(saved.edcTerminals)) {
+    EDC_TERMINALS_LIST = saved.edcTerminals;
+  }
+
+  runRoundingSimulation();
+  runScaleBarcodeSimulation();
+}
+
+function loadCompanyPreferences() {
+  const localPrefs = JSON.parse(localStorage.getItem(COMPANY_PREF_STORAGE_KEY) || '{}');
+  applyPreferencesToForm(localPrefs);
+
+  callAdminApi('admin/get-preferences', {}, cloudPrefs => {
+    if (cloudPrefs && Object.keys(cloudPrefs).length > 0) {
+      localStorage.setItem(COMPANY_PREF_STORAGE_KEY, JSON.stringify(cloudPrefs));
+      applyPreferencesToForm(cloudPrefs);
+    }
+  }, 'Memuat Preferensi Perusahaan...');
+}
+
 function saveCompanyPreferences() {
+  const taxEl = document.getElementById('cfgTaxEnabled');
+  const scaleEl = document.getElementById('cfgScaleEnabled');
+  const roundEl = document.getElementById('cfgRoundEnabled');
+
   const prefs = {
-    companyName: document.getElementById('cfgCompanyName').value.trim(),
-    companyNpwp: document.getElementById('cfgCompanyNpwp').value.trim(),
-    companyPhone: document.getElementById('cfgCompanyPhone').value.trim(),
-    companyEmail: document.getElementById('cfgCompanyEmail').value.trim(),
-    companyAddress: document.getElementById('cfgCompanyAddress').value.trim(),
-    receiptFooter: document.getElementById('cfgReceiptFooter').value.trim(),
-    taxEnabled: document.getElementById('cfgTaxEnabled').value === 'true',
-    taxPct: Number(document.getElementById('cfgTaxPct').value) || 0,
-    taxMode: document.getElementById('cfgTaxMode').value,
-    roundMode: document.getElementById('cfgRoundMode').value,
-    roundStep: document.getElementById('cfgRoundStep').value,
-    extraFeeLabel: document.getElementById('cfgExtraFeeLabel').value.trim(),
-    extraFeeType: document.getElementById('cfgExtraFeeType').value,
-    extraFeeVal: Number(document.getElementById('cfgExtraFeeVal').value) || 0,
-    bagEnabled: document.getElementById('cfgBagEnabled').value === 'true',
-    bagName: document.getElementById('cfgBagName').value.trim(),
-    bagPrice: Number(document.getElementById('cfgBagPrice').value) || 0,
-    scaleEnabled: document.getElementById('cfgScaleEnabled').value === 'true',
-    scalePrefix: document.getElementById('cfgScalePrefix').value.trim(),
-    scaleMode: document.getElementById('cfgScaleMode').value,
-    dualDisplayEnabled: document.getElementById('cfgDualDisplayEnabled').checked,
-    dualDisplayPromoText: document.getElementById('cfgDualDisplayPromoText').value.trim(),
-    dualDisplayBannerUrl: document.getElementById('cfgDualDisplayBannerUrl').value.trim(),
-    pointEarnStep: Number(document.getElementById('cfgPointEarnStep').value) || 10000,
-    pointRedeemVal: Number(document.getElementById('cfgPointRedeemVal').value) || 100,
-    pointMinRedeem: Number(document.getElementById('cfgPointMinRedeem').value) || 50,
-    prefixStruk: document.getElementById('cfgPrefixStruk').value.trim() || 'TRX-',
-    prefixLpb: document.getElementById('cfgPrefixLpb').value.trim() || 'PB-',
+    companyName: String(getFieldVal('cfgCompanyName', '')).trim(),
+    companyType: getFieldVal('cfgCompanyType', 'Retail, Minimarket'),
+    companyNpwp: String(getFieldVal('cfgCompanyNpwp', '')).trim(),
+    companyPhone: String(getFieldVal('cfgCompanyPhone', '')).trim(),
+    companyFax: String(getFieldVal('cfgCompanyFax', '')).trim(),
+    companyEmail: String(getFieldVal('cfgCompanyEmail', '')).trim(),
+    companyAddress: String(getFieldVal('cfgCompanyAddress', '')).trim(),
+    receiptFooter: String(getFieldVal('cfgReceiptFooter', '')).trim(),
+    startDataDate: getFieldVal('cfgStartDataDate', ''),
+    logoBase64: COMPANY_LOGO_BASE64,
+
+    taxEnabled: taxEl ? (taxEl.type === 'checkbox' ? taxEl.checked : taxEl.value === 'true') : false,
+    taxMainName: String(getFieldVal('cfgTaxMainName', 'PPN')).trim(),
+    taxMainCode: String(getFieldVal('cfgTaxMainCode', 'P')).trim(),
+    taxPct: Number(getFieldVal('cfgTaxPct', 0)) || 0,
+    taxExtraEnabled: Boolean(getFieldVal('cfgTaxExtraEnabled', false)),
+    taxExtraName: String(getFieldVal('cfgTaxExtraName', 'PB1')).trim(),
+    taxExtraCode: String(getFieldVal('cfgTaxExtraCode', 'B')).trim(),
+    taxExtraPct: Number(getFieldVal('cfgTaxExtraPct', 0)) || 0,
+    taxInclusive: Boolean(getFieldVal('cfgTaxInclusive', true)),
+    taxBeforeDiscount: Boolean(getFieldVal('cfgTaxBeforeDiscount', false)),
+    taxOnlineEnabled: Boolean(getFieldVal('cfgTaxOnlineEnabled', false)),
+    taxNopd: String(getFieldVal('cfgTaxNopd', '')).trim(),
+    taxOnlineFolder: String(getFieldVal('cfgTaxOnlineFolder', '')).trim(),
+    taxOnlinePrefix: String(getFieldVal('cfgTaxOnlinePrefix', 'R')).trim(),
+
+    roundEnabled: roundEl ? (roundEl.type === 'checkbox' ? roundEl.checked : roundEl.value === 'true') : false,
+    roundMode: document.getElementById('cfgRoundUp')?.checked ? 'UP' : 'DOWN',
+    roundStep: getFieldVal('cfgRoundStep', '100'),
+
+    extraFeeLabel: String(getFieldVal('cfgExtraFeeLabel', 'Biaya Layanan')).trim(),
+    extraFeeType: getFieldVal('cfgExtraFeeType', 'NONE'),
+    extraFeeVal: Number(getFieldVal('cfgExtraFeeVal', 0)) || 0,
+    bagEnabled: getFieldVal('cfgBagEnabled', 'false') === 'true',
+    bagName: String(getFieldVal('cfgBagName', 'Kantong Belanja')).trim(),
+    bagPrice: Number(getFieldVal('cfgBagPrice', 0)) || 0,
+
+    scaleEnabled: scaleEl ? (scaleEl.type === 'checkbox' ? scaleEl.checked : scaleEl.value === 'true') : false,
+    scaleMode: document.getElementById('cfgScaleModePrice')?.checked ? 'PRICE' : 'WEIGHT',
+    scaleSampleBarcode: String(getFieldVal('cfgScaleSampleBarcode', '8686009007656')).trim(),
+    scaleValueLen: Number(getFieldVal('cfgScaleValueLen', 6)) || 6,
+    scaleIgnoreCheckDigit: Boolean(getFieldVal('cfgScaleIgnoreCheckDigit', false)),
+    scaleDecimalPos: Number(getFieldVal('cfgScaleDecimalPos', 2)) || 2,
+
+    dualDisplayEnabled: Boolean(getFieldVal('cfgDualDisplayEnabled', false)),
+    dualDisplayPromoText: String(getFieldVal('cfgDualDisplayPromoText', '')).trim(),
+    dualDisplayBannerUrl: String(getFieldVal('cfgDualDisplayBannerUrl', '')).trim(),
+    pointEarnStep: Number(getFieldVal('cfgPointEarnStep', 10000)) || 10000,
+    pointRedeemVal: Number(getFieldVal('cfgPointRedeemVal', 100)) || 100,
+    pointMinRedeem: Number(getFieldVal('cfgPointMinRedeem', 50)) || 50,
+    prefixStruk: String(getFieldVal('cfgPrefixStruk', 'TRX-')).trim() || 'TRX-',
+    prefixLpb: String(getFieldVal('cfgPrefixLpb', 'PB-')).trim() || 'PB-',
+
+    shifts: [
+      { nama: String(getFieldVal('cfgShift1Name', 'Shift-1')).trim(), mulai: getFieldVal('cfgShift1Start', '09:00'), selesai: getFieldVal('cfgShift1End', '15:30') },
+      { nama: String(getFieldVal('cfgShift2Name', 'Shift-2')).trim(), mulai: getFieldVal('cfgShift2Start', '15:30'), selesai: getFieldVal('cfgShift2End', '22:00') },
+      { nama: String(getFieldVal('cfgShift3Name', '')).trim(), mulai: getFieldVal('cfgShift3Start', '23:00'), selesai: getFieldVal('cfgShift3End', '07:00') }
+    ],
+    shiftRequireModal: getFieldVal('cfgShiftRequireModal', 'true') === 'true',
+    shiftBlindClose: getFieldVal('cfgShiftBlindClose', 'true') === 'true',
     edcTerminals: EDC_TERMINALS_LIST
   };
 
   localStorage.setItem(COMPANY_PREF_STORAGE_KEY, JSON.stringify(prefs));
-  alert('Preferensi Perusahaan & Pengaturan Kasir berhasil disimpan!');
+  callAdminApi('admin/save-preferences', prefs, res => {
+    alert(res.message || 'Preferensi Perusahaan & Pengaturan Kasir berhasil disimpan!');
+  }, 'Menyimpan Preferensi ke Cloud...');
 }
 
 function openChangePinModal() {

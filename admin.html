@@ -989,58 +989,165 @@
           <div class="card">
             <!-- 1. PERUSAHAAN -->
             <div id="pref-panel-perusahaan" class="pref-panel">
-              <h3 style="margin-top:0;">Identitas Perusahaan &amp; Header/Footer Struk</h3>
-              <div class="form-row" style="grid-template-columns: 1fr 1fr;">
+              <h3 style="margin-top:0;">Informasi Perusahaan / Toko Anda</h3>
+              <p style="font-size:12px; color:var(--text-muted); margin-top:-6px;">Masukkan informasi perusahaan/toko seperti yang ingin Anda munculkan di Struk pembayaran, laporan, dll.</p>
+              
+              <div style="display:grid; grid-template-columns: 1.5fr 220px; gap:18px; align-items:start;">
                 <div>
-                  <label style="font-size:12px; font-weight:600; display:block; margin-bottom:4px;">Nama Perusahaan / Toko</label>
-                  <input type="text" id="cfgCompanyName" placeholder="Nama Toko / Usaha">
+                  <div class="form-row" style="grid-template-columns: 1fr 1fr;">
+                    <div>
+                      <label style="font-size:12px; font-weight:600; display:block; margin-bottom:4px;">Nama Perusahaan / Toko</label>
+                      <input type="text" id="cfgCompanyName" placeholder="Nama Toko / Usaha">
+                    </div>
+                    <div>
+                      <label style="font-size:12px; font-weight:600; display:block; margin-bottom:4px;">Jenis Usaha</label>
+                      <select id="cfgCompanyType">
+                        <option value="Retail, Minimarket">Retail, Minimarket</option>
+                        <option value="Supermarket / Swalayan">Supermarket / Swalayan</option>
+                        <option value="Toko Kelontong / Grosir">Toko Kelontong / Grosir</option>
+                        <option value="Apotek / Kesehatan">Apotek / Kesehatan</option>
+                        <option value="Resto / Cafe / Bakery">Resto / Cafe / Bakery</option>
+                        <option value="Fashion / Butik">Fashion / Butik</option>
+                      </select>
+                    </div>
+                  </div>
+                  <div style="margin-bottom:10px;">
+                    <label style="font-size:12px; font-weight:600; display:block; margin-bottom:4px;">Alamat Lengkap Toko (Baris 1 &amp; Kota)</label>
+                    <input type="text" id="cfgCompanyAddress" placeholder="Jl. Raya Utama No. 1...">
+                  </div>
+                  <div class="form-row" style="grid-template-columns: 1fr 1fr 1fr;">
+                    <div>
+                      <label style="font-size:12px; font-weight:600; display:block; margin-bottom:4px;">Telepon / WA</label>
+                      <input type="text" id="cfgCompanyPhone" placeholder="021-xxxxxxx">
+                    </div>
+                    <div>
+                      <label style="font-size:12px; font-weight:600; display:block; margin-bottom:4px;">Fax</label>
+                      <input type="text" id="cfgCompanyFax" placeholder="-">
+                    </div>
+                    <div>
+                      <label style="font-size:12px; font-weight:600; display:block; margin-bottom:4px;">NPWP / NIB</label>
+                      <input type="text" id="cfgCompanyNpwp" placeholder="00.000.000.0-000.000">
+                    </div>
+                  </div>
+                  <div style="margin-bottom:10px;">
+                    <label style="font-size:12px; font-weight:600; display:block; margin-bottom:4px;">Catatan Kaki Struk (Footer Receipt)</label>
+                    <textarea id="cfgReceiptFooter" rows="2" placeholder="Belanja asik, harga pasti! Terima kasih telah berbelanja."></textarea>
+                  </div>
                 </div>
-                <div>
-                  <label style="font-size:12px; font-weight:600; display:block; margin-bottom:4px;">NPWP / Nomor Izin Usaha</label>
-                  <input type="text" id="cfgCompanyNpwp" placeholder="00.000.000.0-000.000">
+
+                <!-- KOTAK LOGO PERUSAHAAN -->
+                <div style="background:#F8FAFC; border:1px solid var(--border); border-radius:12px; padding:12px; text-align:center;">
+                  <label style="font-size:12px; font-weight:700; display:block; margin-bottom:8px; text-align:left;">Logo Perusahaan</label>
+                  <div id="cfgLogoPreviewBox" style="width:100%; height:130px; background:#FFFBEB; border:1px dashed #CBD5E1; border-radius:8px; display:flex; align-items:center; justify-content:center; overflow:hidden; margin-bottom:8px;">
+                    <img id="cfgLogoPreviewImg" src="" alt="Logo" style="max-width:100%; max-height:100%; display:none;">
+                    <span id="cfgLogoPlaceholder" style="font-size:12px; color:var(--text-muted);">Belum ada logo</span>
+                  </div>
+                  <input type="file" id="cfgLogoFileInput" accept="image/*" style="display:none;" onchange="handleCompanyLogoUpload(event)">
+                  <div style="display:flex; justify-content:flex-end; gap:6px;">
+                    <button type="button" class="btn btn-red btn-sm" title="Hapus Logo" onclick="clearCompanyLogo()">&#128465;</button>
+                    <button type="button" class="btn btn-blue btn-sm" title="Pilih File Logo" onclick="document.getElementById('cfgLogoFileInput').click()">&#128194; Pilih Logo</button>
+                  </div>
                 </div>
               </div>
-              <div class="form-row" style="grid-template-columns: 1fr 1fr;">
-                <div>
-                  <label style="font-size:12px; font-weight:600; display:block; margin-bottom:4px;">No. Telepon / WhatsApp Toko</label>
-                  <input type="text" id="cfgCompanyPhone" placeholder="0812-xxxx-xxxx">
+
+              <!-- PREFERENSI TAMBAHAN: TANGGAL MULAI DATA -->
+              <div style="margin-top:12px; padding-top:12px; border-top:1px solid var(--border);">
+                <h4 style="margin:0 0 4px 0;">Preferensi Tambahan</h4>
+                <p style="font-size:12px; color:var(--text-muted); margin:0 0 8px 0;">Tentukan tanggal mulai data sebagai default tanggal saldo awal data toko Anda.</p>
+                <div style="max-width:240px;">
+                  <label style="font-size:12px; font-weight:600; display:block; margin-bottom:4px;">Tgl Mulai Data</label>
+                  <input type="date" id="cfgStartDataDate">
                 </div>
-                <div>
-                  <label style="font-size:12px; font-weight:600; display:block; margin-bottom:4px;">Email / Website</label>
-                  <input type="text" id="cfgCompanyEmail" placeholder="toko@domain.com">
-                </div>
-              </div>
-              <div style="margin-bottom:12px;">
-                <label style="font-size:12px; font-weight:600; display:block; margin-bottom:4px;">Alamat Lengkap Toko (Tampil di Header Struk)</label>
-                <input type="text" id="cfgCompanyAddress" placeholder="Jl. Raya Utama No. 1...">
-              </div>
-              <div style="margin-bottom:12px;">
-                <label style="font-size:12px; font-weight:600; display:block; margin-bottom:4px;">Catatan Kaki Struk (Footer Receipt)</label>
-                <textarea id="cfgReceiptFooter" rows="2" placeholder="Terima kasih telah berbelanja! Barang yang sudah dibeli tidak dapat ditukar."></textarea>
               </div>
             </div>
 
             <!-- 2. PAJAK -->
             <div id="pref-panel-pajak" class="pref-panel" style="display:none;">
-              <h3 style="margin-top:0;">Pengaturan Pajak Penjualan (PPN / PB1)</h3>
-              <div class="form-row">
+              <h3 style="margin-top:0;">Informasi Pajak Penjualan</h3>
+              <p style="font-size:12px; color:var(--text-muted); margin-top:-6px;">Tentukan pajak yang akan dikenakan oleh toko Anda kepada pembeli.</p>
+
+              <div style="display:grid; grid-template-columns: 1fr 1fr; gap:14px; margin-bottom:14px;">
+                <!-- PAJAK UTAMA -->
+                <div style="background:#F8FAFC; border:1px solid var(--border); border-radius:10px; padding:12px;">
+                  <label style="display:flex; align-items:center; gap:8px; font-weight:700; font-size:13px; margin-bottom:10px; cursor:pointer;">
+                    <input type="checkbox" id="cfgTaxEnabled" style="width:16px; height:16px;"> Pajak Utama
+                  </label>
+                  <div class="form-row" style="grid-template-columns: 1.2fr 0.7fr 0.9fr; margin-bottom:0;">
+                    <div>
+                      <label style="font-size:11px; font-weight:600;">Nama</label>
+                      <input type="text" id="cfgTaxMainName" value="PPN">
+                    </div>
+                    <div>
+                      <label style="font-size:11px; font-weight:600;">Kode</label>
+                      <input type="text" id="cfgTaxMainCode" value="P" maxlength="3">
+                    </div>
+                    <div>
+                      <label style="font-size:11px; font-weight:600;">Persentase (%)</label>
+                      <input type="number" id="cfgTaxPct" value="11" min="0" max="100" step="0.5">
+                    </div>
+                  </div>
+                </div>
+
+                <!-- PAJAK TAMBAHAN -->
+                <div style="background:#F8FAFC; border:1px solid var(--border); border-radius:10px; padding:12px;">
+                  <label style="display:flex; align-items:center; gap:8px; font-weight:700; font-size:13px; margin-bottom:10px; cursor:pointer;">
+                    <input type="checkbox" id="cfgTaxExtraEnabled" style="width:16px; height:16px;"> Pajak Tambahan
+                  </label>
+                  <div class="form-row" style="grid-template-columns: 1.2fr 0.7fr 0.9fr; margin-bottom:0;">
+                    <div>
+                      <label style="font-size:11px; font-weight:600;">Nama</label>
+                      <input type="text" id="cfgTaxExtraName" value="PB1">
+                    </div>
+                    <div>
+                      <label style="font-size:11px; font-weight:600;">Kode</label>
+                      <input type="text" id="cfgTaxExtraCode" value="B" maxlength="3">
+                    </div>
+                    <div>
+                      <label style="font-size:11px; font-weight:600;">Persentase (%)</label>
+                      <input type="number" id="cfgTaxExtraPct" value="10" min="0" max="100" step="0.5">
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div style="display:flex; flex-direction:column; gap:10px; margin-bottom:14px;">
+                <label style="display:flex; align-items:flex-start; gap:8px; cursor:pointer;">
+                  <input type="checkbox" id="cfgTaxInclusive" checked style="width:16px; height:16px; margin-top:2px;">
+                  <div>
+                    <strong style="font-size:13px;">Pajak sudah termasuk dalam harga barang</strong><br>
+                    <small style="color:var(--text-muted); font-style:italic;">(Nilai pajak tidak ditambahkan lagi di total Struk, melainkan nilai harga jual yang tertera sudah termasuk pajak di dalamnya)</small>
+                  </div>
+                </label>
+
+                <label style="display:flex; align-items:flex-start; gap:8px; cursor:pointer;">
+                  <input type="checkbox" id="cfgTaxBeforeDiscount" style="width:16px; height:16px; margin-top:2px;">
+                  <div>
+                    <strong style="font-size:13px;">Pajak dihitung TANPA dikurangi diskon akhir struk</strong><br>
+                    <small style="color:var(--text-muted); font-style:italic;">(Nilai Pajak dihitung dari subtotal daftar barang yang dibeli sebelum dikurangi diskon akhir struk)</small>
+                  </div>
+                </label>
+
+                <label style="display:flex; align-items:flex-start; gap:8px; cursor:pointer;">
+                  <input type="checkbox" id="cfgTaxOnlineEnabled" style="width:16px; height:16px; margin-top:2px;">
+                  <div>
+                    <strong style="font-size:13px;">Pajak Online (E-Tax / Bapenda Daerah)</strong><br>
+                    <small style="color:var(--text-muted); font-style:italic;">(Sistem menghasilkan ekspor file data penjualan harian yang dilaporkan secara online ke Dinas Pajak)</small>
+                  </div>
+                </label>
+              </div>
+
+              <div class="form-row" style="grid-template-columns: 1fr 1.4fr 0.6fr; background:#F8FAFC; padding:12px; border-radius:10px; border:1px solid var(--border);">
                 <div>
-                  <label style="font-size:12px; font-weight:600; display:block; margin-bottom:4px;">Status Pajak Default</label>
-                  <select id="cfgTaxEnabled">
-                    <option value="false">Non-Pajak (0%)</option>
-                    <option value="true">Aktifkan Pajak Otomatis</option>
-                  </select>
+                  <label style="font-size:12px; font-weight:600;">NOPD (Nomor Objek Pajak Daerah)</label>
+                  <input type="text" id="cfgTaxNopd" placeholder="Contoh: 31.71.001.0001">
                 </div>
                 <div>
-                  <label style="font-size:12px; font-weight:600; display:block; margin-bottom:4px;">Tarif Pajak (%)</label>
-                  <input type="number" id="cfgTaxPct" value="11" min="0" max="100" step="0.5">
+                  <label style="font-size:12px; font-weight:600;">Folder / Endpoint Laporan Pajak</label>
+                  <input type="text" id="cfgTaxOnlineFolder" placeholder="C:\Data\PajakOnline">
                 </div>
                 <div>
-                  <label style="font-size:12px; font-weight:600; display:block; margin-bottom:4px;">Mode Perhitungan Harga</label>
-                  <select id="cfgTaxMode">
-                    <option value="EXCLUSIVE">Eksklusif (Ditambahkan di atas harga jual)</option>
-                    <option value="INCLUSIVE">Inklusif (Sudah termasuk dalam harga jual)</option>
-                  </select>
+                  <label style="font-size:12px; font-weight:600;">Prefix File</label>
+                  <input type="text" id="cfgTaxOnlinePrefix" value="R" maxlength="4">
                 </div>
               </div>
             </div>
@@ -1061,24 +1168,57 @@
 
             <!-- 4. PEMBULATAN STRUK -->
             <div id="pref-panel-pembulatan" class="pref-panel" style="display:none;">
-              <h3 style="margin-top:0;">Pembulatan Otomatis Total Struk</h3>
-              <div class="form-row">
+              <h3 style="margin-top:0;">Pembulatan Nilai Belanjaan</h3>
+              <p style="font-size:12px; color:var(--text-muted); margin-top:-6px;">Pembulatan nilai belanjaan digunakan untuk memudahkan kasir mengembalikan pecahan uang kembalian atas pembayaran tunai tepat sesuai dengan nilai kembalian struk.</p>
+
+              <div style="display:grid; grid-template-columns: 1.3fr 250px; gap:18px; align-items:start;">
                 <div>
-                  <label style="font-size:12px; font-weight:600; display:block; margin-bottom:4px;">Mode Pembulatan</label>
-                  <select id="cfgRoundMode">
-                    <option value="NONE">Tidak Ada Pembulatan</option>
-                    <option value="DOWN">Bulatkan ke Bawah (Untungkan Pembeli)</option>
-                    <option value="UP">Bulatkan ke Atas</option>
-                    <option value="NEAREST">Bulatkan Terdekat</option>
-                  </select>
+                  <label style="display:flex; align-items:center; gap:8px; font-weight:700; font-size:13px; margin-bottom:12px; cursor:pointer;">
+                    <input type="checkbox" id="cfgRoundEnabled" onchange="runRoundingSimulation()" style="width:16px; height:16px;">
+                    Ya, Toko kami membulatkan nilai belanjaan
+                  </label>
+
+                  <div style="display:flex; flex-direction:column; gap:10px; padding-left:22px; margin-bottom:16px;">
+                    <label style="display:flex; align-items:center; gap:8px; font-size:13px; cursor:pointer;">
+                      <input type="radio" name="cfgRoundDir" id="cfgRoundDown" value="DOWN" checked onchange="runRoundingSimulation()">
+                      Bulatkan nilai belanjaan <strong>TURUN</strong> mendekati pecahan
+                      <select id="cfgRoundStep" onchange="runRoundingSimulation()" style="width:110px; padding:6px 8px;">
+                        <option value="100">100</option>
+                        <option value="500">500</option>
+                        <option value="1000">1.000</option>
+                      </select>
+                      terdekat
+                    </label>
+                    <label style="display:flex; align-items:center; gap:8px; font-size:13px; cursor:pointer;">
+                      <input type="radio" name="cfgRoundDir" id="cfgRoundUp" value="UP" onchange="runRoundingSimulation()">
+                      Bulatkan nilai belanjaan <strong>NAIK</strong> mendekati pecahan terdekat
+                    </label>
+                  </div>
+
+                  <div style="background:#F8FAFC; border:1px solid var(--border); border-radius:10px; padding:12px; margin-left:22px;">
+                    <div style="font-size:12px; font-weight:700; margin-bottom:8px;">&raquo; Simulasi Pembulatan</div>
+                    <div style="display:flex; align-items:center; gap:10px; flex-wrap:wrap;">
+                      <input type="number" id="cfgRoundSimInput" value="65366" oninput="runRoundingSimulation()" style="width:140px; font-weight:700; text-align:right;">
+                      <span style="font-size:13px;">Dibulatkan menjadi <strong id="cfgRoundSimOutput" style="font-size:15px; color:var(--royal-blue);">65.300</strong></span>
+                    </div>
+                  </div>
                 </div>
-                <div>
-                  <label style="font-size:12px; font-weight:600; display:block; margin-bottom:4px;">Kelipatan Pembulatan (Rp)</label>
-                  <select id="cfgRoundStep">
-                    <option value="100">Rp 100</option>
-                    <option value="500">Rp 500</option>
-                    <option value="1000">Rp 1.000</option>
-                  </select>
+
+                <!-- PREVIEW STRUK PEMBULATAN -->
+                <div style="background:#F8FAFC; border:1px solid #CBD5E1; border-radius:10px; padding:14px; font-family:monospace; font-size:11px; line-height:1.55; box-shadow:0 4px 10px rgba(0,0,0,0.05);">
+                  <div style="color:#64748B;">Tanggal : 24-11-2026 10:41</div>
+                  <div>Total Item 4</div>
+                  <div style="display:flex; justify-content:space-between;"><span>SUBTOTAL</span><span>32.044</span></div>
+                  <div style="display:flex; justify-content:space-between;"><span>DISKON</span><span>0</span></div>
+                  <div style="display:flex; justify-content:space-between;"><span>BIAYA TAMBAHAN</span><span>0</span></div>
+                  <div style="display:flex; justify-content:space-between; border:1.5px solid #DC2626; border-radius:99px; padding:1px 6px; margin:2px -6px; font-weight:700; color:#DC2626;">
+                    <span>PEMBULATAN</span><span id="cfgRoundReceiptDiff">-44</span>
+                  </div>
+                  <div style="border-top:1px dashed #94A3B8; margin:4px 0;"></div>
+                  <div style="display:flex; justify-content:space-between; font-weight:700;"><span>TOTAL</span><span id="cfgRoundReceiptTotal">32.000</span></div>
+                  <div style="display:flex; justify-content:space-between;"><span>TUNAI</span><span>35.000</span></div>
+                  <div style="display:flex; justify-content:space-between;"><span>KEMBALI</span><span id="cfgRoundReceiptChange">3.000</span></div>
+                  <div style="text-align:center; margin-top:6px;">Terima Kasih</div>
                 </div>
               </div>
             </div>
@@ -1142,26 +1282,68 @@
 
             <!-- 8. TIMBANGAN -->
             <div id="pref-panel-timbangan" class="pref-panel" style="display:none;">
-              <h3 style="margin-top:0;">Konfigurasi Barcode Timbangan Digital (Fresh / Curah)</h3>
-              <p style="font-size:12px; color:var(--text-muted);">Format standar EAN-13 timbangan: <code>[Prefix 2 digit][Kode PLU 5 digit][Berat/Harga 5 digit][Check Digit]</code>.</p>
-              <div class="form-row">
-                <div>
-                  <label style="font-size:12px; font-weight:600; display:block; margin-bottom:4px;">Aktifkan Parser Timbangan</label>
-                  <select id="cfgScaleEnabled">
-                    <option value="false">Non-Aktif</option>
-                    <option value="true">Aktif (Scan Otomatis Berat/Harga)</option>
-                  </select>
+              <h3 style="margin-top:0;">Timbangan Digital (Barcode PLU Berat / Harga)</h3>
+              <p style="font-size:12px; color:var(--text-muted); margin-top:-6px;">Jika toko Anda menggunakan mesin timbangan, tentukan formasi kode PLU dari barang-barang yang harganya ditentukan dari beratnya.</p>
+
+              <label style="display:flex; align-items:center; gap:8px; font-weight:700; font-size:13px; margin-bottom:12px; cursor:pointer;">
+                <input type="checkbox" id="cfgScaleEnabled" onchange="runScaleBarcodeSimulation()" style="width:16px; height:16px;">
+                Ya, Kami menjual barang yang harganya ditentukan dari beratnya
+              </label>
+
+              <div style="display:grid; grid-template-columns: 280px 1fr; gap:18px; align-items:start;">
+                <!-- KIRI: SIMULASI BARCODE TIMBANGAN -->
+                <div style="background:#F8FAFC; border:1px solid var(--border); border-radius:12px; padding:14px;">
+                  <div style="background:#fff; border:1px solid #CBD5E1; border-radius:8px; padding:10px; text-align:center; margin-bottom:10px;">
+                    <div style="font-family:monospace; letter-spacing:3px; font-weight:900; font-size:18px;">|||| || ||| |||| ||</div>
+                  </div>
+                  <label style="font-size:12px; font-weight:700; display:block; margin-bottom:4px;">Contoh Barcode :</label>
+                  <input type="text" id="cfgScaleSampleBarcode" value="8686009007656" oninput="runScaleBarcodeSimulation()" style="font-family:monospace; font-size:15px; font-weight:700; text-align:center; letter-spacing:1px;">
+                  <small style="display:block; text-align:center; color:var(--text-muted); font-style:italic; margin-bottom:10px;">(Ketik label timbangan untuk contoh)</small>
+
+                  <div style="font-size:12px; font-weight:700; margin-bottom:6px;">Hasil Formasi :</div>
+                  <div style="display:grid; grid-template-columns: 95px 1fr; gap:6px; align-items:center; font-size:12px;">
+                    <span>PLU</span>
+                    <input type="text" id="cfgScaleOutPlu" readonly style="padding:5px 8px; text-align:right; background:#fff; font-weight:700;">
+                    <span>Label Berat/Nilai</span>
+                    <input type="text" id="cfgScaleOutRaw" readonly style="padding:5px 8px; text-align:right; background:#fff; font-weight:700;">
+                    <span>Berat/Nilai Struk</span>
+                    <input type="text" id="cfgScaleOutParsed" readonly style="padding:5px 8px; text-align:right; background:#EFF6FF; color:var(--royal-blue); font-weight:800;">
+                  </div>
                 </div>
-                <div>
-                  <label style="font-size:12px; font-weight:600; display:block; margin-bottom:4px;">Prefix Barcode Timbangan</label>
-                  <input type="text" id="cfgScalePrefix" value="20,21" placeholder="20,21">
-                </div>
-                <div>
-                  <label style="font-size:12px; font-weight:600; display:block; margin-bottom:4px;">Nilai 5 Digit Terakhir</label>
-                  <select id="cfgScaleMode">
-                    <option value="WEIGHT_GRAM">Berat dalam Gram (dibagi 1000 = Kg)</option>
-                    <option value="PRICE_RP">Total Harga Rupiah</option>
-                  </select>
+
+                <!-- KANAN: PENGATURAN FORMASI -->
+                <div style="display:flex; flex-direction:column; gap:12px;">
+                  <div>
+                    <strong style="font-size:13px;">Harga / Berat ?</strong>
+                    <p style="font-size:12px; color:var(--text-muted); margin:2px 0 6px 0;">Dari hasil cetak label mesin timbangan, kode yang dihasilkan mengandung nilai harga atau berat?</p>
+                    <div style="display:flex; gap:16px;">
+                      <label style="display:flex; align-items:center; gap:6px; font-size:13px; cursor:pointer;">
+                        <input type="radio" name="cfgScaleMode" id="cfgScaleModePrice" value="PRICE" onchange="runScaleBarcodeSimulation()"> Harga
+                      </label>
+                      <label style="display:flex; align-items:center; gap:6px; font-size:13px; cursor:pointer;">
+                        <input type="radio" name="cfgScaleMode" id="cfgScaleModeWeight" value="WEIGHT" checked onchange="runScaleBarcodeSimulation()"> Berat
+                      </label>
+                    </div>
+                  </div>
+
+                  <div>
+                    <strong style="font-size:13px;">Panjang Angka Berat / Harga</strong>
+                    <p style="font-size:12px; color:var(--text-muted); margin:2px 0 6px 0;">Dari total panjang label yang dicetak oleh mesin timbangan, berapa panjang angka bagian belakang yang merupakan nilai Berat/Harga.</p>
+                    <div style="display:flex; align-items:center; gap:8px; margin-bottom:8px;">
+                      <input type="number" id="cfgScaleValueLen" value="6" min="3" max="8" oninput="runScaleBarcodeSimulation()" style="width:70px; text-align:center; font-weight:700;">
+                      <span style="font-size:13px;">angka di belakang dari label</span>
+                    </div>
+                    <label style="display:flex; align-items:center; gap:8px; font-size:13px; cursor:pointer;">
+                      <input type="checkbox" id="cfgScaleIgnoreCheckDigit" onchange="runScaleBarcodeSimulation()" style="width:16px; height:16px;">
+                      Abaikan angka terakhir label barcode (Check Digit EAN-13)
+                    </label>
+                  </div>
+
+                  <div>
+                    <strong style="font-size:13px;">Posisi Pemisah Angka Desimal</strong>
+                    <p style="font-size:12px; color:var(--text-muted); margin:2px 0 6px 0;">Dari angka Berat tersebut, pada urutan ke berapa pemisah desimalnya (contoh: <code>2</code> untuk <code>007656</code> &rarr; <code>0,7656</code>; <code>3</code> untuk 5 digit gram &rarr; <code>0,765</code>).</p>
+                    <input type="number" id="cfgScaleDecimalPos" value="2" min="0" max="5" oninput="runScaleBarcodeSimulation()" style="width:70px; text-align:center; font-weight:700;">
+                  </div>
                 </div>
               </div>
             </div>
@@ -1269,8 +1451,34 @@
 
             <!-- 15. SHIFT KASIR -->
             <div id="pref-panel-shift_kasir" class="pref-panel" style="display:none;">
-              <h3 style="margin-top:0;">Aturan Buka &amp; Tutup Shift Kasir</h3>
-              <div class="form-row">
+              <h3 style="margin-top:0;">Shift Kasir</h3>
+              <p style="font-size:12px; color:var(--text-muted); margin-top:-6px;">Daftarkan shift dan jam aktifnya. Dengan informasi shift ini, Anda bisa mendapatkan informasi shift pada laporan penjualan.</p>
+
+              <div style="display:flex; flex-direction:column; gap:10px; max-width:520px; margin-bottom:16px;">
+                <div style="display:grid; grid-template-columns: 1.4fr auto 120px auto 120px; gap:8px; align-items:center;">
+                  <input type="text" id="cfgShift1Name" value="Shift-1" placeholder="Nama Shift 1">
+                  <span style="font-size:12px; font-weight:600;">Dari</span>
+                  <input type="time" id="cfgShift1Start" value="09:00">
+                  <span style="font-size:12px; font-weight:600;">s/d</span>
+                  <input type="time" id="cfgShift1End" value="15:30">
+                </div>
+                <div style="display:grid; grid-template-columns: 1.4fr auto 120px auto 120px; gap:8px; align-items:center;">
+                  <input type="text" id="cfgShift2Name" value="Shift-2" placeholder="Nama Shift 2">
+                  <span style="font-size:12px; font-weight:600;">Dari</span>
+                  <input type="time" id="cfgShift2Start" value="15:30">
+                  <span style="font-size:12px; font-weight:600;">s/d</span>
+                  <input type="time" id="cfgShift2End" value="22:00">
+                </div>
+                <div style="display:grid; grid-template-columns: 1.4fr auto 120px auto 120px; gap:8px; align-items:center;">
+                  <input type="text" id="cfgShift3Name" value="" placeholder="Shift-3 (Opsional)">
+                  <span style="font-size:12px; font-weight:600;">Dari</span>
+                  <input type="time" id="cfgShift3Start" value="23:00">
+                  <span style="font-size:12px; font-weight:600;">s/d</span>
+                  <input type="time" id="cfgShift3End" value="07:00">
+                </div>
+              </div>
+
+              <div class="form-row" style="grid-template-columns: 1fr 1fr; border-top:1px solid var(--border); padding-top:12px;">
                 <div>
                   <label style="font-size:12px; font-weight:600; display:block; margin-bottom:4px;">Wajib Input Modal Awal Laci</label>
                   <select id="cfgShiftRequireModal">
