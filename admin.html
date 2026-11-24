@@ -670,6 +670,46 @@
             <button type="button" class="btn btn-green" onclick="openPenerimaanBarangModal()">&#128229; Penerimaan Barang (Multi-Item)</button>
             <button type="button" class="btn btn-amber" onclick="openGudangDocModal()">&#128230; LPB / NRB / Mutasi Toko</button>
             <button type="button" class="btn btn-violet" onclick="openRepackModal()">&#128260; Pecah Kemasan (Repack)</button>
+            <button type="button" class="btn btn-dark" onclick="loadGudangOverview()">&#128260; Refresh Data Gudang</button>
+          </div>
+        </div>
+
+        <!-- TABEL READ: MONITORING STOK GUDANG & KARTU MUTASI -->
+        <div class="card">
+          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px; flex-wrap:wrap; gap:10px;">
+            <div>
+              <h3 style="margin:0;">Monitoring Stok Gudang &amp; Kartu Mutasi</h3>
+              <small style="color:var(--text-muted);">Pantau saldo stok terkini per barang dan klik Kartu Stok untuk melihat riwayat LPB, NRB, Mutasi, &amp; Repack.</small>
+            </div>
+            <div style="display:flex; gap:8px; align-items:center; flex-wrap:wrap;">
+              <input type="text" id="gudangSearchInput" onkeyup="filterGudangStockTable()" placeholder="Cari SKU / Barcode / Nama Barang..." style="width:250px;">
+              <select id="gudangStockFilter" onchange="filterGudangStockTable()" style="width:170px;">
+                <option value="ALL">Semua Status Stok</option>
+                <option value="LOW">Stok Menipis (&lt; Min)</option>
+                <option value="EMPTY">Stok Habis (0)</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="table-responsive">
+            <table>
+              <thead>
+                <tr>
+                  <th>SKU</th>
+                  <th>Barcode</th>
+                  <th>Nama Barang</th>
+                  <th>Kategori</th>
+                  <th>Satuan</th>
+                  <th>Lokasi Rak</th>
+                  <th style="text-align:right;">Stok Gudang</th>
+                  <th>Status</th>
+                  <th>Aksi</th>
+                </tr>
+              </thead>
+              <tbody id="gudangStockTableBody">
+                <tr><td colspan="9" style="text-align:center; color:var(--text-muted); padding:20px;">Memuat data stok gudang...</td></tr>
+              </tbody>
+            </table>
           </div>
         </div>
       </div>
