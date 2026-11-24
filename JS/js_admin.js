@@ -2248,3 +2248,55 @@ function editPemasokFromGudang(s) {
   document.getElementById('pmsTelepon').value = s.kontak_hp || '';
   document.getElementById('pmsAlamat1').value = s.alamat || '';
 }
+
+function filterGudangStockTable() {
+  const tbody = document.getElementById('gudangStockTableBody');
+  if (!tbody) return;
+
+  const q = (document.getElementById('gudangSearchInput')?.value || '').toLowerCase().trim();
+  const statusFilter = document.getElementById('gudangStockFilter')?.value || 'ALL';
+
+  const filtered = MASTER_PRODUCTS_CACHE.filter(p => {
+    const stok = p.stokTerkini != null ? Number(p.stokTerkini) : (Number(p.saldoAwal) || 0);
+    const minStok = p.minStock != null ? Number(p.minStock) : 10;
+
+    const matchText = !q ||
+      String(p.sku || '').toLowerCase().includes(q) ||
+      String(p.barcode || '').toLowerCase().includes(q) ||
+      String(p.nama || '').toLowerCase().includes(q);
+
+    if (!matchText) return false;
+    if (statusFilter === 'EMPTY') return stok <= 0;
+    if (statusFilter === 'LOW') return stok > 0 && stok < minStok;
+    return true;
+  });
+
+  if (filtered.length === 0) {
+    tbody.innerHTML = '<tr><td colspan="9" style="text-align:center; color:var(--text-muted); padding:20px;">Data barang tidak ditemukan.</td></tr>';
+    return;
+  }
+
+  tbody.innerHTML = filtered.map(p => {
+    const stok = p.stokTerkini != null ? Number(p.stokTerkini) : (Number(p.saldoAwal) || 0);
+    const minStok = p.minStock != null ? Number(p.minStock) : 10;
+    let statusBadge = '<span class="badge badge-ok">Aman</span>';
+    if (stok <= 0) statusBadge = '<span class="badge badge-danger">Habis</span>';
+    else if (stok < minStok) statusBadge = '<span class="badge badge-warn">Menipis</span>';
+
+    return `
+      <tr>
+        <td><strong>${p.sku}</strong></td>
+        <td><code>${p.barcode || '-'}</code></td>
+        <td>${p.nama}</td>
+        <td>${p.kategori || 'Umum'}</td>
+        <td>${p.satuan || 'PCS'}</td>
+        <td>${p.lokasiRak || '-'}</td>
+        <td style="text-align:right; font-weight:800; font-size:14px;">${stok.toLocaleString('id-ID')}</td>
+        <td>${statusBadge}</td>
+        <td>
+          <button type="button" class="btn btn-violet btn-sm" onclick="openStockCardModal('${p.sku}', '${String(p.nama || '').replace(/'/g, "\\'")}')">&#128203; Kartu Stok</button>
+        </td>
+      </tr>
+    `;
+  }).join('');
+}
