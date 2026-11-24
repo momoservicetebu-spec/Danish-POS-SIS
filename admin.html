@@ -300,6 +300,150 @@
       .card { padding: 14px; border-radius: 12px; }
       th, td { padding: 8px 10px; font-size: 12px; white-space: nowrap; }
     }
+
+    /* ============================================================================
+   CSS TAMBAHAN & RESPONSIVE SMARTPHONE KHUSUS HALAMAN ADMIN (DANISH POS)
+   ============================================================================ */
+
+/* 1. Pastikan semua kartu & tabel aman dari luapan menyamping (horizontal overflow) */
+.section .card,
+#tab-company .card,
+#tab-reports .card {
+  min-width: 0;
+  max-width: 100%;
+  box-sizing: border-box;
+}
+
+.table-responsive {
+  width: 100%;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+/* 2. Aturan Tampilan Smartphone & Tablet (Layar <= 900px) */
+@media screen and (max-width: 900px) {
+  /* Kontainer utama konten admin */
+  .main-content,
+  .content-area {
+    padding: 12px !important;
+    width: 100% !important;
+    max-width: 100vw !important;
+    overflow-x: hidden !important;
+  }
+
+  /* Ubah 2 Kolom Menyamping (Halaman Laporan & Perusahaan) jadi 1 Kolom Atas-Bawah */
+  #report-directory-view > div:last-child,
+  .report-split-grid,
+  .pref-split-grid,
+  #tab-company .pref-split-grid {
+    display: flex !important;
+    flex-direction: column !important;
+    grid-template-columns: 1fr !important;
+    gap: 12px !important;
+    width: 100% !important;
+  }
+
+  /* Daftar Kategori Laporan & 15 Sub-Menu Preferensi jadi Bar Pil Geser Horizontal */
+  #report-category-sidebar,
+  .pref-nav-list,
+  #tab-company .pref-split-grid > div:first-child {
+    display: flex !important;
+    flex-direction: row !important;
+    flex-wrap: nowrap !important;
+    overflow-x: auto !important;
+    -webkit-overflow-scrolling: touch !important;
+    gap: 8px !important;
+    padding-bottom: 6px !important;
+    width: 100% !important;
+    scrollbar-width: none;
+  }
+  #report-category-sidebar::-webkit-scrollbar,
+  .pref-nav-list::-webkit-scrollbar,
+  #tab-company .pref-split-grid > div:first-child::-webkit-scrollbar {
+    display: none;
+  }
+
+  #report-category-sidebar > *,
+  .pref-nav-list > *,
+  .pref-nav-btn {
+    flex: 0 0 auto !important;
+    width: auto !important;
+    white-space: nowrap !important;
+    padding: 8px 14px !important;
+    font-size: 12px !important;
+  }
+
+  /* Panel Kanan (Daftar Laporan & Form Preferensi) melebar 100% penuh */
+  #report-directory-view > div:last-child > .card,
+  .report-split-grid > .card,
+  .pref-split-grid > .card,
+  #tab-company .pref-split-grid > div:last-child {
+    width: 100% !important;
+    max-width: 100% !important;
+    min-height: auto !important;
+    padding: 14px !important;
+  }
+
+  /* Baris Tombol Aksi Atas di Tab Perusahaan & Report Viewer jadi Grid 2 Kolom */
+  #tab-company > .card:first-child > div:first-child,
+  #report-viewer-section > .card:first-child {
+    flex-direction: column !important;
+    align-items: stretch !important;
+    gap: 10px !important;
+  }
+
+  #tab-company > .card:first-child > div:last-child,
+  #report-viewer-section > .card:first-child > div:last-child {
+    display: grid !important;
+    grid-template-columns: repeat(2, 1fr) !important;
+    gap: 8px !important;
+    width: 100% !important;
+  }
+
+  #tab-company > .card:first-child > div:last-child .btn,
+  #report-viewer-section > .card:first-child > div:last-child .btn {
+    width: 100% !important;
+    justify-content: center !important;
+    font-size: 12px !important;
+    padding: 9px 10px !important;
+  }
+
+  /* Input Pencarian & Filter di Halaman Laporan jadi 100% Full Width */
+  #report-directory-view > div:first-child > div:last-child,
+  #report-quick-search,
+  #rv-filter-date-group,
+  #rv-filter-extra-group,
+  #rv-filter-date-group > div,
+  #rv-filter-extra-group > div,
+  #rv-start-date,
+  #rv-end-date,
+  #rv-filter-select,
+  #rv-table-search {
+    width: 100% !important;
+  }
+
+  /* Grid Kartu Laporan, Ringkasan KPI & Form Input Preferensi jadi 1 Kolom */
+  #report-items-grid,
+  #rv-kpi-container,
+  #tab-company .pref-panel > div,
+  .grid-2,
+  .grid-3,
+  .grid-4 {
+    display: grid !important;
+    grid-template-columns: 1fr !important;
+    gap: 10px !important;
+  }
+
+  /* Modal Dialog di HP agar pas layar dan tidak terpotong */
+  .modal-content,
+  .modal-box {
+    width: 95% !important;
+    max-width: 95vw !important;
+    max-height: 90vh !important;
+    padding: 16px !important;
+    margin: auto !important;
+  }
+}
   </style>
 </head>
 <body>
