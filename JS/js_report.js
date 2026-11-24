@@ -321,53 +321,33 @@ async function runActiveReport() {
     const endDate = document.getElementById('rv-end-date').value;
     const extraFilter = document.getElementById('rv-filter-select').value;
 
-    try {
-        if (ACTIVE_REPORT_DEF.source.startsWith('cache_')) {
-            await ensureMasterCachesLoaded();
-            buildMasterCacheReport(ACTIVE_REPORT_DEF.id, extraFilter);
-            return;
-        }
-
-        if (ACTIVE_REPORT_DEF.source === 'sales-report' || ACTIVE_REPORT_DEF.source.startsWith('hybrid_')) {
-            await ensureMasterCachesLoaded();
-            const res = await apiCall('finance/sales-report', {
-                startDate: startDate,
-                endDate: endDate
-            });
-
-            if (!res || res.status === 'error') {
-                throw new Error(res?.message || 'Gagal mengambil data dari server.');
-            }
-
-            buildSalesAndHybridReport(ACTIVE_REPORT_DEF.id, res, { startDate, endDate, extraFilter });
-            return;
-        }
-
-        const resCustom = await apiCall('reports/generate', {
-            reportId: ACTIVE_REPORT_DEF.id,
-            startDate: startDate,
-            endDate: endDate,
-            filter: extraFilter
-        });
-
-        if (resCustom && resCustom.status === 'success' && Array.isArray(resCustom.rows)) {
-            renderReportResultTable(resCustom.columns, resCustom.rows, resCustom.kpis || []);
-        } else {
-            tbody.innerHTML = `
-                <tr>
-                    <td colspan="6" style="text-align:center; padding:36px;">
-                        <div style="font-size:24px; margin-bottom:8px;">🔌</div>
-                        <div style="font-weight:700; color:#0f172a; margin-bottom:4px;">Menunggu Endpoint Backend: <code>reports/generate (${ACTIVE_REPORT_DEF.id})</code></div>
-                        <div style="font-size:12px; color:#64748b; max-width:480px; margin:0 auto;">
-                            Antarmuka laporan dan parameter filter sudah siap. Kirimkan file <b>Code.gs</b> Anda untuk mengaktifkan penarikan data log/shift/kartu/EDC pada laporan ini.
-                        </div>
-                    </td>
-                </tr>
-            `;
-        }
-    } catch (err) {
-        tbody.innerHTML = `<tr><td colspan="6" style="text-align:center; padding:30px; color:#ef4444;">❌ Gagal memuat laporan: ${err.message}</td></tr>`;
+    // 1. LAPORAN BERBASIS CACHE MASTER
+    if (ACTIVE_REPORT_DEF.source.startsWith('cache_')) {
+        buildMasterCacheReport(ACTIVE_REPORT_DEF.id, extraFilter);
+        return;
     }
+
+    // 2. LAPORAN BERBASIS ENDPOINT finance/sales-report
+    if (ACTIVE_REPORT_DEF.source === 'sales-report' || ACTIVE_REPORT_DEF.source.startsWith('hybrid_')) {
+        callAdminApi('finance/sales-report', { startDate, endDate }, function(rep) {
+            buildSalesAndHybridReport(ACTIVE_REPORT_DEF.id, rep, { startDate, endDate, extraFilter });
+        }, 'Menyusun ' + ACTIVE_REPORT_DEF.title + '...');
+        return;
+    }
+
+    // 3. LAPORAN ENDPOINT KHUSUS BACKEND reports/generate
+    callAdminApi('reports/generate', {
+        reportId: ACTIVE_REPORT_DEF.id,
+        startDate: startDate,
+        endDate: endDate,
+        filter: extraFilter
+    }, function(resData) {
+        if (resData && Array.isArray(resData.rows)) {
+            renderReportResultTable(resData.columns, resData.rows, resData.kpis || []);
+        } else {
+            tbody.innerHTML = `<tr><td colspan="6" style="text-align:center; padding:30px; color:#94a3b8;">Tidak ada data untuk laporan ini.</td></tr>`;
+        }
+    }, 'Memuat ' + ACTIVE_REPORT_DEF.title + '...');
 }
 
 async function ensureMasterCachesLoaded() {

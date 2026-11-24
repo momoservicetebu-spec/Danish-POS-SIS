@@ -2,7 +2,6 @@
 let PENDING_TAGS_CACHE = [];
 let MASTER_PRODUCTS_CACHE = [];
 let SELECTED_BARCODE_SKUS = new Set();
-let LAST_SALES_REPORT_CACHE = null;
 let cachedCategories = [];
 
 // State untuk Modal Penyesuaian Stok, Set Harga, dan Komisi
@@ -1784,74 +1783,11 @@ function paySupplierDebtModal(supplierId, supplierName, curDebt) {
     loadSuppliersTable();
   }, 'Memproses Pembayaran Hutang...');
 }
-
-// === LAPORAN PENJUALAN, LABA RUGI & EKSPOR EXCEL/PDF ===
+// === JEMBATAN KE MODUL LAPORAN BARU (JS/js_report.js) ===
 function initAndLoadReport() {
-  const today = getTodayIsoDate();
-  const startEl = document.getElementById('repStartDate');
-  const endEl = document.getElementById('repEndDate');
-  if (startEl && !startEl.value) startEl.value = today;
-  if (endEl && !endEl.value) endEl.value = today;
-  loadSalesProfitReport();
-}
-
-function loadSalesProfitReport() {
-  const startDate = document.getElementById('repStartDate').value;
-  const endDate = document.getElementById('repEndDate').value;
-
-  callAdminApi('finance/sales-report', { startDate, endDate }, rep => {
-    LAST_SALES_REPORT_CACHE = { startDate, endDate, ...rep };
-    document.getElementById('repNetSales').textContent = 'Rp ' + rep.netSales.toLocaleString('id-ID');
-    document.getElementById('repReturnInfo').textContent = `Retur: Rp ${rep.totalReturn.toLocaleString('id-ID')} (${rep.trxCount} Trx)`;
-    document.getElementById('repTotalHpp').textContent = 'Rp ' + rep.totalHpp.toLocaleString('id-ID');
-    document.getElementById('repGrossProfit').textContent = 'Rp ' + rep.grossProfit.toLocaleString('id-ID');
-    document.getElementById('repPaymentBreakdown').innerHTML =
-      `Tunai: <strong>Rp ${rep.payCash.toLocaleString('id-ID')}</strong> | QRIS: <strong>Rp ${rep.payQris.toLocaleString('id-ID')}</strong><br>` +
-      `EDC: <strong>Rp ${rep.payEdc.toLocaleString('id-ID')}</strong> | Tempo: <strong>Rp ${rep.payTempo.toLocaleString('id-ID')}</strong>`;
-
-    document.getElementById('repTrxTableBody').innerHTML = rep.transactions.map(t => `
-      <tr>
-        <td><strong>${t.trxId}</strong></td>
-        <td>${t.waktu}</td>
-        <td>${t.kasir}</td>
-        <td><span class="badge ${t.tipe === 'RETURN' ? 'badge-danger' : 'badge-ok'}">${t.tipe}</span></td>
-        <td><strong>Rp ${Number(t.total).toLocaleString('id-ID')}</strong></td>
-      </tr>
-    `).join('') || '<tr><td colspan="5">Tidak ada transaksi pada periode ini.</td></tr>';
-  }, 'Menyusun Laporan Laba Rugi...');
-}
-
-function exportReportToExcel() {
-  if (!LAST_SALES_REPORT_CACHE || !LAST_SALES_REPORT_CACHE.transactions) {
-    return alert('Tampilkan laporan terlebih dahulu sebelum mengekspor.');
+  if (typeof initReportModule === 'function') {
+    initReportModule();
   }
-  const r = LAST_SALES_REPORT_CACHE;
-  const lines = [
-    ['LAPORAN PENJUALAN & LABA RUGI', SESSION.store.namaToko],
-    ['Periode', `${r.startDate} s/d ${r.endDate}`],
-    ['Penjualan Bersih', r.netSales, 'Total HPP', r.totalHpp, 'Laba Kotor', r.grossProfit],
-    [],
-    ['No Struk', 'Waktu', 'Kasir', 'Tipe', 'Total (Rp)']
-  ];
-  r.transactions.forEach(t => {
-    lines.push([t.trxId, t.waktu, t.kasir, t.tipe, t.total]);
-  });
-
-  const csvContent = 'data:text/csv;charset=utf-8,' + lines.map(row => row.join(',')).join('\n');
-  const encodedUri = encodeURI(csvContent);
-  const link = document.createElement('a');
-  link.setAttribute('href', encodedUri);
-  link.setAttribute('download', `Laporan_POS_${SESSION.store.kodeToko}_${r.startDate}_${r.endDate}.csv`);
-  document.body.appendChild(link);
-  link.click();
-  document.body.removeChild(link);
-}
-
-function printSalesReportPDF() {
-  const repTab = document.getElementById('tab-reports');
-  repTab.classList.add('printing');
-  window.print();
-  repTab.classList.remove('printing');
 }
 
 // === GUDANG & MUTASI ANTAR TOKO ===
@@ -3174,7 +3110,21 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     });
 });
+document.addEventListener('DOMContentLoaded', function() {
+    if (typeof initReportModule === 'function') {
+        initReportModule();
+    }
+    document.querySelectorAll('[onclick*="reports"]').forEach(function(el) {
+        el.addEventListener('click', function() {
+            if (typeof initReportModule === 'function') {
+                setTimeout(initReportModule, 50);
+            }
+        });
+    });
+});
 
 if (document.readyState === 'complete' || document.readyState === 'interactive') {
-    setTimeout(initReportModule, 50);
+    setTimeout(function() {
+        if (typeof initReportModule === 'function') initReportModule();
+    }, 50);
 }
