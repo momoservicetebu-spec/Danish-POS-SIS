@@ -2300,3 +2300,251 @@ function filterGudangStockTable() {
     `;
   }).join('');
 }
+
+// =========================================================
+// MODUL PERUSAHAAN, PREFERENSI, EDC, PIN & BACKUP (RENE POS)
+// =========================================================
+const COMPANY_PREF_STORAGE_KEY = 'DANISH_POS_COMPANY_PREFS';
+let EDC_TERMINALS_LIST = [
+  { id: 'EDC-1', nama: 'EDC BCA Utama', jenis: 'Debit', mdr: 0.15 },
+  { id: 'EDC-2', nama: 'EDC BRI / Mandiri', jenis: 'Debit', mdr: 0.15 },
+  { id: 'EDC-3', nama: 'QRIS Dinamis Toko', jenis: 'QRIS', mdr: 0.7 }
+];
+
+function switchPrefPanel(panelKey, btn) {
+  document.querySelectorAll('.pref-panel').forEach(el => { el.style.display = 'none'; });
+  document.querySelectorAll('.pref-nav-btn').forEach(b => {
+    b.classList.remove('btn-blue');
+    b.classList.add('btn-dark');
+  });
+  const target = document.getElementById('pref-panel-' + panelKey);
+  if (target) target.style.display = 'block';
+  if (btn) {
+    btn.classList.remove('btn-dark');
+    btn.classList.add('btn-blue');
+  }
+}
+
+function loadCompanyPreferences() {
+  const saved = JSON.parse(localStorage.getItem(COMPANY_PREF_STORAGE_KEY) || '{}');
+  if (document.getElementById('cfgCompanyName')) {
+    document.getElementById('cfgCompanyName').value = saved.companyName || (SESSION ? SESSION.store.namaToko : '');
+    document.getElementById('cfgCompanyNpwp').value = saved.companyNpwp || '';
+    document.getElementById('cfgCompanyPhone').value = saved.companyPhone || '';
+    document.getElementById('cfgCompanyEmail').value = saved.companyEmail || '';
+    document.getElementById('cfgCompanyAddress').value = saved.companyAddress || '';
+    document.getElementById('cfgReceiptFooter').value = saved.receiptFooter || 'Terima kasih telah berbelanja!';
+    document.getElementById('cfgTaxEnabled').value = String(saved.taxEnabled || false);
+    document.getElementById('cfgTaxPct').value = saved.taxPct != null ? saved.taxPct : 11;
+    document.getElementById('cfgTaxMode').value = saved.taxMode || 'EXCLUSIVE';
+    document.getElementById('cfgRoundMode').value = saved.roundMode || 'NONE';
+    document.getElementById('cfgRoundStep').value = saved.roundStep || '100';
+    document.getElementById('cfgExtraFeeLabel').value = saved.extraFeeLabel || 'Biaya Layanan';
+    document.getElementById('cfgExtraFeeType').value = saved.extraFeeType || 'NONE';
+    document.getElementById('cfgExtraFeeVal').value = saved.extraFeeVal || 0;
+    document.getElementById('cfgBagEnabled').value = String(saved.bagEnabled || false);
+    document.getElementById('cfgBagName').value = saved.bagName || 'Kantong Belanja Ramah Lingkungan';
+    document.getElementById('cfgBagPrice').value = saved.bagPrice || 500;
+    document.getElementById('cfgScaleEnabled').value = String(saved.scaleEnabled || false);
+    document.getElementById('cfgScalePrefix').value = saved.scalePrefix || '20,21';
+    document.getElementById('cfgScaleMode').value = saved.scaleMode || 'WEIGHT_GRAM';
+    document.getElementById('cfgDualDisplayEnabled').checked = Boolean(saved.dualDisplayEnabled);
+    document.getElementById('cfgDualDisplayPromoText').value = saved.dualDisplayPromoText || 'Selamat Datang! Dapatkan Poin Reward setiap belanja.';
+    document.getElementById('cfgDualDisplayBannerUrl').value = saved.dualDisplayBannerUrl || '';
+    document.getElementById('cfgPointEarnStep').value = saved.pointEarnStep || 10000;
+    document.getElementById('cfgPointRedeemVal').value = saved.pointRedeemVal || 100;
+    document.getElementById('cfgPointMinRedeem').value = saved.pointMinRedeem || 50;
+    document.getElementById('cfgPrefixStruk').value = saved.prefixStruk || 'TRX-';
+    document.getElementById('cfgPrefixLpb').value = saved.prefixLpb || 'PB-';
+  }
+  if (saved.edcTerminals && Array.isArray(saved.edcTerminals)) {
+    EDC_TERMINALS_LIST = saved.edcTerminals;
+  }
+}
+
+function saveCompanyPreferences() {
+  const prefs = {
+    companyName: document.getElementById('cfgCompanyName').value.trim(),
+    companyNpwp: document.getElementById('cfgCompanyNpwp').value.trim(),
+    companyPhone: document.getElementById('cfgCompanyPhone').value.trim(),
+    companyEmail: document.getElementById('cfgCompanyEmail').value.trim(),
+    companyAddress: document.getElementById('cfgCompanyAddress').value.trim(),
+    receiptFooter: document.getElementById('cfgReceiptFooter').value.trim(),
+    taxEnabled: document.getElementById('cfgTaxEnabled').value === 'true',
+    taxPct: Number(document.getElementById('cfgTaxPct').value) || 0,
+    taxMode: document.getElementById('cfgTaxMode').value,
+    roundMode: document.getElementById('cfgRoundMode').value,
+    roundStep: document.getElementById('cfgRoundStep').value,
+    extraFeeLabel: document.getElementById('cfgExtraFeeLabel').value.trim(),
+    extraFeeType: document.getElementById('cfgExtraFeeType').value,
+    extraFeeVal: Number(document.getElementById('cfgExtraFeeVal').value) || 0,
+    bagEnabled: document.getElementById('cfgBagEnabled').value === 'true',
+    bagName: document.getElementById('cfgBagName').value.trim(),
+    bagPrice: Number(document.getElementById('cfgBagPrice').value) || 0,
+    scaleEnabled: document.getElementById('cfgScaleEnabled').value === 'true',
+    scalePrefix: document.getElementById('cfgScalePrefix').value.trim(),
+    scaleMode: document.getElementById('cfgScaleMode').value,
+    dualDisplayEnabled: document.getElementById('cfgDualDisplayEnabled').checked,
+    dualDisplayPromoText: document.getElementById('cfgDualDisplayPromoText').value.trim(),
+    dualDisplayBannerUrl: document.getElementById('cfgDualDisplayBannerUrl').value.trim(),
+    pointEarnStep: Number(document.getElementById('cfgPointEarnStep').value) || 10000,
+    pointRedeemVal: Number(document.getElementById('cfgPointRedeemVal').value) || 100,
+    pointMinRedeem: Number(document.getElementById('cfgPointMinRedeem').value) || 50,
+    prefixStruk: document.getElementById('cfgPrefixStruk').value.trim() || 'TRX-',
+    prefixLpb: document.getElementById('cfgPrefixLpb').value.trim() || 'PB-',
+    edcTerminals: EDC_TERMINALS_LIST
+  };
+
+  localStorage.setItem(COMPANY_PREF_STORAGE_KEY, JSON.stringify(prefs));
+  alert('Preferensi Perusahaan & Pengaturan Kasir berhasil disimpan!');
+}
+
+function openChangePinModal() {
+  document.getElementById('pinOldInput').value = '';
+  document.getElementById('pinNewInput').value = '';
+  document.getElementById('pinConfirmInput').value = '';
+  document.getElementById('changePinModal').classList.add('open');
+}
+
+function submitChangePin() {
+  const oldPin = document.getElementById('pinOldInput').value.trim();
+  const newPin = document.getElementById('pinNewInput').value.trim();
+  const confirmPin = document.getElementById('pinConfirmInput').value.trim();
+  if (!newPin || newPin.length < 4) return alert('PIN baru minimal 4 digit.');
+  if (newPin !== confirmPin) return alert('Konfirmasi PIN baru tidak cocok!');
+
+  callAdminApi('security/change-pin', {
+    userId: SESSION ? SESSION.user.idUser : '',
+    oldPin,
+    newPin
+  }, res => {
+    closeModal('changePinModal');
+    alert(res.message || 'PIN otorisasi berhasil diperbarui.');
+  }, 'Memperbarui PIN Otorisasi...');
+}
+
+function openEdcCardModal() {
+  renderEdcTable();
+  document.getElementById('edcCardModal').classList.add('open');
+}
+
+function renderEdcTable() {
+  const tbody = document.getElementById('edcTableBody');
+  if (!tbody) return;
+  tbody.innerHTML = EDC_TERMINALS_LIST.map((e, idx) => `
+    <tr>
+      <td><strong>${e.nama}</strong></td>
+      <td><span class="badge badge-ok">${e.jenis}</span></td>
+      <td>${e.mdr}%</td>
+      <td><button type="button" class="btn btn-red btn-sm" onclick="EDC_TERMINALS_LIST.splice(${idx}, 1); renderEdcTable(); saveCompanyPreferences();">Hapus</button></td>
+    </tr>
+  `).join('');
+}
+
+function addEdcTerminal() {
+  const nama = document.getElementById('edcNameInput').value.trim();
+  const jenis = document.getElementById('edcTypeInput').value;
+  const mdr = Number(document.getElementById('edcMdrInput').value) || 0;
+  if (!nama) return alert('Nama Terminal EDC wajib diisi.');
+  EDC_TERMINALS_LIST.push({ id: 'EDC-' + Date.now(), nama, jenis, mdr });
+  document.getElementById('edcNameInput').value = '';
+  renderEdcTable();
+  saveCompanyPreferences();
+}
+
+function openRoleMatrixModal() {
+  document.getElementById('roleMatrixModal').classList.add('open');
+}
+
+function openImportMasterModal() {
+  document.getElementById('importMasterModal').classList.add('open');
+}
+
+function downloadCsvTemplate() {
+  const csv = 'SKU,Barcode,NamaBarang,Kategori,Satuan,HPP,HargaJual,SaldoAwal\nSKU-2001,8991234567890,Contoh Produk Baru,Umum,PCS,8000,10000,25';
+  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+  const link = document.createElement('a');
+  link.href = URL.createObjectURL(blob);
+  link.download = 'Template_Impor_Master_Barang.csv';
+  link.click();
+}
+
+function processCsvImport() {
+  const fileInput = document.getElementById('importCsvFile');
+  if (!fileInput.files || !fileInput.files[0]) return alert('Pilih file CSV terlebih dahulu.');
+  const reader = new FileReader();
+  reader.onload = async function(e) {
+    const lines = e.target.result.split(/\r?\n/).filter(Boolean);
+    if (lines.length < 2) return alert('File CSV kosong atau tidak memiliki baris data.');
+    let successCount = 0;
+    for (let i = 1; i < lines.length; i++) {
+      const cols = lines[i].split(',');
+      if (cols.length < 3) continue;
+      try {
+        await ApiClient.call('admin/save-product', {
+          sku: cols[0].trim(),
+          barcode: cols[1].trim(),
+          nama: cols[2].trim(),
+          kategori: (cols[3] || 'Umum').trim(),
+          satuan: (cols[4] || 'PCS').trim(),
+          hargaModal: Number(cols[5]) || 0,
+          hargaJual: Number(cols[6]) || 0,
+          saldoAwal: Number(cols[7]) || 0
+        });
+        successCount++;
+      } catch (err) { /* skip invalid row */ }
+    }
+    alert(`Impor selesai! ${successCount} barang berhasil ditambahkan/diperbarui.`);
+    closeModal('importMasterModal');
+    loadMasterCatalog();
+  };
+  reader.readAsText(fileInput.files[0]);
+}
+
+function openDatabaseBackupModal() {
+  document.getElementById('databaseBackupModal').classList.add('open');
+}
+
+function downloadFullBackupJson() {
+  const backupData = {
+    exportedAt: new Date().toISOString(),
+    store: SESSION ? SESSION.store : {},
+    preferences: JSON.parse(localStorage.getItem(COMPANY_PREF_STORAGE_KEY) || '{}'),
+    products: MASTER_PRODUCTS_CACHE,
+    members: MEMBERS_CACHE,
+    suppliers: GUDANG_SUPPLIERS_CACHE
+  };
+  const blob = new Blob([JSON.stringify(backupData, null, 2)], { type: 'application/json' });
+  const link = document.createElement('a');
+  link.href = URL.createObjectURL(blob);
+  link.download = `Backup_DanishPOS_${getTodayIsoDate()}.json`;
+  link.click();
+}
+
+function openCustomerDisplayWindow() {
+  const promoText = document.getElementById('cfgDualDisplayPromoText').value || 'Selamat Berbelanja!';
+  const bannerUrl = document.getElementById('cfgDualDisplayBannerUrl').value || '';
+  const win = window.open('', 'CustomerDisplayWin', 'width=900,height=600');
+  if (!win) return alert('Izinkan pop-up browser untuk membuka Layar Tambahan.');
+  win.document.write(`
+    <html><head><title>Customer Display - ${SESSION ? SESSION.store.namaToko : 'Danish POS'}</title></head>
+    <body style="margin:0; font-family:sans-serif; background:#0B192C; color:#fff; display:flex; height:100vh;">
+      <div style="flex:1.2; padding:24px; border-right:1px solid #1E293B; display:flex; flex-direction:column; justify-content:space-between;">
+        <div>
+          <h2 style="margin:0; color:#34D399;">${SESSION ? SESSION.store.namaToko : 'DANISH POS'}</h2>
+          <p style="color:#94A3B8; font-size:13px;">Rincian Belanja Anda</p>
+          <div style="margin-top:40px; text-align:center; color:#64748B;">Menunggu kasir memindai barang...</div>
+        </div>
+        <div style="background:#1E293B; padding:16px; border-radius:12px; display:flex; justify-content:space-between; align-items:center;">
+          <span style="font-size:16px;">TOTAL BELANJA</span>
+          <strong style="font-size:32px; color:#FBBF24;">Rp 0</strong>
+        </div>
+      </div>
+      <div style="flex:1; padding:24px; display:flex; flex-direction:column; align-items:center; justify-content:center; text-align:center; background:#132744;">
+        ${bannerUrl ? `<img src="${bannerUrl}" style="max-width:100%; max-height:320px; border-radius:12px; margin-bottom:16px;">` : '<div style="font-size:64px; margin-bottom:16px;">&#128722;</div>'}
+        <h3 style="color:#FBBF24; margin:0 0 8px 0;">PROMO &amp; INFORMASI TOKO</h3>
+        <p style="font-size:16px; line-height:1.5;">${promoText}</p>
+      </div>
+    </body></html>
+  `);
+}

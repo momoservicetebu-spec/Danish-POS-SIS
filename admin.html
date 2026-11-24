@@ -849,44 +849,34 @@
         </div>
       </div>
 
-      <!-- TAB 8: SUPPLIER & PEMBELIAN -->
+      <!-- TAB 8: PEMBELIAN & HUTANG USAHA -->
       <div id="tab-suppliers" class="section">
-        <div class="bento-2col">
-          <div class="card">
-            <h3 style="margin-top:0;">Master Pemasok (Supplier)</h3>
-            <div class="form-row">
-              <input type="text" id="supId" placeholder="Kode (Otomatis jika kosong)">
-              <input type="text" id="supNama" placeholder="Nama PT / Supplier">
-              <input type="text" id="supHp" placeholder="No. HP / Sales">
+        <div class="card" style="margin-bottom:16px;">
+          <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:8px; margin-bottom:12px;">
+            <div>
+              <h3 style="margin:0;">Faktur Pembelian Barang (Update Stok &amp; HPP)</h3>
+              <small style="color:var(--text-muted);">Kelola master data pemasok melalui menu <strong>Gudang &amp; Mutasi &rarr; Tambah Pemasok</strong>.</small>
             </div>
-            <div class="form-row">
-              <input type="text" id="supAlamat" placeholder="Alamat / Kota">
-              <input type="number" id="supTermin" placeholder="Termin Tempo (Hari)" value="14">
-              <button class="btn btn-green" onclick="submitSupplier()">Simpan Supplier</button>
-            </div>
+            <button type="button" class="btn btn-blue btn-sm" onclick="openPemasokModal()">&#10133; Tambah Pemasok Baru</button>
           </div>
-
-          <div class="card">
-            <h3 style="margin-top:0;">Faktur Pembelian Barang (Update Stok & HPP)</h3>
-            <div class="form-row">
-              <select id="purSupplierId"></select>
-              <input type="text" id="purNoFaktur" placeholder="No. Faktur Supplier">
-              <select id="purPayMethod">
-                <option value="TUNAI">Bayar Lunas / Tunai</option>
-                <option value="TEMPO">Kredit / Tempo Supplier</option>
-              </select>
-            </div>
-            <div class="form-row">
-              <input type="text" id="purSku" placeholder="Kode SKU (misal: SKU-1001)">
-              <input type="number" id="purQty" placeholder="Qty Beli (Pcs)">
-              <input type="number" id="purBuyPrice" placeholder="Harga Beli Satuan (Rp)">
-            </div>
-            <button class="btn btn-blue" onclick="submitPurchaseInvoice()">Simpan Faktur Pembelian</button>
+          <div class="form-row">
+            <select id="purSupplierId"></select>
+            <input type="text" id="purNoFaktur" placeholder="No. Faktur Supplier">
+            <select id="purPayMethod">
+              <option value="TUNAI">Bayar Lunas / Tunai</option>
+              <option value="TEMPO">Kredit / Tempo Supplier</option>
+            </select>
           </div>
+          <div class="form-row">
+            <input type="text" id="purSku" list="catalogDataList" placeholder="Kode SKU (misal: SKU-1001)">
+            <input type="number" id="purQty" placeholder="Qty Beli (Pcs)">
+            <input type="number" id="purBuyPrice" placeholder="Harga Beli Satuan (Rp)">
+          </div>
+          <button type="button" class="btn btn-blue" onclick="submitPurchaseInvoice()">&#128190; Simpan Faktur Pembelian</button>
         </div>
 
         <div class="card">
-          <h3 style="margin-top:0;">Daftar Supplier & Kartu Hutang Usaha</h3>
+          <h3 style="margin-top:0;">Kartu Hutang Usaha Pemasok</h3>
           <table>
             <thead>
               <tr><th>Kode</th><th>Nama Supplier</th><th>Kontak</th><th>Termin</th><th>Sisa Hutang Toko</th><th>Aksi</th></tr>
@@ -951,6 +941,362 @@
       </div>
     </main>
   </div>
+  <!-- TAB 10: PERUSAHAAN & PREFERENSI (REFERENSI RENE POS) -->
+      <div id="tab-company" class="section">
+        <!-- TOOLBAR ATAS PERUSAHAAN -->
+        <div class="card" style="margin-bottom:16px;">
+          <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px; margin-bottom:12px;">
+            <div>
+              <h3 style="margin:0;">Administrasi Perusahaan &amp; Preferensi Sistem</h3>
+              <small style="color:var(--text-muted);">Pengaturan profil usaha, otorisasi PIN, mesin EDC, kartu pembayaran, impor data, dan preferensi kasir.</small>
+            </div>
+            <span class="badge badge-ok">RENE-Style Enterprise Config</span>
+          </div>
+
+          <div style="display:flex; gap:8px; flex-wrap:wrap;">
+            <button type="button" class="btn btn-blue" onclick="switchCompanyTopMode('preferensi')">&#9881; Preferensi</button>
+            <button type="button" class="btn btn-teal" onclick="openImportMasterModal()">&#128229; Impor CSV/Excel</button>
+            <button type="button" class="btn btn-dark" onclick="switchTab('users', document.querySelectorAll('.sidebar-menu .tab-btn')[9])">&#128104;&#8205;&#128188; Karyawan &amp; Pengguna</button>
+            <button type="button" class="btn btn-violet" onclick="openRoleMatrixModal()">&#128737; Grup Pengguna (Hak Akses)</button>
+            <button type="button" class="btn btn-amber" onclick="openChangePinModal()">&#128273; Ganti PIN</button>
+            <button type="button" class="btn btn-green" onclick="openEdcCardModal()">&#128179; EDC &amp; Kartu</button>
+            <button type="button" class="btn btn-dark" onclick="openDatabaseBackupModal()">&#128451; File Database</button>
+          </div>
+        </div>
+
+        <!-- PANEL UTAMA PREFERENSI (SIDEBAR KIRI 15 MENU + FORM KANAN) -->
+        <div style="display:grid; grid-template-columns: 230px 1fr; gap:16px; align-items:start;">
+          <!-- NAVIGASI KIRI PREFERENSI -->
+          <div class="card" style="padding:10px; display:flex; flex-direction:column; gap:4px;">
+            <button type="button" class="btn btn-blue btn-sm pref-nav-btn" style="justify-content:flex-start;" onclick="switchPrefPanel('perusahaan', this)">1. Perusahaan</button>
+            <button type="button" class="btn btn-dark btn-sm pref-nav-btn" style="justify-content:flex-start;" onclick="switchPrefPanel('pajak', this)">2. Pajak &amp; PPN</button>
+            <button type="button" class="btn btn-dark btn-sm pref-nav-btn" style="justify-content:flex-start;" onclick="switchPrefPanel('pembayaran', this)">3. Pembayaran &amp; EDC</button>
+            <button type="button" class="btn btn-dark btn-sm pref-nav-btn" style="justify-content:flex-start;" onclick="switchPrefPanel('pembulatan', this)">4. Pembulatan Struk</button>
+            <button type="button" class="btn btn-dark btn-sm pref-nav-btn" style="justify-content:flex-start;" onclick="switchPrefPanel('tipe_pesanan', this)">5. Tipe Pesanan</button>
+            <button type="button" class="btn btn-dark btn-sm pref-nav-btn" style="justify-content:flex-start;" onclick="switchPrefPanel('biaya_tambahan', this)">6. Biaya Tambahan</button>
+            <button type="button" class="btn btn-dark btn-sm pref-nav-btn" style="justify-content:flex-start;" onclick="switchPrefPanel('pembungkus', this)">7. Pembungkus / Kantong</button>
+            <button type="button" class="btn btn-dark btn-sm pref-nav-btn" style="justify-content:flex-start;" onclick="switchPrefPanel('timbangan', this)">8. Timbangan Digital</button>
+            <button type="button" class="btn btn-dark btn-sm pref-nav-btn" style="justify-content:flex-start;" onclick="switchPrefPanel('pemasok', this)">9. Pemasok Default</button>
+            <button type="button" class="btn btn-dark btn-sm pref-nav-btn" style="justify-content:flex-start;" onclick="switchPrefPanel('layar_tambahan', this)">10. Layar Tambahan (Iklan)</button>
+            <button type="button" class="btn btn-dark btn-sm pref-nav-btn" style="justify-content:flex-start;" onclick="switchPrefPanel('poin_reward', this)">11. Poin Reward</button>
+            <button type="button" class="btn btn-dark btn-sm pref-nav-btn" style="justify-content:flex-start;" onclick="switchPrefPanel('tingkatan_harga', this)">12. Tingkatan Harga</button>
+            <button type="button" class="btn btn-dark btn-sm pref-nav-btn" style="justify-content:flex-start;" onclick="switchPrefPanel('penomoran_struk', this)">13. Penomoran Struk</button>
+            <button type="button" class="btn btn-dark btn-sm pref-nav-btn" style="justify-content:flex-start;" onclick="switchPrefPanel('kolom_tambahan', this)">14. Kolom Tambahan</button>
+            <button type="button" class="btn btn-dark btn-sm pref-nav-btn" style="justify-content:flex-start;" onclick="switchPrefPanel('shift_kasir', this)">15. Shift Kasir</button>
+          </div>
+
+          <!-- AREA PENGATURAN KANAN -->
+          <div class="card">
+            <!-- 1. PERUSAHAAN -->
+            <div id="pref-panel-perusahaan" class="pref-panel">
+              <h3 style="margin-top:0;">Identitas Perusahaan &amp; Header/Footer Struk</h3>
+              <div class="form-row" style="grid-template-columns: 1fr 1fr;">
+                <div>
+                  <label style="font-size:12px; font-weight:600; display:block; margin-bottom:4px;">Nama Perusahaan / Toko</label>
+                  <input type="text" id="cfgCompanyName" placeholder="Nama Toko / Usaha">
+                </div>
+                <div>
+                  <label style="font-size:12px; font-weight:600; display:block; margin-bottom:4px;">NPWP / Nomor Izin Usaha</label>
+                  <input type="text" id="cfgCompanyNpwp" placeholder="00.000.000.0-000.000">
+                </div>
+              </div>
+              <div class="form-row" style="grid-template-columns: 1fr 1fr;">
+                <div>
+                  <label style="font-size:12px; font-weight:600; display:block; margin-bottom:4px;">No. Telepon / WhatsApp Toko</label>
+                  <input type="text" id="cfgCompanyPhone" placeholder="0812-xxxx-xxxx">
+                </div>
+                <div>
+                  <label style="font-size:12px; font-weight:600; display:block; margin-bottom:4px;">Email / Website</label>
+                  <input type="text" id="cfgCompanyEmail" placeholder="toko@domain.com">
+                </div>
+              </div>
+              <div style="margin-bottom:12px;">
+                <label style="font-size:12px; font-weight:600; display:block; margin-bottom:4px;">Alamat Lengkap Toko (Tampil di Header Struk)</label>
+                <input type="text" id="cfgCompanyAddress" placeholder="Jl. Raya Utama No. 1...">
+              </div>
+              <div style="margin-bottom:12px;">
+                <label style="font-size:12px; font-weight:600; display:block; margin-bottom:4px;">Catatan Kaki Struk (Footer Receipt)</label>
+                <textarea id="cfgReceiptFooter" rows="2" placeholder="Terima kasih telah berbelanja! Barang yang sudah dibeli tidak dapat ditukar."></textarea>
+              </div>
+            </div>
+
+            <!-- 2. PAJAK -->
+            <div id="pref-panel-pajak" class="pref-panel" style="display:none;">
+              <h3 style="margin-top:0;">Pengaturan Pajak Penjualan (PPN / PB1)</h3>
+              <div class="form-row">
+                <div>
+                  <label style="font-size:12px; font-weight:600; display:block; margin-bottom:4px;">Status Pajak Default</label>
+                  <select id="cfgTaxEnabled">
+                    <option value="false">Non-Pajak (0%)</option>
+                    <option value="true">Aktifkan Pajak Otomatis</option>
+                  </select>
+                </div>
+                <div>
+                  <label style="font-size:12px; font-weight:600; display:block; margin-bottom:4px;">Tarif Pajak (%)</label>
+                  <input type="number" id="cfgTaxPct" value="11" min="0" max="100" step="0.5">
+                </div>
+                <div>
+                  <label style="font-size:12px; font-weight:600; display:block; margin-bottom:4px;">Mode Perhitungan Harga</label>
+                  <select id="cfgTaxMode">
+                    <option value="EXCLUSIVE">Eksklusif (Ditambahkan di atas harga jual)</option>
+                    <option value="INCLUSIVE">Inklusif (Sudah termasuk dalam harga jual)</option>
+                  </select>
+                </div>
+              </div>
+            </div>
+
+            <!-- 3. PEMBAYARAN -->
+            <div id="pref-panel-pembayaran" class="pref-panel" style="display:none;">
+              <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
+                <h3 style="margin:0;">Metode Pembayaran, Mesin EDC &amp; Jenis Kartu</h3>
+                <button type="button" class="btn btn-blue btn-sm" onclick="openEdcCardModal()">&#10133; Kelola EDC &amp; Kartu</button>
+              </div>
+              <div style="display:grid; grid-template-columns: repeat(2, 1fr); gap:10px; background:#F8FAFC; padding:14px; border-radius:10px; border:1px solid var(--border);">
+                <label style="display:flex; align-items:center; gap:8px; font-weight:600;"><input type="checkbox" id="cfgPayCash" checked style="width:16px; height:16px;"> Tunai (Cash)</label>
+                <label style="display:flex; align-items:center; gap:8px; font-weight:600;"><input type="checkbox" id="cfgPayQris" checked style="width:16px; height:16px;"> QRIS Statis / Dinamis</label>
+                <label style="display:flex; align-items:center; gap:8px; font-weight:600;"><input type="checkbox" id="cfgPayEdc" checked style="width:16px; height:16px;"> Kartu Debit / Kredit (EDC)</label>
+                <label style="display:flex; align-items:center; gap:8px; font-weight:600;"><input type="checkbox" id="cfgPayTempo" checked style="width:16px; height:16px;"> Piutang / Tempo Member</label>
+              </div>
+            </div>
+
+            <!-- 4. PEMBULATAN STRUK -->
+            <div id="pref-panel-pembulatan" class="pref-panel" style="display:none;">
+              <h3 style="margin-top:0;">Pembulatan Otomatis Total Struk</h3>
+              <div class="form-row">
+                <div>
+                  <label style="font-size:12px; font-weight:600; display:block; margin-bottom:4px;">Mode Pembulatan</label>
+                  <select id="cfgRoundMode">
+                    <option value="NONE">Tidak Ada Pembulatan</option>
+                    <option value="DOWN">Bulatkan ke Bawah (Untungkan Pembeli)</option>
+                    <option value="UP">Bulatkan ke Atas</option>
+                    <option value="NEAREST">Bulatkan Terdekat</option>
+                  </select>
+                </div>
+                <div>
+                  <label style="font-size:12px; font-weight:600; display:block; margin-bottom:4px;">Kelipatan Pembulatan (Rp)</label>
+                  <select id="cfgRoundStep">
+                    <option value="100">Rp 100</option>
+                    <option value="500">Rp 500</option>
+                    <option value="1000">Rp 1.000</option>
+                  </select>
+                </div>
+              </div>
+            </div>
+
+            <!-- 5. TIPE PESANAN -->
+            <div id="pref-panel-tipe_pesanan" class="pref-panel" style="display:none;">
+              <h3 style="margin-top:0;">Tipe Pesanan Kasir</h3>
+              <p style="font-size:12px; color:var(--text-muted);">Pilih jenis layanan penjualan yang aktif ditampilkan pada layar transaksi kasir.</p>
+              <div style="display:grid; grid-template-columns: repeat(2, 1fr); gap:10px; background:#F8FAFC; padding:14px; border-radius:10px; border:1px solid var(--border);">
+                <label style="display:flex; align-items:center; gap:8px; font-weight:600;"><input type="checkbox" id="cfgOrderRetail" checked style="width:16px; height:16px;"> Retail / Walk-in</label>
+                <label style="display:flex; align-items:center; gap:8px; font-weight:600;"><input type="checkbox" id="cfgOrderTakeAway" checked style="width:16px; height:16px;"> Take Away / Bungkus</label>
+                <label style="display:flex; align-items:center; gap:8px; font-weight:600;"><input type="checkbox" id="cfgOrderDineIn" style="width:16px; height:16px;"> Dine-In (Makan di Tempat)</label>
+                <label style="display:flex; align-items:center; gap:8px; font-weight:600;"><input type="checkbox" id="cfgOrderDelivery" style="width:16px; height:16px;"> Delivery / Kurir / Online</label>
+              </div>
+            </div>
+
+            <!-- 6. BIAYA TAMBAHAN -->
+            <div id="pref-panel-biaya_tambahan" class="pref-panel" style="display:none;">
+              <h3 style="margin-top:0;">Biaya Tambahan / Service Charge</h3>
+              <div class="form-row">
+                <div>
+                  <label style="font-size:12px; font-weight:600; display:block; margin-bottom:4px;">Nama Biaya di Struk</label>
+                  <input type="text" id="cfgExtraFeeLabel" value="Biaya Layanan">
+                </div>
+                <div>
+                  <label style="font-size:12px; font-weight:600; display:block; margin-bottom:4px;">Jenis Perhitungan</label>
+                  <select id="cfgExtraFeeType">
+                    <option value="NONE">Non-Aktif (Rp 0)</option>
+                    <option value="PERCENT">Persentase (%)</option>
+                    <option value="FIXED">Nominal Tetap (Rp)</option>
+                  </select>
+                </div>
+                <div>
+                  <label style="font-size:12px; font-weight:600; display:block; margin-bottom:4px;">Nilai (% / Rp)</label>
+                  <input type="number" id="cfgExtraFeeVal" value="0" min="0">
+                </div>
+              </div>
+            </div>
+
+            <!-- 7. PEMBUNGKUS -->
+            <div id="pref-panel-pembungkus" class="pref-panel" style="display:none;">
+              <h3 style="margin-top:0;">Biaya Pembungkus / Kantong Belanja</h3>
+              <div class="form-row">
+                <div>
+                  <label style="font-size:12px; font-weight:600; display:block; margin-bottom:4px;">Status Kantong Berbayar</label>
+                  <select id="cfgBagEnabled">
+                    <option value="false">Gratis / Tidak Ditagihkan</option>
+                    <option value="true">Tawarkan / Tambahkan di Kasir</option>
+                  </select>
+                </div>
+                <div>
+                  <label style="font-size:12px; font-weight:600; display:block; margin-bottom:4px;">Nama Item Kantong</label>
+                  <input type="text" id="cfgBagName" value="Kantong Belanja Ramah Lingkungan">
+                </div>
+                <div>
+                  <label style="font-size:12px; font-weight:600; display:block; margin-bottom:4px;">Harga per Kantong (Rp)</label>
+                  <input type="number" id="cfgBagPrice" value="500" min="0">
+                </div>
+              </div>
+            </div>
+
+            <!-- 8. TIMBANGAN -->
+            <div id="pref-panel-timbangan" class="pref-panel" style="display:none;">
+              <h3 style="margin-top:0;">Konfigurasi Barcode Timbangan Digital (Fresh / Curah)</h3>
+              <p style="font-size:12px; color:var(--text-muted);">Format standar EAN-13 timbangan: <code>[Prefix 2 digit][Kode PLU 5 digit][Berat/Harga 5 digit][Check Digit]</code>.</p>
+              <div class="form-row">
+                <div>
+                  <label style="font-size:12px; font-weight:600; display:block; margin-bottom:4px;">Aktifkan Parser Timbangan</label>
+                  <select id="cfgScaleEnabled">
+                    <option value="false">Non-Aktif</option>
+                    <option value="true">Aktif (Scan Otomatis Berat/Harga)</option>
+                  </select>
+                </div>
+                <div>
+                  <label style="font-size:12px; font-weight:600; display:block; margin-bottom:4px;">Prefix Barcode Timbangan</label>
+                  <input type="text" id="cfgScalePrefix" value="20,21" placeholder="20,21">
+                </div>
+                <div>
+                  <label style="font-size:12px; font-weight:600; display:block; margin-bottom:4px;">Nilai 5 Digit Terakhir</label>
+                  <select id="cfgScaleMode">
+                    <option value="WEIGHT_GRAM">Berat dalam Gram (dibagi 1000 = Kg)</option>
+                    <option value="PRICE_RP">Total Harga Rupiah</option>
+                  </select>
+                </div>
+              </div>
+            </div>
+
+            <!-- 9. PEMASOK -->
+            <div id="pref-panel-pemasok" class="pref-panel" style="display:none;">
+              <h3 style="margin-top:0;">Preferensi Pemasok &amp; Pembelian</h3>
+              <div class="form-row" style="grid-template-columns: 1fr 1fr;">
+                <div>
+                  <label style="font-size:12px; font-weight:600; display:block; margin-bottom:4px;">Termin Kredit Default Pemasok (Hari)</label>
+                  <input type="number" id="cfgDefaultSupTermin" value="14" min="0">
+                </div>
+                <div>
+                  <label style="font-size:12px; font-weight:600; display:block; margin-bottom:4px;">Update HPP Otomatis Saat Penerimaan</label>
+                  <select id="cfgAutoUpdateHpp">
+                    <option value="AVERAGE">HPP Rata-Rata (Moving Average)</option>
+                    <option value="LAST">Harga Beli Terakhir (Last Cost)</option>
+                  </select>
+                </div>
+              </div>
+            </div>
+
+            <!-- 10. LAYAR TAMBAHAN (CUSTOMER DISPLAY + IKLAN - PERSIS GAMBAR RENE) -->
+            <div id="pref-panel-layar_tambahan" class="pref-panel" style="display:none;">
+              <h3 style="margin-top:0;">Layar / Monitor Tambahan (Customer Display &amp; Media Iklan)</h3>
+              <p style="font-size:13px; color:var(--text-muted); line-height:1.6;">
+                Layar/Monitor tambahan digunakan untuk menampilkan daftar barang yang sedang dicatat harganya beserta subtotal belanja kepada pembeli. Selain itu, layar tambahan berfungsi sebagai media iklan slide promosi toko saat kasir dalam antrean.
+              </p>
+              <div style="padding:14px; border:1px solid var(--border); border-radius:12px; background:#F8FAFC; margin-bottom:12px;">
+                <label style="display:flex; align-items:center; gap:10px; font-size:14px; font-weight:700; cursor:pointer; margin-bottom:12px;">
+                  <input type="checkbox" id="cfgDualDisplayEnabled" style="width:18px; height:18px;">
+                  Ya, Kami akan mengaplikasikan Layar / Monitor Tambahan
+                </label>
+                <div class="form-row" style="grid-template-columns: 1fr 1fr;">
+                  <div>
+                    <label style="font-size:12px; font-weight:600; display:block; margin-bottom:4px;">Teks Banner Promo / Running Text Pelanggan</label>
+                    <input type="text" id="cfgDualDisplayPromoText" value="Selamat Datang! Dapatkan Poin Reward setiap belanja.">
+                  </div>
+                  <div>
+                    <label style="font-size:12px; font-weight:600; display:block; margin-bottom:4px;">URL Gambar Slide Iklan (Opsional)</label>
+                    <input type="text" id="cfgDualDisplayBannerUrl" placeholder="https://...">
+                  </div>
+                </div>
+                <button type="button" class="btn btn-violet btn-sm" onclick="openCustomerDisplayWindow()">&#128421; Buka Jendela Layar Tambahan (Preview)</button>
+              </div>
+            </div>
+
+            <!-- 11. POIN REWARD -->
+            <div id="pref-panel-poin_reward" class="pref-panel" style="display:none;">
+              <h3 style="margin-top:0;">Pengaturan Poin Reward Pelanggan</h3>
+              <div class="form-row">
+                <div>
+                  <label style="font-size:12px; font-weight:600; display:block; margin-bottom:4px;">Nominal Belanja untuk 1 Poin (Rp)</label>
+                  <input type="number" id="cfgPointEarnStep" value="10000" min="100">
+                </div>
+                <div>
+                  <label style="font-size:12px; font-weight:600; display:block; margin-bottom:4px;">Nilai Tukar 1 Poin (Rp)</label>
+                  <input type="number" id="cfgPointRedeemVal" value="100" min="1">
+                </div>
+                <div>
+                  <label style="font-size:12px; font-weight:600; display:block; margin-bottom:4px;">Minimal Poin Penukaran</label>
+                  <input type="number" id="cfgPointMinRedeem" value="50" min="1">
+                </div>
+              </div>
+            </div>
+
+            <!-- 12. TINGKATAN HARGA -->
+            <div id="pref-panel-tingkatan_harga" class="pref-panel" style="display:none;">
+              <h3 style="margin-top:0;">Label Tingkatan Harga Jual (5 Level)</h3>
+              <div class="form-row">
+                <div><label style="font-size:12px; font-weight:600;">Level 1 (Default)</label><input type="text" id="cfgTier1Name" value="Reguler"></div>
+                <div><label style="font-size:12px; font-weight:600;">Level 2</label><input type="text" id="cfgTier2Name" value="Member"></div>
+                <div><label style="font-size:12px; font-weight:600;">Level 3</label><input type="text" id="cfgTier3Name" value="Grosir / Tingkat 3"></div>
+              </div>
+              <div class="form-row" style="grid-template-columns: 1fr 1fr;">
+                <div><label style="font-size:12px; font-weight:600;">Level 4</label><input type="text" id="cfgTier4Name" value="Reseller / Tingkat 4"></div>
+                <div><label style="font-size:12px; font-weight:600;">Level 5</label><input type="text" id="cfgTier5Name" value="VIP / Tingkat 5"></div>
+              </div>
+            </div>
+
+            <!-- 13. PENOMORAN STRUK -->
+            <div id="pref-panel-penomoran_struk" class="pref-panel" style="display:none;">
+              <h3 style="margin-top:0;">Format Penomoran Dokumen &amp; Struk</h3>
+              <div class="form-row">
+                <div><label style="font-size:12px; font-weight:600;">Prefix Struk Penjualan</label><input type="text" id="cfgPrefixStruk" value="TRX-"></div>
+                <div><label style="font-size:12px; font-weight:600;">Prefix Penerimaan (LPB)</label><input type="text" id="cfgPrefixLpb" value="PB-"></div>
+                <div><label style="font-size:12px; font-weight:600;">Reset Nomor Urut</label>
+                  <select id="cfgNumberReset">
+                    <option value="DAILY">Harian (YYYYMMDD-001)</option>
+                    <option value="MONTHLY">Bulanan (YYYYMM-0001)</option>
+                    <option value="NEVER">Berlanjut Terus</option>
+                  </select>
+                </div>
+              </div>
+            </div>
+
+            <!-- 14. KOLOM TAMBAHAN -->
+            <div id="pref-panel-kolom_tambahan" class="pref-panel" style="display:none;">
+              <h3 style="margin-top:0;">Kolom Tambahan Kustom (Custom Fields)</h3>
+              <div class="form-row">
+                <div><label style="font-size:12px; font-weight:600;">Label Custom Field 1 (Struk)</label><input type="text" id="cfgCustomField1" placeholder="Contoh: No. Meja / Plat Kendaraan"></div>
+                <div><label style="font-size:12px; font-weight:600;">Label Custom Field 2 (Barang)</label><input type="text" id="cfgCustomField2" placeholder="Contoh: Merk / No. Batch"></div>
+              </div>
+            </div>
+
+            <!-- 15. SHIFT KASIR -->
+            <div id="pref-panel-shift_kasir" class="pref-panel" style="display:none;">
+              <h3 style="margin-top:0;">Aturan Buka &amp; Tutup Shift Kasir</h3>
+              <div class="form-row">
+                <div>
+                  <label style="font-size:12px; font-weight:600; display:block; margin-bottom:4px;">Wajib Input Modal Awal Laci</label>
+                  <select id="cfgShiftRequireModal">
+                    <option value="true">Ya, Wajib Sebelum Transaksi</option>
+                    <option value="false">Opsional</option>
+                  </select>
+                </div>
+                <div>
+                  <label style="font-size:12px; font-weight:600; display:block; margin-bottom:4px;">Blind Closing (Sembunyikan Sistem saat Setor)</label>
+                  <select id="cfgShiftBlindClose">
+                    <option value="true">Ya (Kasir Hitung Fisik Uang Dulu)</option>
+                    <option value="false">Tampilkan Selisih Langsung</option>
+                  </select>
+                </div>
+              </div>
+            </div>
+
+            <!-- TOMBOL SIMPAN PREFERENSI (SELESAI / BATAL) -->
+            <div style="display:flex; justify-content:flex-end; gap:10px; border-top:1px solid var(--border); padding-top:14px; margin-top:14px;">
+              <button type="button" class="btn btn-green" onclick="saveCompanyPreferences()">&#128190; Selesai &amp; Simpan Preferensi</button>
+              <button type="button" class="btn btn-dark" onclick="loadCompanyPreferences()">&#128260; Muat Ulang</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
 
   <!-- MODAL 1: KARTU STOK DIGITAL PER SKU -->
   <div id="stockCardModal" class="modal-backdrop">
@@ -1975,6 +2321,156 @@
           <button type="button" class="btn btn-violet" onclick="submitRepackUnit()">&#128190; Proses Konversi Satuan</button>
           <button type="button" class="btn btn-red" onclick="closeModal('repackModal')">&#10006; Batal</button>
         </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL 15: GANTI PIN OTORISASI SUPERVISOR / USER -->
+  <div id="changePinModal" class="modal-backdrop">
+    <div class="modal-box" style="max-width:460px;">
+      <div class="modal-header">
+        <div>
+          <h3 style="margin:0;">Ganti PIN Otorisasi</h3>
+          <small style="color:var(--text-muted);">Ubah PIN keamanan untuk otorisasi Void, Diskon &amp; Stock Opname.</small>
+        </div>
+        <button type="button" class="btn btn-dark btn-sm" onclick="closeModal('changePinModal')">&#10006;</button>
+      </div>
+      <div class="modal-body" style="display:flex; flex-direction:column; gap:10px;">
+        <div>
+          <label style="font-size:12px; font-weight:600;">PIN Lama</label>
+          <input type="password" id="pinOldInput" placeholder="Masukkan PIN lama">
+        </div>
+        <div>
+          <label style="font-size:12px; font-weight:600;">PIN Baru (4–6 Digit Angka)</label>
+          <input type="password" id="pinNewInput" placeholder="Masukkan PIN baru">
+        </div>
+        <div>
+          <label style="font-size:12px; font-weight:600;">Konfirmasi PIN Baru</label>
+          <input type="password" id="pinConfirmInput" placeholder="Ulangi PIN baru">
+        </div>
+        <div style="display:flex; justify-content:flex-end; gap:8px; margin-top:8px;">
+          <button type="button" class="btn btn-green" onclick="submitChangePin()">&#128190; Simpan PIN Baru</button>
+          <button type="button" class="btn btn-red" onclick="closeModal('changePinModal')">&#10006; Batal</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL 16: MASTER MESIN EDC & JENIS KARTU PEMBAYARAN -->
+  <div id="edcCardModal" class="modal-backdrop">
+    <div class="modal-box" style="max-width:780px;">
+      <div class="modal-header">
+        <div>
+          <h3 style="margin:0;">Master Mesin EDC &amp; Kartu Pembayaran</h3>
+          <small style="color:var(--text-muted);">Daftarkan terminal EDC bank, biaya MDR (%), dan jenis kartu yang diterima kasir.</small>
+        </div>
+        <button type="button" class="btn btn-dark btn-sm" onclick="closeModal('edcCardModal')">&#10006;</button>
+      </div>
+      <div class="modal-body">
+        <div class="form-row" style="grid-template-columns: 1.2fr 1fr 0.8fr auto; align-items:end; background:#F8FAFC; padding:12px; border-radius:10px; border:1px solid var(--border);">
+          <div>
+            <label style="font-size:12px; font-weight:600;">Nama Terminal EDC / Bank</label>
+            <input type="text" id="edcNameInput" placeholder="Contoh: EDC BCA / BRI / QRIS">
+          </div>
+          <div>
+            <label style="font-size:12px; font-weight:600;">Jenis Kartu / Channel</label>
+            <select id="edcTypeInput">
+              <option value="Debit">Kartu Debit</option>
+              <option value="Kredit">Kartu Kredit</option>
+              <option value="QRIS">QRIS / E-Wallet</option>
+              <option value="Transfer">Transfer Virtual Account</option>
+            </select>
+          </div>
+          <div>
+            <label style="font-size:12px; font-weight:600;">Biaya MDR (%)</label>
+            <input type="number" id="edcMdrInput" value="0" min="0" max="10" step="0.05">
+          </div>
+          <button type="button" class="btn btn-green" onclick="addEdcTerminal()">&#10133; Tambah</button>
+        </div>
+        <div class="table-responsive" style="margin-top:12px;">
+          <table>
+            <thead>
+              <tr><th>Nama EDC / Bank</th><th>Jenis Kartu</th><th>MDR (%)</th><th>Aksi</th></tr>
+            </thead>
+            <tbody id="edcTableBody"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL 17: GRUP PENGGUNA & MATRIKS HAK AKSES (RBAC) -->
+  <div id="roleMatrixModal" class="modal-backdrop">
+    <div class="modal-box" style="max-width:780px;">
+      <div class="modal-header">
+        <div>
+          <h3 style="margin:0;">Grup Pengguna &amp; Matriks Hak Akses (RBAC)</h3>
+          <small style="color:var(--text-muted);">Atur izin akses fitur per jabatan karyawan.</small>
+        </div>
+        <button type="button" class="btn btn-dark btn-sm" onclick="closeModal('roleMatrixModal')">&#10006;</button>
+      </div>
+      <div class="modal-body">
+        <table>
+          <thead>
+            <tr>
+              <th>Modul / Izin Operasi</th>
+              <th style="text-align:center;">Kasir</th>
+              <th style="text-align:center;">Pramuniaga</th>
+              <th style="text-align:center;">Kepala Toko</th>
+              <th style="text-align:center;">Owner / Korwil</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr><td>Transaksi Penjualan Kasir</td><td style="text-align:center;">&#9989;</td><td style="text-align:center;">&#10060;</td><td style="text-align:center;">&#9989;</td><td style="text-align:center;">&#9989;</td></tr>
+            <tr><td>Void / Batal Transaksi &amp; Diskon Manual</td><td style="text-align:center;">PIN SPV</td><td style="text-align:center;">&#10060;</td><td style="text-align:center;">&#9989;</td><td style="text-align:center;">&#9989;</td></tr>
+            <tr><td>Input Penerimaan Barang &amp; Stock Opname</td><td style="text-align:center;">&#10060;</td><td style="text-align:center;">&#9989;</td><td style="text-align:center;">&#9989;</td><td style="text-align:center;">&#9989;</td></tr>
+            <tr><td>Ubah Master Barang &amp; Harga Jual</td><td style="text-align:center;">&#10060;</td><td style="text-align:center;">&#10060;</td><td style="text-align:center;">&#9989;</td><td style="text-align:center;">&#9989;</td></tr>
+            <tr><td>Lihat HPP, Laba Rugi &amp; Pengaturan Perusahaan</td><td style="text-align:center;">&#10060;</td><td style="text-align:center;">&#10060;</td><td style="text-align:center;">Terbatas</td><td style="text-align:center;">&#9989;</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL 18: IMPOR DATA MASTER CSV -->
+  <div id="importMasterModal" class="modal-backdrop">
+    <div class="modal-box" style="max-width:640px;">
+      <div class="modal-header">
+        <div>
+          <h3 style="margin:0;">Impor Massal Master Barang (CSV)</h3>
+          <small style="color:var(--text-muted);">Unggah file CSV berformat: <code>SKU,Barcode,NamaBarang,Kategori,Satuan,HPP,HargaJual,SaldoAwal</code></small>
+        </div>
+        <button type="button" class="btn btn-dark btn-sm" onclick="closeModal('importMasterModal')">&#10006;</button>
+      </div>
+      <div class="modal-body" style="display:flex; flex-direction:column; gap:12px;">
+        <button type="button" class="btn btn-blue btn-sm" style="align-self:flex-start;" onclick="downloadCsvTemplate()">&#128196; Unduh Template CSV Contoh</button>
+        <input type="file" id="importCsvFile" accept=".csv">
+        <div id="importPreviewBox" style="font-size:12px; color:var(--text-muted); background:#F8FAFC; padding:10px; border-radius:8px; border:1px solid var(--border);">
+          Pilih file .CSV untuk memulai impor ke katalog barang.
+        </div>
+        <div style="display:flex; justify-content:flex-end; gap:8px;">
+          <button type="button" class="btn btn-green" onclick="processCsvImport()">&#128229; Mulai Impor Sekarang</button>
+          <button type="button" class="btn btn-red" onclick="closeModal('importMasterModal')">&#10006; Batal</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL 19: FILE DATABASE (BACKUP & EXPORT JSON) -->
+  <div id="databaseBackupModal" class="modal-backdrop">
+    <div class="modal-box" style="max-width:560px;">
+      <div class="modal-header">
+        <div>
+          <h3 style="margin:0;">File Database &amp; Backup Cloud</h3>
+          <small style="color:var(--text-muted);">Unduh salinan cadangan (backup) seluruh katalog barang, pelanggan, dan pengaturan toko.</small>
+        </div>
+        <button type="button" class="btn btn-dark btn-sm" onclick="closeModal('databaseBackupModal')">&#10006;</button>
+      </div>
+      <div class="modal-body" style="display:flex; flex-direction:column; gap:12px;">
+        <div style="padding:12px; background:#ECFDF5; border:1px solid #A7F3D0; border-radius:10px; font-size:13px;">
+          <strong>Status Sinkronisasi:</strong> Terhubung langsung dengan Google Sheets Cloud Database (GAS Sync).
+        </div>
+        <button type="button" class="btn btn-green" onclick="downloadFullBackupJson()">&#128190; Unduh Full Backup Database (.JSON)</button>
       </div>
     </div>
   </div>
