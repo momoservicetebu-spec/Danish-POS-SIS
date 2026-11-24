@@ -3,133 +3,285 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-  <title>Terminal Kasir - Enterprise Retail POS v3.1</title>
+  <title>DANISH POS Client - Terminal Kasir</title>
   <link rel="stylesheet" href="CSS/css_global.css">
   <link rel="stylesheet" href="CSS/css_thermal.css">
+  <style>
+    html, body {
+      margin: 0; padding: 0; height: 100vh; width: 100vw; overflow: hidden;
+      background: #E2E8F0; font-family: 'Inter', system-ui, -apple-system, sans-serif;
+    }
+    .rene-shell {
+      display: flex; flex-direction: column; height: 100vh; width: 100vw;
+      background: #F8FAFC;
+    }
+    /* Title Bar Atas (Warna mengikuti Desain Mahir di Admin) */
+    .rene-titlebar {
+      background: #DB2777; color: #FFFFFF; padding: 7px 16px;
+      display: flex; justify-content: space-between; align-items: center;
+      font-size: 13px; font-weight: 700; flex-shrink: 0;
+    }
+    .rene-titlebar-actions {
+      display: flex; align-items: center; gap: 8px;
+    }
+    .rene-top-pill {
+      background: rgba(255,255,255,0.18); color: #fff; border: 1px solid rgba(255,255,255,0.3);
+      padding: 4px 10px; border-radius: 6px; font-size: 11px; font-weight: 700; cursor: pointer;
+    }
+    .rene-top-pill:hover { background: rgba(255,255,255,0.3); }
+
+    /* Workspace Utama: Sidebar Tombol Kiri + Area Transaksi Utama */
+    .rene-workspace {
+      display: grid; grid-template-columns: 148px 1fr; gap: 10px;
+      padding: 10px; flex: 1; min-height: 0;
+    }
+
+    /* Kolom Kiri: Tombol Fungsi Gelap & Menu Tambahan Oranye */
+    .rene-left-rail {
+      display: flex; flex-direction: column; gap: 6px; overflow-y: auto;
+    }
+    .rene-dark-btn {
+      background: #1E293B; color: #FFFFFF; border: none; border-radius: 8px;
+      padding: 9px 10px; font-size: 12px; font-weight: 700; cursor: pointer;
+      text-align: center; transition: opacity 0.15s;
+    }
+    .rene-dark-btn:hover { opacity: 0.9; }
+    .rene-split-btn {
+      background: #7C3AED; color: #FFFFFF; border: none; border-radius: 8px;
+      padding: 9px 10px; font-size: 12px; font-weight: 700; cursor: pointer;
+    }
+    .rene-clear-btn {
+      background: #DC2626; color: #FFFFFF; border: none; border-radius: 8px;
+      padding: 9px 10px; font-size: 12px; font-weight: 700; cursor: pointer;
+    }
+    .rene-quick-orange {
+      background: #D97706; color: #FFFFFF; border: none; border-radius: 8px;
+      padding: 8px 8px; font-size: 11px; font-weight: 700; cursor: pointer;
+      line-height: 1.25; text-align: center;
+    }
+    .rene-quick-orange:hover { background: #B45309; }
+
+    /* Kolom Kanan / Utama */
+    .rene-main-area {
+      display: flex; flex-direction: column; gap: 8px; min-height: 0; min-width: 0;
+    }
+
+    /* Baris Atas: Kotak LOGO + Panel Sub Total Besar */
+    .rene-hero-row {
+      display: flex; gap: 10px; align-items: stretch; flex-shrink: 0;
+    }
+    .rene-logo-box {
+      width: 112px; background: #FFFFFF; border: 1px solid #CBD5E1; border-radius: 10px;
+      display: flex; flex-direction: column; align-items: center; justify-content: center;
+      font-weight: 800; color: #64748B; font-size: 15px; flex-shrink: 0; overflow: hidden;
+      padding: 6px; text-align: center;
+    }
+    .rene-logo-box img { max-width: 100%; max-height: 76px; object-fit: contain; }
+    .rene-subtotal-box {
+      flex: 1; background: #FFFFFF; border: 1px solid #CBD5E1; border-radius: 10px;
+      padding: 10px 18px; display: flex; flex-direction: column; justify-content: space-between;
+    }
+    .rene-subtotal-top {
+      display: flex; justify-content: space-between; align-items: center;
+      font-size: 12px; color: #64748B; font-weight: 600;
+    }
+    .rene-grand-total {
+      font-size: 52px; font-weight: 900; color: #0F172A; text-align: right;
+      line-height: 1.05; font-variant-numeric: tabular-nums; letter-spacing: -1px;
+    }
+
+    /* Baris Input Scan Kode Barang + No# Pesan / Meja + Info Kasir & Jam */
+    .rene-input-strip {
+      display: flex; gap: 8px; align-items: center; flex-wrap: wrap; flex-shrink: 0;
+    }
+    .rene-scan-box {
+      flex: 1; min-width: 240px; background: #FEF9C3; border: 1.5px solid #FACC15;
+      border-radius: 8px; padding: 8px 12px; font-size: 14px; font-weight: 700;
+      color: #0F172A; outline: none;
+    }
+    .rene-scan-box:focus { border-color: #2563EB; background: #FEF08A; }
+    .rene-table-box {
+      width: 155px; background: #FFFFFF; border: 1px solid #CBD5E1;
+      border-radius: 8px; padding: 8px 10px; font-size: 12px; font-weight: 600;
+    }
+    .rene-cashier-stamp {
+      background: #FFFFFF; border: 1px solid #CBD5E1; border-radius: 8px;
+      padding: 7px 12px; font-size: 12px; color: #334155; white-space: nowrap;
+    }
+
+    /* Banner Barang Aktif Terakhir Dipindai */
+    .rene-active-item-bar {
+      background: #FFFFFF; border: 1px solid #CBD5E1; border-radius: 10px;
+      padding: 8px 16px; display: flex; justify-content: space-between; align-items: center;
+      flex-shrink: 0;
+    }
+    .rene-active-item-name {
+      font-size: 20px; font-weight: 800; color: #0F172A;
+    }
+    .rene-active-item-price {
+      font-size: 22px; font-weight: 900; color: #0F172A; font-variant-numeric: tabular-nums;
+    }
+
+    /* Bar Kategori Barang (Pill Warna-Warni) */
+    .rene-cat-strip {
+      display: flex; gap: 6px; overflow-x: auto; align-items: center; flex-shrink: 0;
+      padding: 2px 0;
+    }
+    .rene-cat-pill {
+      padding: 5px 12px; border-radius: 7px; border: 1px solid #CBD5E1;
+      font-size: 12px; font-weight: 700; cursor: pointer; white-space: nowrap;
+    }
+
+    /* Tabel Keranjang Belanja */
+    .rene-table-card {
+      flex: 1; background: #FFFFFF; border: 1px solid #CBD5E1; border-radius: 10px;
+      display: flex; flex-direction: column; min-height: 0; overflow: hidden;
+    }
+    .rene-table-scroll { flex: 1; overflow-y: auto; }
+    .rene-table { width: 100%; border-collapse: collapse; }
+    .rene-table th {
+      position: sticky; top: 0; background: #F1F5F9; color: #475569;
+      font-size: 11px; font-weight: 800; text-transform: uppercase;
+      padding: 9px 12px; border-bottom: 1px solid #CBD5E1; text-align: left; z-index: 2;
+    }
+    .rene-table td {
+      padding: 9px 12px; border-bottom: 1px solid #E2E8F0; font-size: 13px; color: #0F172A;
+    }
+    .rene-table tr.selected { background: #EFF6FF; }
+    .rene-table .num { text-align: right; font-variant-numeric: tabular-nums; }
+
+    /* Bar Mini Action di Bawah Tabel (F7 Ubah, F8 Hapus, PPOB, Retur) */
+    .rene-table-footer-tools {
+      padding: 6px 10px; background: #F8FAFC; border-top: 1px solid #E2E8F0;
+      display: flex; gap: 6px; align-items: center; flex-wrap: wrap;
+    }
+    .rene-mini-tag {
+      padding: 4px 10px; border-radius: 6px; border: none; font-size: 11px;
+      font-weight: 700; cursor: pointer;
+    }
+
+    /* Baris Bawah: Cari Pelanggan (F4) & Tombol Hijau BAYAR (F9) */
+    .rene-bottom-bar {
+      display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-shrink: 0;
+    }
+    .rene-member-box {
+      display: flex; align-items: center; gap: 8px; background: #FFFFFF;
+      border: 1px solid #CBD5E1; border-radius: 8px; padding: 8px 14px;
+      font-size: 13px; cursor: pointer; min-width: 280px;
+    }
+    .rene-pay-btn {
+      background: #10B981; color: #FFFFFF; border: none; border-radius: 10px;
+      padding: 12px 34px; font-size: 17px; font-weight: 800; cursor: pointer;
+      box-shadow: 0 4px 12px rgba(16, 185, 129, 0.3);
+    }
+    .rene-pay-btn:hover { background: #059669; }
+  </style>
 </head>
 <body>
-  <div class="pos-wrapper">
-    <!-- TOP HEADER BAR -->
-    <header class="pos-header">
-      <div style="display:flex; align-items:center; gap:14px;">
-        <strong style="font-size:16px;" id="hdrStoreName">Gerai Ritel</strong>
-        <span style="color:var(--text-muted); font-size:13px;" id="hdrCashierInfo">Kasir: -</span>
-        <span style="font-size:12px; background:#F1F5F9; padding:4px 10px; border-radius:8px;" id="hdrShiftId">Shift: Belum Buka</span>
-      </div>
+  <div class="rene-shell">
+    <!-- TITLE BAR ATAS -->
+    <header class="rene-titlebar" id="reneTitleBar">
       <div style="display:flex; align-items:center; gap:10px;">
-        <span id="hdrClock" style="font-weight:700; font-variant-numeric:tabular-nums;">00:00:00</span>
-        <span id="syncStatusPill" class="status-pill status-online">● ONLINE & SYNCED</span>
-        <button id="btnKasirPrintLabel" onclick="openKasirLabelModal()" style="padding:6px 12px; border-radius:8px; border:1px solid #FDE68A; background:#FFFBEB; color:#B45309; cursor:pointer; font-weight:700;">Label Rak</button>
-        <button onclick="openCustomerDisplay()" style="padding:6px 12px; border-radius:8px; border:1px solid var(--border); cursor:pointer; font-weight:600;">Layar Pelanggan</button>
-        <button onclick="openCloseShiftModal()" style="padding:6px 12px; border-radius:8px; border:1px solid #FECACA; background:#FEF2F2; color:#DC2626; cursor:pointer; font-weight:700;">Tutup Shift</button>
+        <span>DANISH POS Client</span>
+        <span id="syncStatusPill" class="status-pill status-online" style="padding:2px 10px; font-size:11px;">● ONLINE</span>
+      </div>
+      <div class="rene-titlebar-actions">
+        <button class="rene-top-pill" onclick="syncMasterNow()">Sync Master</button>
+        <button class="rene-top-pill" onclick="openKasirLabelModal()">Cetak Label</button>
+        <button class="rene-top-pill" onclick="openCustomerDisplay()">Layar Pelanggan</button>
+        <button class="rene-top-pill" onclick="openCloseShiftModal()" style="background:#DC2626; border-color:#FCA5A5;">Tutup Shift</button>
+        <span id="hdrStoreName" style="margin-left:6px;">Gerai Ritel</span>
       </div>
     </header>
 
-    <!-- BENTO GRID WORKSPACE -->
-    <div class="pos-bento">
-      <!-- KOLOM KIRI (65%): Scan Input, Info Member & Tabel Daftar Belanja -->
-      <div class="col-left">
-        <div class="card scan-card" style="flex-wrap:wrap; gap:10px;">
-          <input type="text" id="barcodeInput" class="scan-input" placeholder="Scan Barcode atau Ketik Kode Barang (misal: 3*barcode) lalu Enter..." autofocus autocomplete="off">
-          <button onclick="openMemberModal()" style="padding:14px 14px; border-radius:12px; border:1px solid #BFDBFE; background:#EFF6FF; color:#1D4ED8; font-weight:700; cursor:pointer;">Member [F1]</button>
-          <button onclick="syncMasterNow()" style="padding:14px 14px; border-radius:12px; border:1px solid var(--border); background:#F8FAFC; font-weight:700; cursor:pointer;">Sync Master</button>
+    <!-- WORKSPACE UTAMA -->
+    <div class="rene-workspace">
+      <!-- PANEL KIRI: TOMBOL FUNGSI & MENU TAMBAHAN -->
+      <aside class="rene-left-rail">
+        <button id="btnReneHold" class="rene-dark-btn" onclick="handleHoldRecall()">F5 Tunda</button>
+        <button id="btnReneRecall" class="rene-dark-btn" onclick="handleHoldRecall()">F3 Panggil</button>
+        <button class="rene-dark-btn" onclick="reprintLastReceipt()">F6 Cetak Struk</button>
+        <button id="btnReneSplit" class="rene-split-btn" onclick="openCheckoutModal('QRIS')">Split Bill / QRIS</button>
+
+        <button class="rene-dark-btn" onclick="openCashDropModal()">F11 Cash Drop</button>
+        <button id="btnReneClear" class="rene-clear-btn" onclick="clearCartWithPin()">F12 Clear</button>
+
+        <div id="reneQuickMenuGroup" style="display:flex; flex-direction:column; gap:6px; margin-top:4px;">
+          <button class="rene-quick-orange" onclick="openNonPhysicalModal()">PPOB / Pulsa<br>(Alt+1)</button>
+          <button class="rene-quick-orange" onclick="openReturnModal()">Retur Struk<br>(Alt+2)</button>
+          <button class="rene-quick-orange" onclick="manualKickDrawer()">Buka Laci<br>(Alt+3)</button>
+          <button class="rene-quick-orange" onclick="openSearchModal()">Katalog Barang<br>(F2)</button>
+        </div>
+      </aside>
+
+      <!-- PANEL UTAMA KANAN -->
+      <main class="rene-main-area">
+        <!-- BARIS 1: LOGO + SUB TOTAL BESAR -->
+        <div class="rene-hero-row">
+          <div id="reneLogoBox" class="rene-logo-box">LOGO</div>
+          <div class="rene-subtotal-box">
+            <div class="rene-subtotal-top">
+              <span>Sub Total <small id="lblSubItemInfo" style="color:#94A3B8; margin-left:8px;">(Subtotal: Rp 0 | Hemat: Rp 0)</small></span>
+              <span id="hdrShiftId" style="background:#F1F5F9; padding:2px 8px; border-radius:6px; color:#334155;">Shift: -</span>
+            </div>
+            <div class="rene-grand-total" id="lblGrandTotal">0</div>
+            <div id="pwpAlertBox" class="promo-alert" style="margin-top:4px;"></div>
+          </div>
         </div>
 
-        <!-- Bar Status Pelanggan / Member Aktif & Nomor Meja -->
-        <div id="activeMemberBar" style="display:flex; justify-content:space-between; align-items:center; background:#FFFFFF; border:1px solid var(--border); border-radius:12px; padding:8px 14px; font-size:13px;">
-          <div>
-            <span style="color:var(--text-muted);">Pelanggan:</span>
-            <strong id="lblActiveMemberName">Pelanggan Umum (UMUM)</strong>
-            <span id="lblActiveMemberBadge" style="margin-left:6px; padding:2px 8px; border-radius:6px; background:#F1F5F9; font-size:11px; font-weight:700;">0 Poin</span>
-          </div>
-          <div style="display:flex; align-items:center; gap:8px;">
-            <input type="text" id="kasirTableNumberInput" placeholder="No. Meja / Antrean" style="display:none; width:135px; padding:4px 8px; border:1px solid var(--border); border-radius:6px; font-size:12px;">
-            <button onclick="resetActiveMember()" id="btnResetMember" style="display:none; background:none; border:none; color:#DC2626; font-weight:600; cursor:pointer; font-size:12px;">Ganti ke Umum</button>
+        <!-- BARIS 2: INPUT KODE / SCAN BARANG + NO MEJA + KASIR & JAM -->
+        <div class="rene-input-strip">
+          <input type="text" id="barcodeInput" class="rene-scan-box" placeholder="< Kode/Cari Barang >  (Scan Barcode atau ketik 3*barcode lalu Enter)" autofocus autocomplete="off">
+          <input type="text" id="kasirTableNumberInput" class="rene-table-box" placeholder="No# Pesan / Meja">
+          <div class="rene-cashier-stamp">
+            <strong id="hdrCashierInfo">[Nama Kasir]</strong> &nbsp;<span id="hdrClock">00:00:00</span>
           </div>
         </div>
 
-        <!-- Bar Kategori Cepat (Aktif otomatis jika preset Touch / Cafe & Resto dipilih) -->
-        <div id="kasirCategoryQuickBar" style="display:none; gap:6px; overflow-x:auto; padding:6px 10px; background:#FFFFFF; border:1px solid var(--border); border-radius:12px; align-items:center;"></div>
+        <!-- BARIS 3: TAMPILAN AKTIF BARANG -->
+        <div id="reneActiveItemBar" class="rene-active-item-bar">
+          <div class="rene-active-item-name" id="lblActiveItemName">[Siap Scan Barang]</div>
+          <div class="rene-active-item-price" id="lblActiveItemPrice">0</div>
+        </div>
 
-        <div class="card cart-card">
-          <div class="cart-scroll">
-            <table class="cart-table">
+        <!-- BARIS 4: MENU KATEGORI BARANG -->
+        <div id="kasirCategoryQuickBar" class="rene-cat-strip"></div>
+
+        <!-- BARIS 5: TABEL DAFTAR BELANJA -->
+        <div class="rene-table-card">
+          <div class="rene-table-scroll">
+            <table class="rene-table">
               <thead>
                 <tr>
-                  <th style="width:40px;">#</th>
-                  <th>Barcode / Nama Barang</th>
-                  <th class="num">Harga</th>
-                  <th class="num" style="width:90px;">Qty</th>
-                  <th class="num">Diskon</th>
-                  <th class="num">Subtotal</th>
+                  <th style="width:70px;">KTS</th>
+                  <th>NAMA BARANG</th>
+                  <th class="num" style="width:130px;">@ HARGA</th>
+                  <th class="num" style="width:120px;">DISKON</th>
+                  <th class="num" style="width:140px;">TOTAL</th>
                 </tr>
               </thead>
               <tbody id="cartTableBody"></tbody>
             </table>
           </div>
-        </div>
-      </div>
-
-      <!-- KOLOM KANAN (35%): Grand Total, Action Tiles & Checkout -->
-      <div class="col-right">
-        <div class="total-card">
-          <div style="display:flex; justify-content:space-between; font-size:13px; color:#94A3B8;">
-            <span>Subtotal: <strong id="lblSubtotal" style="color:#fff;">Rp 0</strong></span>
-            <span>Hemat Promo/Member: <strong id="lblDiscount" style="color:#FBBF24;">Rp 0</strong></span>
+          <div class="rene-table-footer-tools">
+            <button class="rene-mini-tag" style="background:#FEF3C7; color:#B45309;" onclick="openEditItemModal()">F7 Ubah Qty / Diskon</button>
+            <button class="rene-mini-tag" style="background:#FEE2E2; color:#DC2626;" onclick="voidSelectedItem()">F8 Hapus Baris</button>
+            <span style="font-size:11px; color:#64748B; margin-left:auto;">Gunakan panah Atas/Bawah untuk pilih baris, tombol <strong>+</strong> / <strong>-</strong> untuk ubah Qty cepat</span>
           </div>
-          <div class="grand-total-val" id="lblGrandTotal">Rp 0</div>
-          <div id="pwpAlertBox" class="promo-alert"></div>
         </div>
 
-        <!-- Color-Coded Action Tiles -->
-        <div class="action-grid">
-          <button class="tile-btn bg-royal" onclick="openCheckoutModal('QRIS')">
-            <span class="kbd-badge">[F10]</span>
-            <span>Bayar QRIS / EDC / Split</span>
-          </button>
-          <button class="tile-btn bg-sky" onclick="openSearchModal()">
-            <span class="kbd-badge">[F2]</span>
-            <span>Cari Barang Katalog</span>
-          </button>
-          <button class="tile-btn bg-sky" onclick="openEditItemModal()">
-            <span class="kbd-badge">[F4]</span>
-            <span>Ubah Qty / Diskon Baris</span>
-          </button>
-          <button class="tile-btn bg-amber" onclick="handleHoldRecall()">
-            <span class="kbd-badge">[F6]</span>
-            <span>Pending / Recall Struk</span>
-          </button>
-          <button class="tile-btn bg-violet" onclick="openNonPhysicalModal()">
-            <span class="kbd-badge">[F5] / [F7]</span>
-            <span>PPOB / Tarik Tunai</span>
-          </button>
-          <button class="tile-btn bg-slate" onclick="reprintLastReceipt()">
-            <span class="kbd-badge">[F3]</span>
-            <span>Cetak Ulang Struk (1x)</span>
-          </button>
-          <button class="tile-btn bg-teal" onclick="openCashDropModal()">
-            <span class="kbd-badge">[F9]</span>
-            <span>Cash Drop Brankas</span>
-          </button>
-          <button class="tile-btn bg-teal" onclick="manualKickDrawer()">
-            <span class="kbd-badge">[F11]</span>
-            <span>Buka Laci Manual</span>
-          </button>
-          <button class="tile-btn bg-crimson" onclick="voidSelectedItem()">
-            <span class="kbd-badge">[ESC] / [Del]</span>
-            <span>Void Item / Batal</span>
-          </button>
-          <button class="tile-btn bg-crimson" onclick="openReturnModal()">
-            <span class="kbd-badge">[F12]</span>
-            <span>Retur Penjualan (Struk)</span>
-          </button>
-        </div>
+        <!-- BARIS 6: ID/CARI PELANGGAN (F4) & TOMBOL BAYAR (F9) -->
+        <div class="rene-bottom-bar">
+          <div id="activeMemberBar" class="rene-member-box" onclick="openMemberModal()">
+            <span style="color:#64748B; font-weight:600;">&lt; ID/Cari Pelanggan &gt; (F4):</span>
+            <strong id="lblActiveMemberName" style="color:#0F172A;">Pelanggan Umum</strong>
+            <span id="lblActiveMemberBadge" style="background:#EFF6FF; color:#1D4ED8; padding:2px 7px; border-radius:6px; font-size:11px; font-weight:700;">0 Poin</span>
+            <button type="button" onclick="event.stopPropagation(); resetActiveMember();" id="btnResetMember" style="display:none; background:none; border:none; color:#DC2626; font-weight:700; cursor:pointer; font-size:11px;">&times;</button>
+          </div>
 
-        <button class="btn-checkout" onclick="openCheckoutModal('CASH')">
-          <span>BAYAR / CHECKOUT</span>
-          <span class="kbd-badge" style="font-size:14px;">[F8]</span>
-        </button>
-      </div>
+          <button class="rene-pay-btn" onclick="openCheckoutModal('CASH')">BAYAR (F9)</button>
+        </div>
+      </main>
     </div>
   </div>
 
@@ -213,7 +365,7 @@
     </div>
   </div>
 
-  <!-- MODAL PENCARIAN & DAFTAR MEMBER [F1] -->
+  <!-- MODAL PENCARIAN & DAFTAR MEMBER [F4] -->
   <div id="memberModal" class="modal-backdrop">
     <div class="modal-box" style="max-width:580px;">
       <h3 style="margin-top:0;">Pilih Pelanggan / Member (RENE CRM)</h3>
@@ -246,7 +398,7 @@
   <!-- MODAL PENCARIAN BARANG LOKAL [F2] -->
   <div id="searchModal" class="modal-backdrop">
     <div class="modal-box" style="max-width:600px;">
-      <h3 style="margin-top:0;">Pencarian Katalog Lokal (< 50ms)</h3>
+      <h3 style="margin-top:0;">Pencarian Katalog Lokal (&lt; 50ms)</h3>
       <input type="text" id="localSearchInput" placeholder="Ketik nama barang atau barcode..." oninput="runLocalSearch()">
       <div style="max-height:280px; overflow-y:auto; border:1px solid var(--border); border-radius:10px;">
         <table class="cart-table">
@@ -258,10 +410,10 @@
     </div>
   </div>
 
-  <!-- MODAL UBAH QTY & DISKON PER BARIS [F4] -->
+  <!-- MODAL UBAH QTY & DISKON PER BARIS [F7] -->
   <div id="editItemModal" class="modal-backdrop">
     <div class="modal-box" style="max-width:420px;">
-      <h3 style="margin-top:0;">Ubah Qty & Diskon Item Terpilih [F4]</h3>
+      <h3 style="margin-top:0;">Ubah Qty & Diskon Item Terpilih [F7]</h3>
       <div id="editItemTitle" style="font-weight:700; color:#1D4ED8; margin-bottom:12px;">-</div>
 
       <label style="font-size:12px; font-weight:600;">Jumlah (Qty)</label>
@@ -283,10 +435,10 @@
     </div>
   </div>
 
-  <!-- MODAL RETUR PENJUALAN BERBASIS NOMOR STRUK [F12] -->
+  <!-- MODAL RETUR PENJUALAN BERBASIS NOMOR STRUK -->
   <div id="returnModal" class="modal-backdrop">
     <div class="modal-box" style="max-width:620px;">
-      <h3 style="margin-top:0;">Retur Penjualan Berbasis Nomor Struk [F12]</h3>
+      <h3 style="margin-top:0;">Retur Penjualan Berbasis Nomor Struk</h3>
       <div style="display:flex; gap:8px; margin-bottom:12px;">
         <input type="text" id="returnSearchTrxId" placeholder="Masukkan Nomor Struk (misal: TRX-TK-001-...)" style="margin-bottom:0;">
         <button onclick="searchTrxForReturn()" style="padding:10px 16px; border-radius:10px; border:none; background:var(--royal-blue); color:#fff; font-weight:700; cursor:pointer;">Cari Struk</button>
@@ -315,7 +467,7 @@
     </div>
   </div>
 
-  <!-- MODAL PPOB & TARIK TUNAI [F5 / F7] -->
+  <!-- MODAL PPOB & TARIK TUNAI -->
   <div id="modal-non-physical" class="modal-backdrop">
     <div class="modal-box" style="max-width:440px;">
       <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:14px;">
@@ -383,10 +535,10 @@
     </div>
   </div>
 
-  <!-- MODAL ANTREAN TERTUNDA (MULTI-HOLD / RECALL) [F6] -->
+  <!-- MODAL ANTREAN TERTUNDA (MULTI-HOLD / RECALL) [F5 / F3] -->
   <div id="holdQueueModal" class="modal-backdrop">
     <div class="modal-box" style="max-width:560px;">
-      <h3 style="margin-top:0;">Daftar Transaksi Tertunda (Hold Queue) [F6]</h3>
+      <h3 style="margin-top:0;">Daftar Transaksi Tertunda (Hold Queue)</h3>
       <p style="font-size:12px; color:var(--text-muted); margin-top:0;">Pilih antrean di bawah untuk melanjutkan transaksi ke layar kasir.</p>
       <div style="max-height:260px; overflow-y:auto; border:1px solid var(--border); border-radius:10px; margin-bottom:12px;">
         <table class="cart-table">

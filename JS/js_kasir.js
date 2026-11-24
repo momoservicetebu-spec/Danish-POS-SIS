@@ -17,20 +17,20 @@ let LAST_REPRINT_COUNT = 0;
 let ACTIVE_SHIFT = JSON.parse(localStorage.getItem('POS_ACTIVE_SHIFT') || 'null');
 let RETURN_TARGET_TRX = null;
 
-// Konfigurasi Desain Kasir & Struk (Tersinkronisasi dengan Admin -> Desain)
+// Konfigurasi Desain Layar Kasir & Struk (Tersinkronisasi dengan Admin -> Desain)
 let KASIR_DESIGN_CFG = {
   preset: 'Minimarket 1',
   compScan: true,
   compActiveItem: true,
-  compCatMenu: false,
+  compCatMenu: true,
   compCustomer: true,
-  compTableNo: false,
+  compTableNo: true,
   compQuickMenu: true,
   compHoldRecall: true,
-  compSplit: false,
+  compSplit: true,
   compLogo: true,
-  accentColor: '#1D4ED8',
-  totalSize: '40px',
+  accentColor: '#DB2777',
+  totalSize: '52px',
   strukPaperSize: '58mm',
   strukShowTaxDetail: false,
   strukShowMemberPoint: false,
@@ -38,35 +38,31 @@ let KASIR_DESIGN_CFG = {
   labelModel: 'RACK_TAG_3'
 };
 
-// Saluran Layar Pelanggan Tanpa Internet (0ms)
 const customerChannel = new BroadcastChannel('POS_CUSTOMER_DISPLAY');
 
-// Inisialisasi Awal Kasir
 window.addEventListener('DOMContentLoaded', async () => {
   document.getElementById('hdrStoreName').textContent = `${SESSION.store.namaToko} (${SESSION.store.kodeToko})`;
-  document.getElementById('hdrCashierInfo').textContent = `Kasir: ${SESSION.user.nama}`;
+  document.getElementById('hdrCashierInfo').textContent = `[${SESSION.user.nama}]`;
 
-  // Jam Real-time Header
   setInterval(() => {
-    document.getElementById('hdrClock').textContent = new Date().toLocaleTimeString('id-ID');
+    const now = new Date();
+    const dStr = now.toLocaleDateString('id-ID', { day: '2-digit', month: 'short', year: 'numeric' });
+    const tStr = now.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' });
+    document.getElementById('hdrClock').textContent = `${dStr} ${tStr}`;
   }, 1000);
 
-  // Pastikan Shift Kasir sudah dibuka
   if (!ACTIVE_SHIFT || ACTIVE_SHIFT.cashierId !== SESSION.user.userId) {
     await promptOpenShift();
   } else {
     document.getElementById('hdrShiftId').textContent = `Shift: ${ACTIVE_SHIFT.shiftId}`;
   }
 
-  // Muat promo lokal dari IndexedDB & sinkronkan master terbaru
   ACTIVE_PROMOS = await LocalDB.getActivePromotions();
   if ((await db.products.count()) === 0) {
     await syncMasterNow();
   }
 
-  // Terapkan Desain Layar Kasir & Struk dari Admin
   await initKasirDesignConfig();
-
   focusScanner();
 });
 
@@ -88,6 +84,7 @@ async function syncMasterNow() {
     const data = await ApiClient.call('pos/sync-master', {});
     await LocalDB.saveMasterData(data.products, data.promotions, data.members || []);
     ACTIVE_PROMOS = await LocalDB.getActivePromotions();
+    await applyKasirDesignToDOM();
     alert(`Sinkronisasi selesai: ${data.products.length} SKU, ${data.promotions.length} Promo, & ${(data.members || []).length} Member.`);
   } catch (e) {
     alert('Gagal sinkron master: ' + e.message);
@@ -96,10 +93,9 @@ async function syncMasterNow() {
 
 function focusScanner() {
   const inp = document.getElementById('barcodeInput');
-  if (inp) inp.focus();
+  if (inp && inp.style.display !== 'none') inp.focus();
 }
 
-// Pemindaian Barcode Instan (< 50ms dari IndexedDB) + Navigasi Zero-Mouse RENE POS
 document.getElementById('barcodeInput').addEventListener('keydown', async function(e) {
   if (e.key === 'ArrowDown' && CART.length > 0) {
     e.preventDefault();
@@ -208,30 +204,38 @@ function renderCart() {
 
   tbody.innerHTML = CART.map((item, idx) => {
     const lineTotal = (item.price * item.qty) - (item.discount || 0);
-    const unitBadge = `<span style="background:#E2E8F0;color:#334155;font-size:11px;font-weight:700;padding:2px 6px;border-radius:6px;margin-left:4px;">${item.unit || 'PCS'}</span>`;
     return `
-      <tr class="cart-row ${idx === SELECTED_INDEX ? 'selected' : ''}" onclick="SELECTED_INDEX=${idx}; renderCart();">
-        <td>${idx + 1}</td>
+      <tr class="${idx === SELECTED_INDEX ? 'selected' : ''}" onclick="SELECTED_INDEX=${idx}; renderCart();" style="cursor:pointer;">
+        <td><strong>${item.qty}</strong> <small style="color:#64748B;">${item.unit || 'PCS'}</small></td>
         <td>
-          <strong>${item.name}</strong>${unitBadge}<br>
-          <small style="color:var(--text-muted);">${item.barcode} ${item.promoLabel ? '• <span style="color:#7C3AED;font-weight:700;">' + item.promoLabel + '</span>' : ''}</small>
+          <strong>${item.name}</strong>
+          ${item.promoLabel ? `<span style="color:#7C3AED; font-size:11px; font-weight:700; margin-left:6px;">(${item.promoLabel})</span>` : ''}
         </td>
         <td class="num">${item.price.toLocaleString('id-ID')}</td>
-        <td class="num"><strong>${item.qty}</strong> ${item.unit || 'PCS'}</td>
         <td class="num" style="color:#DC2626;">${(item.discount || 0) > 0 ? '-' + item.discount.toLocaleString('id-ID') : '0'}</td>
         <td class="num"><strong>${lineTotal.toLocaleString('id-ID')}</strong></td>
       </tr>
     `;
   }).join('');
 
-  document.getElementById('lblSubtotal').textContent = 'Rp ' + evalResult.subtotal.toLocaleString('id-ID');
-  document.getElementById('lblDiscount').textContent = 'Rp ' + evalResult.totalDiscount.toLocaleString('id-ID');
-  document.getElementById('lblGrandTotal').textContent = 'Rp ' + evalResult.grandTotal.toLocaleString('id-ID');
+  // Update Baris Aktif Barang [Nama Barang] & Harga
+  const activeItem = (SELECTED_INDEX >= 0 && CART[SELECTED_INDEX]) ? CART[SELECTED_INDEX] : CART[CART.length - 1];
+  if (activeItem) {
+    const activeLineTotal = (activeItem.price * activeItem.qty) - (activeItem.discount || 0);
+    document.getElementById('lblActiveItemName').textContent = `${activeItem.name} (${activeItem.qty} ${activeItem.unit || 'PCS'})`;
+    document.getElementById('lblActiveItemPrice').textContent = activeLineTotal.toLocaleString('id-ID');
+  } else {
+    document.getElementById('lblActiveItemName').textContent = '[Siap Scan Barang]';
+    document.getElementById('lblActiveItemPrice').textContent = '0';
+  }
+
+  document.getElementById('lblSubItemInfo').textContent = `(Subtotal: Rp ${evalResult.subtotal.toLocaleString('id-ID')} | Hemat: Rp ${evalResult.totalDiscount.toLocaleString('id-ID')})`;
+  document.getElementById('lblGrandTotal').textContent = evalResult.grandTotal.toLocaleString('id-ID');
 
   const pwpBox = document.getElementById('pwpAlertBox');
   if (evalResult.pwpOffers.length > 0) {
     pwpBox.style.display = 'block';
-    pwpBox.textContent = `PROMO PWP AKTIF! Pelanggan berhak tebus murah barcode: ${evalResult.pwpOffers[0].reward_barcode} seharga Rp ${evalResult.pwpOffers[0].promo_price.toLocaleString('id-ID')}`;
+    pwpBox.textContent = `PROMO PWP AKTIF! Tebus murah barcode: ${evalResult.pwpOffers[0].reward_barcode} seharga Rp ${evalResult.pwpOffers[0].promo_price.toLocaleString('id-ID')}`;
   } else {
     pwpBox.style.display = 'none';
   }
@@ -245,7 +249,7 @@ function renderCart() {
   });
 }
 
-// === MODUL MEMBER & CRM (RENE POS) [F1] ===
+// === MEMBER & CRM ===
 function openMemberModal() {
   document.getElementById('memberModal').style.display = 'flex';
   document.getElementById('memberSearchInput').value = '';
@@ -309,7 +313,7 @@ async function quickRegisterMember() {
   }
 }
 
-// === UBAH QTY & DISKON PER BARIS [F4] ===
+// === UBAH QTY & DISKON PER BARIS [F7] ===
 function openEditItemModal() {
   if (CART.length === 0 || SELECTED_INDEX < 0) return alert('Pilih baris barang di tabel belanja terlebih dahulu.');
   const item = CART[SELECTED_INDEX];
@@ -352,7 +356,7 @@ async function applyEditItem() {
   renderCart();
 }
 
-// Void Item Terpilih (Wajib PIN Supervisor)
+// Void Item Terpilih [F8]
 async function voidSelectedItem() {
   if (CART.length === 0 || SELECTED_INDEX < 0) return;
   const pin = prompt('OTORISASI VOID ITEM\nMasukkan PIN Kepala Toko / Supervisor:');
@@ -378,10 +382,35 @@ async function voidSelectedItem() {
   focusScanner();
 }
 
-// Pending / Recall Struk Multi-Antrean [F6]
+// Clear Seluruh Keranjang [F12]
+async function clearCartWithPin() {
+  if (CART.length === 0) return;
+  const pin = prompt('BATALKAN TRANSAKSI (CLEAR)\nMasukkan PIN Kepala Toko / Supervisor:');
+  if (!pin) return;
+  try {
+    const auth = await ApiClient.call('auth/verify-pin', { pin });
+    await db.audit_logs.add({
+      timestamp: new Date().toISOString(),
+      user_id: SESSION.user.userId,
+      supervisor_id: auth.supervisor.idUser,
+      action_type: 'CLEAR_CART',
+      detail: `Membatalkan keranjang (${CART.length} baris)`,
+      sync_status: 'PENDING'
+    });
+    CART = [];
+    SELECTED_INDEX = -1;
+    resetActiveMember();
+    renderCart();
+  } catch (e) {
+    alert('Otorisasi Ditolak: ' + e.message);
+  }
+  focusScanner();
+}
+
+// Pending / Recall Struk [F5 / F3]
 async function handleHoldRecall() {
   if (CART.length > 0) {
-    const note = prompt('Simpan Transaksi Sementara (Hold)\nCatatan nama/ciri pembeli:', 'Antrean ' + (new Date().getMinutes()));
+    const note = prompt('Simpan Transaksi Sementara (Tunda)\nCatatan nama/ciri pembeli:', 'Antrean ' + (new Date().getMinutes()));
     if (note === null) return;
     const evalRes = evaluateCartWithMember();
     await db.held_carts.put({
@@ -395,11 +424,11 @@ async function handleHoldRecall() {
     SELECTED_INDEX = -1;
     resetActiveMember();
     renderCart();
-    alert(`Keranjang disimpan ke antrean Hold (${note}).`);
+    alert(`Keranjang disimpan ke antrean Tunda (${note}).`);
     focusScanner();
   } else {
     const holds = await db.held_carts.toArray();
-    if (holds.length === 0) return alert('Tidak ada transaksi tertunda (Hold).');
+    if (holds.length === 0) return alert('Tidak ada transaksi tertunda.');
 
     document.getElementById('holdQueueBody').innerHTML = holds.map(h => {
       const items = JSON.parse(h.items_json || '[]');
@@ -431,7 +460,7 @@ async function recallHeldCart(holdId) {
   renderCart();
 }
 
-// Pembayaran Lengkap RENE POS [F8 / F10]
+// Pembayaran Lengkap [F9]
 function openCheckoutModal(defaultMode) {
   if (CART.length === 0) return;
   const evalResult = evaluateCartWithMember();
@@ -692,14 +721,14 @@ async function openCashDropModal() {
 }
 
 async function manualKickDrawer() {
-  const pin = prompt('BUKA LACI MANUAL [F11]\nMasukkan PIN Kepala Toko / Supervisor:');
+  const pin = prompt('BUKA LACI MANUAL\nMasukkan PIN Kepala Toko / Supervisor:');
   if (!pin) return;
   try {
     const auth = await ApiClient.call('auth/verify-pin', { pin });
     await ApiClient.call('security/audit-log', {
       supervisorId: auth.supervisor.idUser,
       actionType: 'MANUAL_OPEN_DRAWER',
-      detail: 'Pembukaan laci uang manual via F11'
+      detail: 'Pembukaan laci uang manual'
     });
     document.getElementById('thermalReceiptArea').innerHTML = '<div class="receipt">&nbsp;</div>';
     window.print();
@@ -732,7 +761,7 @@ function openCustomerDisplay() {
   window.open('display.html', 'POSCustomerDisplay', 'width=1024,height=768');
 }
 
-// === MODUL TRANSAKSI NON-FISIK: PPOB & TARIK TUNAI [F5 / F7] ===
+// === MODUL TRANSAKSI NON-FISIK: PPOB & TARIK TUNAI ===
 function openNonPhysicalModal() {
   const modal = document.getElementById('modal-non-physical');
   if (modal) {
@@ -833,7 +862,7 @@ async function submitCashOutTransaction() {
   ApiClient.syncQueue();
 }
 
-// === RETUR PENJUALAN BERBASIS NOMOR STRUK [F12] ===
+// === RETUR PENJUALAN BERBASIS NOMOR STRUK ===
 function openReturnModal() {
   RETURN_TARGET_TRX = null;
   document.getElementById('returnSearchTrxId').value = '';
@@ -1003,7 +1032,7 @@ function closeModals() {
   focusScanner();
 }
 
-// === INTEGRASI DESAIN LAYAR KASIR & CETAK LABEL RAK ===
+// === INTEGRASI DESAIN STUDIO ADMIN KE LAYAR KASIR ===
 async function initKasirDesignConfig() {
   const storeCode = SESSION?.store?.kodeToko || 'GLOBAL';
   const cacheKey = 'DANISH_DESIGN_CONFIG_' + storeCode;
@@ -1012,7 +1041,7 @@ async function initKasirDesignConfig() {
     const cached = localStorage.getItem(cacheKey);
     if (cached) {
       KASIR_DESIGN_CFG = { ...KASIR_DESIGN_CFG, ...JSON.parse(cached) };
-      applyKasirDesignToDOM();
+      await applyKasirDesignToDOM();
     }
   } catch (e) {}
 
@@ -1021,52 +1050,86 @@ async function initKasirDesignConfig() {
     if (cloudCfg && Object.keys(cloudCfg).length > 0) {
       KASIR_DESIGN_CFG = { ...KASIR_DESIGN_CFG, ...cloudCfg };
       localStorage.setItem(cacheKey, JSON.stringify(KASIR_DESIGN_CFG));
-      applyKasirDesignToDOM();
+      await applyKasirDesignToDOM();
     }
-  } catch (e) {}
+  } catch (e) {
+    await applyKasirDesignToDOM();
+  }
 }
 
 async function applyKasirDesignToDOM() {
   const cfg = KASIR_DESIGN_CFG;
 
-  const headerEl = document.querySelector('.pos-header');
-  if (headerEl && cfg.accentColor) {
-    headerEl.style.borderTop = `4px solid ${cfg.accentColor}`;
+  // 1. Warna Title Bar & Ukuran Angka Sub Total
+  const titleBar = document.getElementById('reneTitleBar');
+  if (titleBar && cfg.accentColor) {
+    titleBar.style.background = cfg.accentColor;
   }
   const grandTotalEl = document.getElementById('lblGrandTotal');
   if (grandTotalEl && cfg.totalSize) {
     grandTotalEl.style.fontSize = cfg.totalSize;
   }
 
-  const scanCard = document.querySelector('.scan-card');
-  if (scanCard) scanCard.style.display = cfg.compScan !== false ? 'flex' : 'none';
+  // 2. Tampilkan / Sembunyikan 9 Komponen Studio Desain
+  const scanInp = document.getElementById('barcodeInput');
+  if (scanInp) scanInp.style.display = cfg.compScan !== false ? 'block' : 'none';
+
+  const activeItemBar = document.getElementById('reneActiveItemBar');
+  if (activeItemBar) activeItemBar.style.display = cfg.compActiveItem !== false ? 'flex' : 'none';
 
   const memberBar = document.getElementById('activeMemberBar');
   if (memberBar) memberBar.style.display = cfg.compCustomer !== false ? 'flex' : 'none';
 
   const tableInput = document.getElementById('kasirTableNumberInput');
-  if (tableInput) tableInput.style.display = cfg.compTableNo ? 'inline-block' : 'none';
+  if (tableInput) tableInput.style.display = cfg.compTableNo !== false ? 'block' : 'none';
 
-  const actionGrid = document.querySelector('.action-grid');
-  if (actionGrid) actionGrid.style.display = cfg.compQuickMenu !== false ? 'grid' : 'none';
+  const quickGroup = document.getElementById('reneQuickMenuGroup');
+  if (quickGroup) quickGroup.style.display = cfg.compQuickMenu !== false ? 'flex' : 'none';
 
-  const holdBtn = document.querySelector('[onclick="handleHoldRecall()"]');
-  if (holdBtn) holdBtn.style.display = cfg.compHoldRecall !== false ? 'flex' : 'none';
+  const btnHold = document.getElementById('btnReneHold');
+  const btnRecall = document.getElementById('btnReneRecall');
+  if (btnHold) btnHold.style.display = cfg.compHoldRecall !== false ? 'block' : 'none';
+  if (btnRecall) btnRecall.style.display = cfg.compHoldRecall !== false ? 'block' : 'none';
+
+  const btnSplit = document.getElementById('btnReneSplit');
+  if (btnSplit) btnSplit.style.display = cfg.compSplit !== false ? 'block' : 'none';
+
+  const logoBox = document.getElementById('reneLogoBox');
+  if (logoBox) {
+    logoBox.style.display = cfg.compLogo !== false ? 'flex' : 'none';
+    const savedPrefs = JSON.parse(localStorage.getItem('DANISH_COMPANY_PREFS_' + (SESSION?.store?.kodeToko || 'GLOBAL')) || '{}');
+    if (savedPrefs.logoUrl) {
+      logoBox.innerHTML = `<img src="${savedPrefs.logoUrl}" alt="LOGO">`;
+    } else {
+      logoBox.textContent = 'LOGO';
+    }
+  }
 
   const lblModelSel = document.getElementById('kasirLabelModelSelect');
   if (lblModelSel && cfg.labelModel) lblModelSel.value = cfg.labelModel;
 
+  // 3. Menu Kategori Barang (Chip Warna-Warni)
   const catBar = document.getElementById('kasirCategoryQuickBar');
+  const catColors = [
+    { bg: '#DCFCE7', color: '#15803D', border: '#86EFAC' },
+    { bg: '#FFEDD5', color: '#C2410C', border: '#FDBA74' },
+    { bg: '#D1FAE5', color: '#047857', border: '#6EE7B7' },
+    { bg: '#FEF3C7', color: '#B45309', border: '#FDE68A' },
+    { bg: '#DBEAFE', color: '#1D4ED8', border: '#93C5FD' }
+  ];
   if (catBar) {
-    if (cfg.compCatMenu) {
+    if (cfg.compCatMenu !== false) {
       catBar.style.display = 'flex';
       const allProds = await db.products.toArray();
       const categories = [...new Set(allProds.map(p => p.category || 'Umum'))];
-      catBar.innerHTML = categories.map(cat => `
-        <button type="button" onclick="openSearchByCategory('${cat.replace(/'/g, "\\'")}')" style="padding:5px 12px; border-radius:99px; border:1px solid #CBD5E1; background:#F8FAFC; font-size:12px; font-weight:700; cursor:pointer; white-space:nowrap;">
-          ${cat}
-        </button>
-      `).join('');
+      catBar.innerHTML = categories.map((cat, i) => {
+        const pal = catColors[i % catColors.length];
+        return `
+          <button type="button" onclick="openSearchByCategory('${cat.replace(/'/g, "\\'")}')" class="rene-cat-pill" style="background:${pal.bg}; color:${pal.color}; border-color:${pal.border};">
+            ${cat}
+          </button>
+        `;
+      }).join('');
     } else {
       catBar.style.display = 'none';
     }
@@ -1178,19 +1241,22 @@ function printKasirSelectedLabels() {
   window.print();
 }
 
-// Global Keyboard Shortcuts sesuai PRD v3.1 & RENE POS
+// Global Keyboard Shortcuts sesuai Studio Desain RENE POS
 document.addEventListener('keydown', function(e) {
-  if (e.key === 'F1') { e.preventDefault(); openMemberModal(); }
-  else if (e.key === 'F8') { e.preventDefault(); openCheckoutModal('CASH'); }
+  if (e.key === 'F2') { e.preventDefault(); openSearchModal(); }
+  else if (e.key === 'F3') { e.preventDefault(); handleHoldRecall(); }
+  else if (e.key === 'F4') { e.preventDefault(); openMemberModal(); }
+  else if (e.key === 'F5') { e.preventDefault(); handleHoldRecall(); }
+  else if (e.key === 'F6') { e.preventDefault(); reprintLastReceipt(); }
+  else if (e.key === 'F7') { e.preventDefault(); openEditItemModal(); }
+  else if (e.key === 'F8') { e.preventDefault(); voidSelectedItem(); }
+  else if (e.key === 'F9') { e.preventDefault(); openCheckoutModal('CASH'); }
   else if (e.key === 'F10') { e.preventDefault(); openCheckoutModal('QRIS'); }
-  else if (e.key === 'F2') { e.preventDefault(); openSearchModal(); }
-  else if (e.key === 'F4') { e.preventDefault(); openEditItemModal(); }
-  else if (e.key === 'F5' || e.key === 'F7') { e.preventDefault(); openNonPhysicalModal(); }
-  else if (e.key === 'F6') { e.preventDefault(); handleHoldRecall(); }
-  else if (e.key === 'F3') { e.preventDefault(); reprintLastReceipt(); }
-  else if (e.key === 'F9') { e.preventDefault(); openCashDropModal(); }
-  else if (e.key === 'F11') { e.preventDefault(); manualKickDrawer(); }
-  else if (e.key === 'F12') { e.preventDefault(); openReturnModal(); }
+  else if (e.key === 'F11') { e.preventDefault(); openCashDropModal(); }
+  else if (e.key === 'F12') { e.preventDefault(); clearCartWithPin(); }
+  else if (e.altKey && e.key === '1') { e.preventDefault(); openNonPhysicalModal(); }
+  else if (e.altKey && e.key === '2') { e.preventDefault(); openReturnModal(); }
+  else if (e.altKey && e.key === '3') { e.preventDefault(); manualKickDrawer(); }
   else if (e.key === 'Delete') { e.preventDefault(); voidSelectedItem(); }
   else if (e.key === 'Escape') { closeModals(); }
   else if (e.ctrlKey && e.key === 'Enter') {
