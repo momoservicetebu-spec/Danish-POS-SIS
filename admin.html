@@ -889,38 +889,138 @@
         </div>
       </div>
 
-      <!-- TAB 7: MANAJEMEN USER & DEVICE BINDING -->
-      <div id="tab-users" class="section">
-        <div class="card" style="margin-bottom:16px;">
-          <h3 style="margin-top:0;">Tambah Pengguna Baru (RBAC)</h3>
-          <div class="form-row">
-            <input type="text" id="usrNama" placeholder="Nama Lengkap Karyawan">
-            <input type="text" id="usrUsername" autocomplete="off" placeholder="Username Login">
-            <input type="password" id="usrPassword" autocomplete="new-password" placeholder="Password Login">
-          </div>
-          <div class="form-row">
-            <input type="password" id="usrPin" autocomplete="new-password" placeholder="PIN Otorisasi (Kosongkan untuk Kasir)">
-            <select id="usrRole">
-              <option value="Kasir">Kasir</option>
-              <option value="Pramuniaga">Pramuniaga</option>
-              <option value="Kepala Toko">Kepala Toko</option>
-              <option value="Korwil">Korwil</option>
-            </select>
-            <input type="text" id="usrToko" placeholder="Kode Toko (misal: TK-001 atau ALL)">
-          </div>
-          <button class="btn btn-green" onclick="submitNewUser()">Simpan User Baru</button>
+      <!-- TAB 7: LAPORAN (RENE POS STYLE) -->
+<div id="tab-reports" class="tab-content">
+    <!-- VIEW 1: DIREKTORI KATEGORI & DAFTAR LAPORAN -->
+    <div id="report-directory-view">
+        <div class="header-flex" style="margin-bottom: 16px;">
+            <div>
+                <h2 style="margin:0; font-size:20px; font-weight:800; color:var(--dark);">Pusat Laporan & Analisa</h2>
+                <p style="margin:2px 0 0 0; font-size:12px; color:#64748b;">Pilih kategori di sebelah kiri untuk melihat daftar laporan operasional dan keuangan.</p>
+            </div>
+            <div style="position:relative; width: 280px;">
+                <input type="text" id="report-quick-search" class="form-control" placeholder="🔍 Cari nama laporan..." oninput="searchReportsCatalog(this.value)" style="padding-left:12px; font-size:13px;">
+            </div>
         </div>
 
-        <div class="card">
-          <h3 style="margin-top:0;">Daftar Pengguna & Kontrol Device Binding</h3>
-          <table>
-            <thead>
-              <tr><th>ID</th><th>Nama</th><th>Username</th><th>Role</th><th>Akses Toko</th><th>Registered Device ID</th><th>Aksi Device</th></tr>
-            </thead>
-            <tbody id="usersTableBody"></tbody>
-          </table>
+        <div class="pref-split-grid" style="grid-template-columns: 240px 1fr; align-items: start; gap: 20px;">
+            <!-- Panel Kiri: Kategori Laporan -->
+            <div class="card" style="padding: 12px; position: sticky; top: 16px;">
+                <div style="font-size: 11px; font-weight: 800; color: #94a3b8; text-transform: uppercase; letter-spacing: 0.5px; padding: 6px 10px 10px;">
+                    Kategori Laporan
+                </div>
+                <div id="report-category-sidebar" class="pref-subnav" style="display:flex; flex-direction:column; gap:6px;">
+                    <!-- Dirender otomatis oleh js_report.js -->
+                </div>
+            </div>
+
+            <!-- Panel Kanan: Deskripsi Kategori & Daftar Kartu Laporan -->
+            <div class="card" style="padding: 20px; min-height: 520px;">
+                <div id="report-category-header" style="border-bottom: 1px solid #e2e8f0; padding-bottom: 14px; margin-bottom: 18px;">
+                    <h3 id="rep-cat-title" style="margin:0; font-size:18px; font-weight:800; color:var(--primary);">Penjualan</h3>
+                    <p id="rep-cat-desc" style="margin:4px 0 0 0; font-size:13px; color:#64748b;">Berisi laporan yang berkaitan dengan transaksi penjualan, performa barang, kasir, dan pelanggan.</p>
+                </div>
+
+                <!-- Grid Kartu Laporan -->
+                <div id="report-items-grid" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 12px;">
+                    <!-- Dirender otomatis oleh js_report.js -->
+                </div>
+            </div>
         </div>
-      </div>
+    </div>
+
+    <!-- VIEW 2: REPORT VIEWER (MUNCUL SAAT SALAH SATU LAPORAN DIBUKA) -->
+    <div id="report-viewer-section" style="display:none;">
+        <!-- Top Bar Viewer -->
+        <div class="card" style="padding: 14px 20px; margin-bottom: 16px; display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:12px;">
+            <div style="display:flex; align-items:center; gap:12px;">
+                <button type="button" class="btn btn-outline btn-sm" onclick="closeReportViewer()" style="font-weight:700;">
+                    ← Kembali ke Daftar Laporan
+                </button>
+                <div>
+                    <div style="display:flex; align-items:center; gap:8px;">
+                        <span id="rv-badge-cat" class="badge badge-info" style="font-size:10px;">Penjualan</span>
+                        <h3 id="rv-title" style="margin:0; font-size:17px; font-weight:800; color:var(--dark);">Nama Laporan</h3>
+                    </div>
+                    <p id="rv-subtitle" style="margin:2px 0 0 0; font-size:12px; color:#64748b;">Deskripsi laporan</p>
+                </div>
+            </div>
+
+            <div style="display:flex; gap:8px; flex-wrap:wrap;">
+                <button type="button" class="btn btn-outline btn-sm" onclick="saveCurrentReportPreset()" title="Simpan filter laporan ini ke tab Laporan Tersimpan">
+                    ⭐ Simpan Laporan
+                </button>
+                <button type="button" class="btn btn-outline btn-sm" onclick="exportActiveReportCSV()">
+                    📥 Ekspor Excel (.CSV)
+                </button>
+                <button type="button" class="btn btn-primary btn-sm" onclick="printActiveReport()">
+                    🖨️ Cetak / PDF
+                </button>
+            </div>
+        </div>
+
+        <!-- Filter Bar Dinamis -->
+        <div class="card" style="padding: 14px 20px; margin-bottom: 16px; background:#f8fafc;">
+            <div style="display:flex; gap:12px; align-items:flex-end; flex-wrap:wrap;">
+                <div id="rv-filter-date-group" style="display:flex; gap:10px; align-items:flex-end; flex-wrap:wrap;">
+                    <div>
+                        <label style="font-size:11px; font-weight:700; color:#475569; display:block; margin-bottom:4px;">Dari Tanggal</label>
+                        <input type="date" id="rv-start-date" class="form-control" style="padding:7px 10px; font-size:13px;">
+                    </div>
+                    <div>
+                        <label style="font-size:11px; font-weight:700; color:#475569; display:block; margin-bottom:4px;">Sampai Tanggal</label>
+                        <input type="date" id="rv-end-date" class="form-control" style="padding:7px 10px; font-size:13px;">
+                    </div>
+                </div>
+
+                <!-- Filter Tambahan (Kasir / Kategori / Pencarian) -->
+                <div id="rv-filter-extra-group" style="display:flex; gap:10px; align-items:flex-end; flex-wrap:wrap;">
+                    <div id="rv-wrap-filter-select" style="display:none;">
+                        <label id="rv-label-filter-select" style="font-size:11px; font-weight:700; color:#475569; display:block; margin-bottom:4px;">Filter</label>
+                        <select id="rv-filter-select" class="form-control" style="padding:7px 10px; font-size:13px; min-width:160px;">
+                            <option value="ALL">Semua</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label style="font-size:11px; font-weight:700; color:#475569; display:block; margin-bottom:4px;">Cari di Hasil</label>
+                        <input type="text" id="rv-table-search" class="form-control" placeholder="Ketik kata kunci..." oninput="filterReportTableRows(this.value)" style="padding:7px 10px; font-size:13px; width:190px;">
+                    </div>
+                </div>
+
+                <button type="button" class="btn btn-primary" onclick="runActiveReport()" style="padding:8px 18px; font-weight:700;">
+                    🔍 Tampilkan Laporan
+                </button>
+            </div>
+        </div>
+
+        <!-- Ringkasan KPI (Jika Ada) -->
+        <div id="rv-kpi-container" style="display:grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap:12px; margin-bottom:16px;"></div>
+
+        <!-- Area Grafik (Khusus Laporan Grafik) -->
+        <div id="rv-chart-container" class="card" style="display:none; padding:20px; margin-bottom:16px;">
+            <canvas id="rv-canvas-chart" style="max-height:340px; width:100%;"></canvas>
+        </div>
+
+        <!-- Tabel Data Laporan -->
+        <div id="printable-report-area" class="card" style="padding: 20px;">
+            <div class="print-only-header" style="display:none; margin-bottom:16px; border-bottom:2px solid #0f172a; padding-bottom:10px;">
+                <h2 id="print-rep-store" style="margin:0; font-size:18px;">LAPORAN TOKO</h2>
+                <div id="print-rep-title" style="font-size:15px; font-weight:700; margin-top:4px;"></div>
+                <div id="print-rep-period" style="font-size:12px; color:#475569; margin-top:2px;"></div>
+            </div>
+
+            <div class="table-responsive">
+                <table class="data-table" id="rv-data-table">
+                    <thead id="rv-table-head"></thead>
+                    <tbody id="rv-table-body">
+                        <tr><td colspan="6" style="text-align:center; padding:30px; color:#94a3b8;">Memuat data laporan...</td></tr>
+                    </tbody>
+                    <tfoot id="rv-table-foot" style="background:#f8fafc; font-weight:800;"></tfoot>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
 
       <!-- TAB 8: PEMBELIAN & HUTANG USAHA -->
       <div id="tab-suppliers" class="section">
@@ -2781,5 +2881,6 @@
   </script>
   <script src="JS/js_api.js"></script>
   <script src="JS/js_admin.js"></script>
+  <script src="JS/js_report.js"></script>
 </body>
 </html>
