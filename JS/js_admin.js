@@ -2082,25 +2082,12 @@ function handleSOScannerKey(e) {
 
 function submitSO() {
   const counts = [];
-  const summaryRows = [];
+  const nameMap = {};
 
   document.querySelectorAll('.so-input').forEach(inp => {
     if (inp.value !== '') {
-      const fisik = Number(inp.value) || 0;
-      const sys = Number(inp.dataset.sys) || 0;
-      const hpp = Number(inp.dataset.hpp) || 0;
-      const selisih = fisik - sys;
-      const nilaiSelisih = selisih * hpp;
-
-      counts.push({ sku: inp.dataset.sku, stokFisik: fisik });
-      summaryRows.push({
-        sku: inp.dataset.sku,
-        nama: inp.dataset.nama,
-        sys: sys,
-        fisik: fisik,
-        selisih: selisih,
-        nilaiSelisih: nilaiSelisih
-      });
+      counts.push({ sku: inp.dataset.sku, stokFisik: Number(inp.value) || 0 });
+      nameMap[inp.dataset.sku] = inp.dataset.nama;
     }
   });
 
@@ -2112,13 +2099,23 @@ function submitSO() {
     supervisorPin: document.getElementById('soPin').value,
     counts: counts
   }, res => {
+    // Gunakan rincian resmi yang dihitung langsung oleh server (InventoryController.submitStockOpname)
+    const serverRows = (res.summary || []).map(r => ({
+      sku: r.sku,
+      nama: nameMap[r.sku] || r.sku,
+      sys: Number(r.stokKomputer) || 0,
+      fisik: Number(r.stokFisik) || 0,
+      selisih: Number(r.selisih) || 0,
+      nilaiSelisih: Number(r.nilaiSelisih) || 0
+    }));
+
     callAdminApi('admin/products', {}, items => {
       MASTER_PRODUCTS_CACHE = items || [];
       setAdminCache('PRODUCTS', MASTER_PRODUCTS_CACHE);
       loadBlindSOItems();
     }, '', true);
 
-    showSOSummaryModal(jenisSO, summaryRows, res.message);
+    showSOSummaryModal(jenisSO, serverRows, res.idSO || res.message);
   }, 'Menyimpan Hasil Stock Opname...');
 }
 
