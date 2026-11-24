@@ -1040,17 +1040,89 @@
 
       <!-- TAB 6: BRANKAS & SETORAN -->
       <div id="tab-brankas" class="section">
-        <div class="card" style="max-width: 600px;">
-          <h3 style="margin-top:0;">Pencatatan Kas Brankas & Setoran Bank</h3>
-          <div style="display:flex; flex-direction:column; gap:12px;">
-            <select id="kasJenis">
-              <option value="SETOR_BANK">Setoran Tunai ke Bank</option>
-              <option value="CASH_DROP">Cash Drop dari Laci Kasir</option>
-              <option value="BIAYA_OPS">Pengeluaran Operasional Toko</option>
-            </select>
-            <input type="number" id="kasNominal" placeholder="Nominal (Rp)">
-            <input type="text" id="kasKet" placeholder="Keterangan / Nomor Referensi Bukti Setor">
-            <button class="btn btn-green" onclick="submitKasBrankas()">Catat Transaksi Brankas</button>
+        <!-- RINGKASAN KPI BRANKAS -->
+        <div class="bento-kpi" style="grid-template-columns: repeat(3, 1fr); margin-bottom: 16px;">
+          <div class="kpi-grad-card kpi-grad-green">
+            <div class="kpi-label">Total Cash Drop Masuk</div>
+            <div class="kpi-val" id="brankasTotalDrop">Rp 0</div>
+            <div class="kpi-grad-sub">Setoran dari laci kasir ke brankas</div>
+            <div class="kpi-bg-icon">&#128181;</div>
+          </div>
+          <div class="kpi-grad-card kpi-grad-purple">
+            <div class="kpi-label">Total Setoran Bank &amp; Biaya</div>
+            <div class="kpi-val" id="brankasTotalOut">Rp 0</div>
+            <div class="kpi-grad-sub">Setor bank &amp; pengeluaran operasional</div>
+            <div class="kpi-bg-icon">&#127974;</div>
+          </div>
+          <div class="kpi-grad-card kpi-grad-amber">
+            <div class="kpi-label">Estimasi Saldo Fisik Brankas</div>
+            <div class="kpi-val" id="brankasSaldoNet">Rp 0</div>
+            <div class="kpi-grad-sub">Selisih kas masuk dikurangi keluar</div>
+            <div class="kpi-bg-icon">&#128272;</div>
+          </div>
+        </div>
+
+        <!-- LAYOUT 2 KOLOM: FORM INPUT (KIRI) + TABEL CATATAN BRANKAS (KANAN) -->
+        <div class="bento-main" style="grid-template-columns: 1fr 1.8fr; align-items: start;">
+          <div class="card">
+            <h3 style="margin-top:0;">Pencatatan Kas Brankas &amp; Setoran Bank</h3>
+            <small style="color:var(--text-muted); display:block; margin-bottom:12px;">Catat setiap perpindahan uang tunai dari laci kasir, setoran bank, maupun pengeluaran operasional toko.</small>
+            <div style="display:flex; flex-direction:column; gap:12px;">
+              <div>
+                <label style="font-size:12px; font-weight:700; display:block; margin-bottom:4px;">Jenis Transaksi Kas</label>
+                <select id="kasJenis">
+                  <option value="CASH_DROP">Cash Drop dari Laci Kasir (+ Masuk)</option>
+                  <option value="SETOR_BANK">Setoran Tunai ke Bank (- Keluar)</option>
+                  <option value="BIAYA_OPS">Pengeluaran Operasional Toko (- Keluar)</option>
+                </select>
+              </div>
+              <div>
+                <label style="font-size:12px; font-weight:700; display:block; margin-bottom:4px;">Nominal (Rp)</label>
+                <input type="number" id="kasNominal" placeholder="Contoh: 500000" min="1">
+              </div>
+              <div>
+                <label style="font-size:12px; font-weight:700; display:block; margin-bottom:4px;">Keterangan / No. Referensi Bukti Setor</label>
+                <input type="text" id="kasKet" placeholder="Contoh: Setor BCA Shift Pagi / Beli Plastik">
+              </div>
+              <button type="button" class="btn btn-green" onclick="submitKasBrankas()" style="justify-content:center; padding:11px;">
+                &#128190; Catat Transaksi Brankas
+              </button>
+            </div>
+          </div>
+
+          <div class="card">
+            <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px; margin-bottom:12px;">
+              <div>
+                <h3 style="margin:0;">Riwayat Catatan Kas Brankas &amp; Setoran</h3>
+                <small style="color:var(--text-muted);">Daftar mutasi kas brankas dan bukti setoran bank tercatat.</small>
+              </div>
+              <div style="display:flex; gap:8px; align-items:center; flex-wrap:wrap;">
+                <select id="brankasFilterJenis" onchange="renderBrankasHistoryTable()" style="width:165px; padding:7px 10px;">
+                  <option value="ALL">Semua Jenis</option>
+                  <option value="CASH_DROP">Cash Drop (+)</option>
+                  <option value="SETOR_BANK">Setor Bank (-)</option>
+                  <option value="BIAYA_OPS">Biaya Ops (-)</option>
+                </select>
+                <button type="button" class="btn btn-blue btn-sm" onclick="loadBrankasHistory()">&#128260; Refresh</button>
+              </div>
+            </div>
+
+            <div class="table-responsive" style="max-height:420px; overflow-y:auto;">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Waktu</th>
+                    <th>Jenis Transaksi</th>
+                    <th>Keterangan / Referensi</th>
+                    <th style="text-align:right;">Nominal</th>
+                    <th>Petugas</th>
+                  </tr>
+                </thead>
+                <tbody id="brankasTableBody">
+                  <tr><td colspan="5" style="text-align:center; color:#94a3b8; padding:20px;">Memuat catatan kas brankas...</td></tr>
+                </tbody>
+              </table>
+            </div>
           </div>
         </div>
       </div>

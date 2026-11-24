@@ -2121,6 +2121,100 @@ function submitKasBrankas() {
   }, 'Menyimpan Transaksi Brankas...');
 }
 
+let BRANKAS_LOGS_CACHE = [];
+
+async function loadBrankasHistory() {
+  const tbody = document.getElementById('brankasTableBody');
+  if (tbody) {
+    tbody.innerHTML = '<tr><td colspan="5" style="text-align:center; color:#94a3b8; padding:16px;">Memuat data kas brankas...</td></tr>';
+  }
+
+  let serverLogs = [];
+  try {
+    const res = await callAdminApi('finance/kas-list', { kode_toko: getActiveTokoCode() });
+    if (res && res.status === 'success' && Array.isArray(res.data)) {
+      serverLogs = res.data;
+    } else {
+      const dash = await callAdminApi('finance/dashboard', { kode_toko: getActiveTokoCode() });
+      const audits = (dash && dash.data && Array.isArray(dash.data.recent_audits)) ? dash.data.recent_audits : [];
+      serverLogs = audits
+        .filter(a => String(a.aktivitas || a.action || '').toUpperCase().includes('BRANKAS') ||
+                     String(a.aktivitas || a.action || '').toUpperCase().includes('CASH_DROP') ||
+                     String(a.aktivitas || a.action || '').toUpperCase().includes('SETOR'))
+        .map(a => ({
+          waktu: a.waktu || a.timestamp || '-',
+          jenis: a.jenis || (String(a.aktivitas || '').includes('DROP') ? 'CASH_DROP' : 'SETOR_BANK'),
+          keterangan: a.keterangan || a.detail || '-',
+          nominal: Number(a.nominal || 0),
+          petugas: a.user || a.petugas || 'Admin'
+        }));
+    }
+  } catch (e) {}
+
+  const localKey = 'DANISH_BRANKAS_LOGS_' + getActiveTokoCode();
+  let localLogs = [];
+  try {
+    localLogs = JSON.parse(localStorage.getItem(localKey) || '[]');
+  } catch (e) {}
+
+  BRANKAS_LOGS_CACHE = serverLogs.length ? serverLogs : localLogs;
+  renderBrankasHistoryTable();
+}
+
+function renderBrankasHistoryTable() {
+  const tbody = document.getElementById('brankasTableBody');
+  const filterVal = document.getElementById('brankasFilterJenis')?.value || 'ALL';
+  if (!tbody) return;
+
+  let totalDrop = 0;
+  let totalOut = 0;
+
+  BRANKAS_LOGS_CACHE.forEach(item => {
+    const nom = Number(item.nominal || 0);
+    const jns = String(item.jenis || '').toUpperCase();
+    if (jns === 'CASH_DROP') totalDrop += nom;
+    else totalOut += nom;
+  });
+
+  const elDrop = document.getElementById('brankasTotalDrop');
+  const elOut = document.getElementById('brankasTotalOut');
+  const elNet = document.getElementById('brankasSaldoNet');
+  if (elDrop) elDrop.textContent = 'Rp ' + totalDrop.toLocaleString('id-ID');
+  if (elOut) elOut.textContent = 'Rp ' + totalOut.toLocaleString('id-ID');
+  if (elNet) elNet.textContent = 'Rp ' + (totalDrop - totalOut).toLocaleString('id-ID');
+
+  const filtered = filterVal === 'ALL'
+    ? BRANKAS_LOGS_CACHE
+    : BRANKAS_LOGS_CACHE.filter(x => String(x.jenis || '').toUpperCase() === filterVal);
+
+  if (!filtered.length) {
+    tbody.innerHTML = '<tr><td colspan="5" style="text-align:center; color:#94a3b8; padding:24px;">Belum ada catatan transaksi brankas.</td></tr>';
+    return;
+  }
+
+  tbody.innerHTML = filtered.map(row => {
+    const jns = String(row.jenis || '').toUpperCase();
+    const isIn = jns === 'CASH_DROP';
+    const badgeHtml = isIn
+      ? '<span class="badge badge-ok">Cash Drop (+)</span>'
+      : (jns === 'SETOR_BANK'
+          ? '<span class="badge badge-warn">Setor Bank (-)</span>'
+          : '<span class="badge badge-danger">Biaya Ops (-)</span>');
+    const nomText = (isIn ? '+ ' : '- ') + 'Rp ' + Number(row.nominal || 0).toLocaleString('id-ID');
+    const nomColor = isIn ? '#059669' : '#DC2626';
+
+    return `
+      <tr>
+        <td style="white-space:nowrap;">${row.waktu || '-'}</td>
+        <td>${badgeHtml}</td>
+        <td>${row.keterangan || '-'}</td>
+        <td style="text-align:right; font-weight:700; color:${nomColor}; white-space:nowrap;">${nomText}</td>
+        <td>${row.petugas || 'Admin'}</td>
+      </tr>
+    `;
+  }).join('');
+}
+
 // === MANAJEMEN USER & DEVICE BINDING ===
 function renderUsersListUI(users) {
   const tbody = document.getElementById('usersTableBody');
