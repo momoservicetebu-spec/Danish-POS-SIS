@@ -570,7 +570,7 @@ function deleteCategoryAdmin(id, nama) {
 }
 
 // =========================================================
-// MODAL & LOGIKA MASTER BARANG LENGKAP (RENE POS)
+// MODAL & LOGIKA MASTER BARANG LENGKAP (DANISH POS)
 // =========================================================
 function openProductModal() {
   resetProductForm();
@@ -1990,7 +1990,7 @@ function logout() {
 loadDashboard();
 
 /* ============================================================================
-   MODUL GUDANG, PEMASOK, PENERIMAAN BARANG (MULTI-ITEM) & REPACK
+   MODUL GUDANG, PEMASOK & PENERIMAAN BARANG (MULTI-ITEM)
    ============================================================================ */
 
 let pbItemsList = [];
@@ -2009,86 +2009,89 @@ function openPemasokModal() {
 
   const modal = document.getElementById('pemasokModal');
   if (modal) modal.classList.add('open');
+  setTimeout(() => document.getElementById('pmsNama').focus(), 100);
 }
 
 function submitPemasokModal(keepOpen) {
   const nama = document.getElementById('pmsNama').value.trim();
   if (!nama) {
     alert('Nama Perusahaan / Pemasok wajib diisi!');
+    document.getElementById('pmsNama').focus();
     return;
   }
 
+  const faks = document.getElementById('pmsFaks').value.trim();
+  const kontak = document.getElementById('pmsKontak').value.trim();
+  const catatan = document.getElementById('pmsCatatan').value.trim();
+  const alamatGabung = [
+    document.getElementById('pmsAlamat1').value.trim(),
+    document.getElementById('pmsAlamat2').value.trim(),
+    document.getElementById('pmsKota').value.trim(),
+    document.getElementById('pmsPropinsi').value.trim(),
+    kontak ? `PIC: ${kontak}` : '',
+    faks ? `Faks: ${faks}` : '',
+    catatan ? `Ket: ${catatan}` : ''
+  ].filter(Boolean).join(', ');
+
   const payload = {
-    id: document.getElementById('pmsId').value.trim(),
-    nama: nama,
-    hp: document.getElementById('pmsTelepon').value.trim(),
-    faks: document.getElementById('pmsFaks').value.trim(),
-    kontak: document.getElementById('pmsKontak').value.trim(),
-    alamat: [
-      document.getElementById('pmsAlamat1').value.trim(),
-      document.getElementById('pmsAlamat2').value.trim(),
-      document.getElementById('pmsKota').value.trim(),
-      document.getElementById('pmsPropinsi').value.trim()
-    ].filter(Boolean).join(', '),
-    catatan: document.getElementById('pmsCatatan').value.trim(),
-    termin: 14
+    supplierId: document.getElementById('pmsId').value.trim(),
+    namaSupplier: nama,
+    kontakHp: document.getElementById('pmsTelepon').value.trim(),
+    alamat: alamatGabung,
+    terminHari: 14
   };
 
-  if (typeof showLoading === 'function') showLoading('Menyimpan Pemasok...', 'Menyinkronkan data pemasok ke server');
-
-  // Sesuaikan dengan pemanggilan API backend Anda (apiCall / google.script.run)
-  apiCall('admin/save-supplier', payload)
-    .then(res => {
-      if (typeof hideLoading === 'function') hideLoading();
-      alert(res.message || 'Data pemasok berhasil disimpan.');
-      if (typeof loadSuppliersTable === 'function') loadSuppliersTable();
-      if (keepOpen) {
-        openPemasokModal();
-      } else {
-        closeModal('pemasokModal');
-      }
-    })
-    .catch(err => {
-      if (typeof hideLoading === 'function') hideLoading();
-      alert('Gagal menyimpan pemasok: ' + err.message);
-    });
+  callAdminApi('supplier/save', payload, res => {
+    alert(res.message || 'Data pemasok berhasil disimpan.');
+    if (typeof loadSuppliersTable === 'function') loadSuppliersTable();
+    if (keepOpen) {
+      openPemasokModal();
+    } else {
+      closeModal('pemasokModal');
+    }
+  }, 'Menyimpan Data Pemasok...');
 }
 
 function openPenerimaanBarangModal() {
-  const today = new Date().toISOString().split('T')[0];
-  document.getElementById('pbNomor').value = 'PB-' + Date.now().toString().slice(-6);
-  document.getElementById('pbTanggal').value = today;
+  document.getElementById('pbNomor').value = 'PB-' + getTodayIsoDate().replace(/-/g, '') + '-' + String(Math.floor(100 + Math.random() * 899));
+  document.getElementById('pbTanggal').value = getTodayIsoDate();
   document.getElementById('pbKeterangan').value = '';
   document.getElementById('pbSearchInput').value = '';
   pbItemsList = [];
   renderPenerimaanBarangTable();
 
-  // Salin opsi supplier dari dropdown tab Supplier jika tersedia
-  const srcSup = document.getElementById('purSupplierId');
+  // Muat katalog & supplier jika cache masih kosong agar autocomplete dan dropdown pemasok terisi
+  if (MASTER_PRODUCTS_CACHE.length === 0) {
+    loadMasterCatalog();
+  }
+
   const dstSup = document.getElementById('pbPemasok');
-  if (srcSup && dstSup) {
-    dstSup.innerHTML = srcSup.innerHTML || '<option value="UMUM">-- Pemasok Umum --</option>';
+  const srcSup = document.getElementById('purSupplierId');
+  if (srcSup && srcSup.options.length > 0 && dstSup) {
+    dstSup.innerHTML = srcSup.innerHTML;
+  } else {
+    callAdminApi('supplier/list', {}, suppliers => {
+      if (dstSup) {
+        dstSup.innerHTML = (suppliers && suppliers.length > 0)
+          ? suppliers.map(s => `<option value="${s.supplier_id} - ${s.nama_supplier}">${s.supplier_id} - ${s.nama_supplier}</option>`).join('')
+          : '<option value="UMUM">-- Pemasok Umum --</option>';
+      }
+    }, 'Memuat Daftar Pemasok...');
   }
 
   const modal = document.getElementById('penerimaanBarangModal');
   if (modal) modal.classList.add('open');
+  setTimeout(() => document.getElementById('pbSearchInput').focus(), 100);
 }
 
 function addPenerimaanBarangItem() {
   const input = document.getElementById('pbSearchInput');
-  const keyword = (input.value || '').trim().toUpperCase();
-  if (!keyword) return;
+  const rawVal = (input.value || '').trim();
+  if (!rawVal) return;
 
-  // Cari dari variabel global masterCatalog (jika ada di js_admin.js)
-  const catalog = (typeof masterCatalog !== 'undefined' && Array.isArray(masterCatalog)) ? masterCatalog : [];
-  const found = catalog.find(item =>
-    String(item.sku).toUpperCase() === keyword ||
-    String(item.barcode).toUpperCase() === keyword ||
-    String(item.nama).toUpperCase().includes(keyword)
-  );
-
-  const sku = found ? found.sku : keyword;
-  const nama = found ? found.nama : keyword;
+  const found = findCatalogProduct(rawVal);
+  const sku = found ? found.sku : rawVal.toUpperCase();
+  const nama = found ? found.nama : rawVal;
   const satuan = found ? (found.satuan || 'PCS') : 'PCS';
 
   const existing = pbItemsList.find(x => x.sku === sku);
@@ -2134,42 +2137,33 @@ function submitPenerimaanBarang(keepOpen) {
     return;
   }
 
+  const nomor = document.getElementById('pbNomor').value.trim();
+  const tanggal = document.getElementById('pbTanggal').value;
+  const pemasok = document.getElementById('pbPemasok').value || 'UMUM';
+  const ket = document.getElementById('pbKeterangan').value.trim();
+
   const payload = {
-    nomor: document.getElementById('pbNomor').value.trim(),
-    tanggal: document.getElementById('pbTanggal').value,
-    pemasok: document.getElementById('pbPemasok').value,
-    keterangan: document.getElementById('pbKeterangan').value.trim(),
-    items: pbItemsList
+    tipe: 'LPB',
+    asalTujuan: `${pemasok} [${nomor} | ${tanggal}]${ket ? ' - ' + ket : ''}`,
+    supervisorPin: '',
+    items: pbItemsList.map(it => ({
+      sku: it.sku,
+      qty: Number(it.qty) || 1,
+      expiredDate: it.expired || ''
+    }))
   };
 
-  if (typeof showLoading === 'function') showLoading('Menyimpan Penerimaan Barang...', 'Memperbarui stok gudang');
-
-  apiCall('inventory/receive-batch', payload)
-    .then(res => {
-      if (typeof hideLoading === 'function') hideLoading();
-      alert(res.message || 'Penerimaan barang berhasil disimpan.');
-      if (keepOpen) {
-        openPenerimaanBarangModal();
-      } else {
-        closeModal('penerimaanBarangModal');
-      }
-    })
-    .catch(err => {
-      if (typeof hideLoading === 'function') hideLoading();
-      alert('Gagal menyimpan penerimaan barang: ' + err.message);
-    });
+  callAdminApi('inventory/lpb-nrb', payload, res => {
+    alert(res.message || 'Penerimaan barang berhasil disimpan dan stok telah diperbarui.');
+    loadMasterCatalog();
+    if (keepOpen) {
+      openPenerimaanBarangModal();
+    } else {
+      closeModal('penerimaanBarangModal');
+    }
+  }, 'Menyimpan Penerimaan Barang...');
 }
 
 function printPenerimaanBarang() {
   window.print();
-}
-
-function openGudangDocModal() {
-  const modal = document.getElementById('gudangDocModal');
-  if (modal) modal.classList.add('open');
-}
-
-function openRepackModal() {
-  const modal = document.getElementById('repackModal');
-  if (modal) modal.classList.add('open');
 }
