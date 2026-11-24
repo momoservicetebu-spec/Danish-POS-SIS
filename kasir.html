@@ -287,20 +287,21 @@
     </div>
   </div>
 
-  <!-- MODAL PEMBAYARAN LENGKAP -->
+  <!-- MODAL PEMBAYARAN LENGKAP MULTI-CHANNEL -->
   <div id="checkoutModal" class="modal-backdrop">
-    <div class="modal-box" style="max-width:520px;">
+    <div class="modal-box" style="max-width:560px;">
       <div style="display:flex; justify-content:space-between; align-items:center;">
         <h3 style="margin:0;">Penyelesaian Pembayaran</h3>
         <span id="checkoutMemberTag" style="font-size:12px; background:#EFF6FF; color:#1D4ED8; padding:4px 8px; border-radius:6px; font-weight:700;">Pelanggan Umum</span>
       </div>
 
-      <div style="display:flex; justify-content:space-between; align-items:baseline; margin:12px 0;">
+      <div style="display:flex; justify-content:space-between; align-items:baseline; margin:10px 0;">
         <span style="font-size:13px; color:var(--text-muted);">Tagihan Akhir:</span>
         <div style="font-size:28px; font-weight:800; color:var(--emerald);" id="modalTotalDue">Rp 0</div>
       </div>
 
-      <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px; background:#F8FAFC; padding:10px; border-radius:10px; border:1px solid var(--border); margin-bottom:10px;">
+      <!-- Diskon & Poin -->
+      <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px; background:#F8FAFC; padding:10px; border-radius:10px; border:1px solid var(--border); margin-bottom:8px;">
         <div>
           <label style="font-size:12px; font-weight:600; display:block; margin-bottom:4px;">Diskon Faktur (Rp)</label>
           <input type="number" id="payInvoiceDiscount" value="0" min="0" oninput="calcChange()" style="margin-bottom:0;">
@@ -311,7 +312,8 @@
         </div>
       </div>
 
-      <div style="display:flex; justify-content:space-between; align-items:center; font-size:12px; margin-bottom:10px; padding:6px 10px; background:#F1F5F9; border-radius:8px;">
+      <!-- Opsi PPN & Pembulatan -->
+      <div style="display:flex; justify-content:space-between; align-items:center; font-size:12px; margin-bottom:8px; padding:6px 10px; background:#F1F5F9; border-radius:8px;">
         <label style="display:flex; align-items:center; gap:6px; cursor:pointer; font-weight:600;">
           <input type="checkbox" id="payIncludePpn" onchange="calcChange()" style="width:auto; margin:0;"> Tambah PPN 11% (Exclusive)
         </label>
@@ -320,43 +322,94 @@
         </label>
       </div>
 
-      <div style="display:flex; gap:6px; flex-wrap:wrap; margin-bottom:10px;">
-        <button type="button" onclick="setQuickCash('EXACT')" style="flex:1; padding:7px 8px; border-radius:8px; border:1px solid #10B981; background:#ECFDF5; color:#047857; font-weight:700; font-size:12px; cursor:pointer;">Uang Pas</button>
-        <button type="button" onclick="setQuickCash(10000)" style="padding:7px 10px; border-radius:8px; border:1px solid var(--border); background:#F8FAFC; font-weight:700; font-size:12px; cursor:pointer;">+10rb</button>
-        <button type="button" onclick="setQuickCash(20000)" style="padding:7px 10px; border-radius:8px; border:1px solid var(--border); background:#F8FAFC; font-weight:700; font-size:12px; cursor:pointer;">+20rb</button>
-        <button type="button" onclick="setQuickCash(50000)" style="padding:7px 10px; border-radius:8px; border:1px solid var(--border); background:#F8FAFC; font-weight:700; font-size:12px; cursor:pointer;">+50rb</button>
-        <button type="button" onclick="setQuickCash(100000)" style="padding:7px 10px; border-radius:8px; border:1px solid var(--border); background:#F8FAFC; font-weight:700; font-size:12px; cursor:pointer;">+100rb</button>
+      <!-- Preset Cepat Metode Bayar (1 Klik Tagihan Penuh) -->
+      <div style="display:grid; grid-template-columns:repeat(5, 1fr); gap:5px; margin-bottom:10px;">
+        <button type="button" onclick="selectFullPaymentPreset('CASH')" style="padding:7px 4px; border-radius:8px; border:1px solid #10B981; background:#ECFDF5; color:#047857; font-weight:700; font-size:11px; cursor:pointer;">Tunai Pas</button>
+        <button type="button" onclick="selectFullPaymentPreset('QRIS')" style="padding:7px 4px; border-radius:8px; border:1px solid #7C3AED; background:#F5F3FF; color:#6D28D9; font-weight:700; font-size:11px; cursor:pointer;">QRIS</button>
+        <button type="button" onclick="selectFullPaymentPreset('EWALLET')" style="padding:7px 4px; border-radius:8px; border:1px solid #0284C7; background:#F0F9FF; color:#0369A1; font-weight:700; font-size:11px; cursor:pointer;">E-Wallet</button>
+        <button type="button" onclick="selectFullPaymentPreset('TRANSFER')" style="padding:7px 4px; border-radius:8px; border:1px solid #2563EB; background:#EFF6FF; color:#1D4ED8; font-weight:700; font-size:11px; cursor:pointer;">Transfer</button>
+        <button type="button" onclick="selectFullPaymentPreset('EDC')" style="padding:7px 4px; border-radius:8px; border:1px solid #D97706; background:#FFFBEB; color:#B45309; font-weight:700; font-size:11px; cursor:pointer;">Debit/Kredit</button>
       </div>
 
-      <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-bottom:10px;">
+      <!-- Nominal Pecahan Tunai -->
+      <div style="display:flex; gap:6px; margin-bottom:10px;">
+        <button type="button" onclick="setQuickCash(10000)" style="flex:1; padding:6px; border-radius:7px; border:1px solid var(--border); background:#F8FAFC; font-weight:700; font-size:12px; cursor:pointer;">+10rb</button>
+        <button type="button" onclick="setQuickCash(20000)" style="flex:1; padding:6px; border-radius:7px; border:1px solid var(--border); background:#F8FAFC; font-weight:700; font-size:12px; cursor:pointer;">+20rb</button>
+        <button type="button" onclick="setQuickCash(50000)" style="flex:1; padding:6px; border-radius:7px; border:1px solid var(--border); background:#F8FAFC; font-weight:700; font-size:12px; cursor:pointer;">+50rb</button>
+        <button type="button" onclick="setQuickCash(100000)" style="flex:1; padding:6px; border-radius:7px; border:1px solid var(--border); background:#F8FAFC; font-weight:700; font-size:12px; cursor:pointer;">+100rb</button>
+      </div>
+
+      <!-- Baris 1: Tunai & QRIS / E-Wallet -->
+      <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-bottom:8px;">
         <div>
           <label style="font-size:12px; font-weight:600; display:block; margin-bottom:4px;">Tunai Diterima (Rp)</label>
           <input type="number" id="payCashInput" placeholder="0" oninput="calcChange()" style="margin-bottom:0;">
         </div>
         <div>
-          <label style="font-size:12px; font-weight:600; display:block; margin-bottom:4px;">QRIS / Transfer (Rp)</label>
+          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:4px;">
+            <label style="font-size:12px; font-weight:600;">QRIS / E-Wallet (Rp)</label>
+            <select id="payQrisProvider" style="width:auto; padding:2px 6px; font-size:11px; margin:0; border-radius:6px;">
+              <option value="QRIS">QRIS Umum</option>
+              <option value="DANA">DANA</option>
+              <option value="OVO">OVO</option>
+              <option value="GOPAY">GoPay</option>
+              <option value="SHOPEEPAY">ShopeePay</option>
+              <option value="PAYLATER">QRIS PayLater</option>
+            </select>
+          </div>
           <input type="number" id="payQrisInput" placeholder="0" oninput="calcChange()" style="margin-bottom:0;">
         </div>
       </div>
 
-      <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-bottom:10px;">
+      <!-- Baris 2: Transfer Bank & Nomor Bukti Transfer -->
+      <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-bottom:8px;">
         <div>
-          <label style="font-size:12px; font-weight:600; display:block; margin-bottom:4px;">Kartu Debit / Kredit EDC (Rp)</label>
+          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:4px;">
+            <label style="font-size:12px; font-weight:600;">Transfer Bank (Rp)</label>
+            <select id="payBankProvider" style="width:auto; padding:2px 6px; font-size:11px; margin:0; border-radius:6px;">
+              <option value="BCA">BCA</option>
+              <option value="BRI">BRI</option>
+              <option value="MANDIRI">Mandiri</option>
+              <option value="BNI">BNI</option>
+              <option value="BSI">BSI</option>
+              <option value="SEABANK">SeaBank</option>
+            </select>
+          </div>
+          <input type="number" id="payTransferInput" placeholder="0" oninput="calcChange()" style="margin-bottom:0;">
+        </div>
+        <div>
+          <label style="font-size:12px; font-weight:600; display:block; margin-bottom:4px;">Ref / Nama Pengirim Transfer</label>
+          <input type="text" id="payTransferRef" placeholder="Contoh: TF Budi / 9912" style="margin-bottom:0;">
+        </div>
+      </div>
+
+      <!-- Baris 3: Kartu Debit/Kredit EDC & Voucher -->
+      <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-bottom:8px;">
+        <div>
+          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:4px;">
+            <label style="font-size:12px; font-weight:600;">Kartu EDC (Rp)</label>
+            <select id="payEdcType" style="width:auto; padding:2px 6px; font-size:11px; margin:0; border-radius:6px;">
+              <option value="DEBIT">Kartu Debit</option>
+              <option value="KREDIT">Kartu Kredit</option>
+              <option value="VOUCHER">Voucher Belanja</option>
+            </select>
+          </div>
           <input type="number" id="payEdcInput" placeholder="0" oninput="calcChange()" style="margin-bottom:0;">
         </div>
         <div>
-          <label style="font-size:12px; font-weight:600; display:block; margin-bottom:4px;">No. Approval / Ref EDC</label>
+          <label style="font-size:12px; font-weight:600; display:block; margin-bottom:4px;">No. Approval / Kode Voucher</label>
           <input type="text" id="payEdcRef" placeholder="Contoh: 482910" style="margin-bottom:0;">
         </div>
       </div>
 
-      <div id="tempoPaymentRow" style="display:none; margin-bottom:10px;">
+      <!-- Baris Kredit / Tempo Member -->
+      <div id="tempoPaymentRow" style="display:none; margin-bottom:8px;">
         <label style="font-size:12px; font-weight:600; display:block; margin-bottom:4px; color:#B45309;">Kredit / Tempo Member (Sisa Limit: <span id="availCreditLbl">Rp 0</span>)</label>
         <input type="number" id="payTempoInput" value="0" min="0" oninput="calcChange()" style="margin-bottom:0; border-color:#F59E0B;">
       </div>
 
-      <div style="padding:12px; background:#F8FAFC; border-radius:10px; margin-bottom:14px; display:flex; justify-content:space-between;">
-        <span>Kembalian Tunai:</span>
+      <div style="padding:10px 12px; background:#F8FAFC; border-radius:10px; margin-bottom:12px; display:flex; justify-content:space-between; align-items:center;">
+        <span style="font-weight:600;">Kembalian Tunai:</span>
         <strong id="modalChangeVal" style="font-size:18px; color:var(--royal-blue);">Rp 0</strong>
       </div>
 

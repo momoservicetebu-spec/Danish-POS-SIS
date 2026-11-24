@@ -459,8 +459,7 @@ async function recallHeldCart(holdId) {
   closeModals();
   renderCart();
 }
-
-// Pembayaran Lengkap [F9]
+// Pembayaran Lengkap Multi-Channel [F9]
 function openCheckoutModal(defaultMode) {
   if (CART.length === 0) return;
   const evalResult = evaluateCartWithMember();
@@ -480,24 +479,50 @@ function openCheckoutModal(defaultMode) {
   document.getElementById('payTempoInput').value = 0;
   tempoRow.style.display = (ACTIVE_MEMBER.member_id !== 'MBR-000' && sisaLimit > 0) ? 'block' : 'none';
 
-  const initialDue = (document.getElementById('payAutoRound') && document.getElementById('payAutoRound').checked)
-    ? Math.floor(evalResult.grandTotal / 100) * 100
-    : evalResult.grandTotal;
-
-  document.getElementById('payCashInput').value = defaultMode === 'CASH' ? initialDue : 0;
-  document.getElementById('payQrisInput').value = defaultMode === 'QRIS' ? initialDue : 0;
+  document.getElementById('payCashInput').value = 0;
+  document.getElementById('payQrisInput').value = 0;
+  document.getElementById('payTransferInput').value = 0;
+  document.getElementById('payTransferRef').value = '';
   document.getElementById('payEdcInput').value = 0;
   document.getElementById('payEdcRef').value = '';
 
-  calcChange();
   document.getElementById('checkoutModal').style.display = 'flex';
+  selectFullPaymentPreset(defaultMode || 'CASH');
+}
 
-  if (defaultMode === 'QRIS') {
-    customerChannel.postMessage({ type: 'SHOW_QRIS', amount: initialDue });
+function selectFullPaymentPreset(mode) {
+  const comp = getCheckoutComputation();
+  document.getElementById('payCashInput').value = 0;
+  document.getElementById('payQrisInput').value = 0;
+  document.getElementById('payTransferInput').value = 0;
+  document.getElementById('payEdcInput').value = 0;
+  document.getElementById('payTempoInput').value = 0;
+
+  if (mode === 'CASH') {
+    document.getElementById('payCashInput').value = comp.netDue;
+    calcChange();
+    const el = document.getElementById('payCashInput');
+    el.focus();
+    el.select();
+  } else if (mode === 'QRIS') {
+    document.getElementById('payQrisProvider').value = 'QRIS';
+    document.getElementById('payQrisInput').value = comp.netDue;
+    customerChannel.postMessage({ type: 'SHOW_QRIS', amount: comp.netDue });
+    calcChange();
     document.getElementById('payQrisInput').focus();
-  } else {
-    document.getElementById('payCashInput').focus();
-    document.getElementById('payCashInput').select();
+  } else if (mode === 'EWALLET') {
+    document.getElementById('payQrisProvider').value = 'DANA';
+    document.getElementById('payQrisInput').value = comp.netDue;
+    calcChange();
+    document.getElementById('payQrisProvider').focus();
+  } else if (mode === 'TRANSFER') {
+    document.getElementById('payTransferInput').value = comp.netDue;
+    calcChange();
+    document.getElementById('payTransferRef').focus();
+  } else if (mode === 'EDC') {
+    document.getElementById('payEdcInput').value = comp.netDue;
+    calcChange();
+    document.getElementById('payEdcRef').focus();
   }
 }
 
@@ -520,15 +545,20 @@ function getCheckoutComputation() {
 
   const cash = Number(document.getElementById('payCashInput').value) || 0;
   const qris = Number(document.getElementById('payQrisInput').value) || 0;
+  const qrisProvider = document.getElementById('payQrisProvider')?.value || 'QRIS';
+  const transfer = Number(document.getElementById('payTransferInput')?.value) || 0;
+  const bankProvider = document.getElementById('payBankProvider')?.value || 'BCA';
   const edc = Number(document.getElementById('payEdcInput').value) || 0;
+  const edcType = document.getElementById('payEdcType')?.value || 'DEBIT';
   const tempo = Number(document.getElementById('payTempoInput').value) || 0;
 
-  const totalPaid = cash + qris + edc + tempo;
+  const totalPaid = cash + qris + transfer + edc + tempo;
   const change = totalPaid - netDue;
 
   return {
     evalResult, invoiceDisc, redeemPts, redeemValue, ppnAmount, netDue,
-    cash, qris, edc, tempo, totalPaid, change
+    cash, qris, qrisProvider, transfer, bankProvider, edc, edcType, tempo,
+    totalPaid, change
   };
 }
 
@@ -542,7 +572,7 @@ function setQuickCash(mode) {
   const comp = getCheckoutComputation();
   const cashInp = document.getElementById('payCashInput');
   if (mode === 'EXACT') {
-    const nonCash = comp.qris + comp.edc + comp.tempo;
+    const nonCash = comp.qris + comp.transfer + comp.edc + comp.tempo;
     cashInp.value = Math.max(0, comp.netDue - nonCash);
   } else {
     cashInp.value = (Number(cashInp.value) || 0) + Number(mode);
@@ -554,12 +584,13 @@ function setQuickCash(mode) {
 async function processFinalPayment() {
   const comp = getCheckoutComputation();
   const edcRef = document.getElementById('payEdcRef').value.trim();
+  const transferRef = document.getElementById('payTransferRef')?.value.trim() || '';
 
   if (comp.totalPaid < comp.netDue) {
     return alert('Nominal pembayaran kurang dari Tagihan Akhir!');
   }
   if (comp.edc > 0 && !edcRef) {
-    return alert('Nomor Approval / Referensi EDC wajib diisi untuk pembayaran kartu!');
+    return alert('Nomor Approval / Kode Voucher wajib diisi!');
   }
   const sisaLimit = Math.max(0, (ACTIVE_MEMBER.credit_limit || 0) - (ACTIVE_MEMBER.current_debt || 0));
   if (comp.tempo > sisaLimit) {
@@ -569,8 +600,9 @@ async function processFinalPayment() {
   const payments = [];
   const cashNet = comp.cash > 0 ? Math.max(0, comp.cash - Math.max(0, comp.change)) : 0;
   if (cashNet > 0) payments.push({ method: 'CASH', amount: cashNet });
-  if (comp.qris > 0) payments.push({ method: 'QRIS', amount: comp.qris });
-  if (comp.edc > 0) payments.push({ method: 'EDC', amount: comp.edc, ref: edcRef });
+  if (comp.qris > 0) payments.push({ method: comp.qrisProvider, amount: comp.qris });
+  if (comp.transfer > 0) payments.push({ method: `TRANSFER_${comp.bankProvider}`, amount: comp.transfer, ref: transferRef });
+  if (comp.edc > 0) payments.push({ method: `EDC_${comp.edcType}`, amount: comp.edc, ref: edcRef });
   if (comp.tempo > 0) payments.push({ method: 'TEMPO', amount: comp.tempo });
   if (comp.redeemValue > 0) payments.push({ method: 'POINTS_REDEEM', amount: comp.redeemValue, points: comp.redeemPts });
 
@@ -672,8 +704,9 @@ function printThermalReceipt(trx, items, comp, isCopy) {
       ${comp.ppnAmount > 0 ? `<div style="display:flex;justify-content:space-between;"><span>PPN (11%)</span><span>${comp.ppnAmount.toLocaleString('id-ID')}</span></div>` : ''}
       <div style="display:flex;justify-content:space-between;font-weight:bold;font-size:14px;"><span>TOTAL</span><span>Rp ${trx.grand_total.toLocaleString('id-ID')}</span></div>
       ${comp.cash > 0 ? `<div style="display:flex;justify-content:space-between;"><span>Tunai</span><span>${comp.cash.toLocaleString('id-ID')}</span></div>` : ''}
-      ${comp.qris > 0 ? `<div style="display:flex;justify-content:space-between;"><span>QRIS/Transfer</span><span>${comp.qris.toLocaleString('id-ID')}</span></div>` : ''}
-      ${comp.edc > 0 ? `<div style="display:flex;justify-content:space-between;"><span>EDC</span><span>${comp.edc.toLocaleString('id-ID')}</span></div>` : ''}
+      ${comp.qris > 0 ? `<div style="display:flex;justify-content:space-between;"><span>${comp.qrisProvider || 'QRIS'}</span><span>${comp.qris.toLocaleString('id-ID')}</span></div>` : ''}
+      ${comp.transfer > 0 ? `<div style="display:flex;justify-content:space-between;"><span>Transfer ${comp.bankProvider || ''}</span><span>${comp.transfer.toLocaleString('id-ID')}</span></div>` : ''}
+      ${comp.edc > 0 ? `<div style="display:flex;justify-content:space-between;"><span>EDC (${comp.edcType || 'DEBIT'})</span><span>${comp.edc.toLocaleString('id-ID')}</span></div>` : ''}
       ${comp.tempo > 0 ? `<div style="display:flex;justify-content:space-between;"><span>Kredit/Tempo</span><span>${comp.tempo.toLocaleString('id-ID')}</span></div>` : ''}
       <div style="display:flex;justify-content:space-between;"><span>Kembali</span><span>${Math.max(0, comp.change).toLocaleString('id-ID')}</span></div>
       ${taxSection}
