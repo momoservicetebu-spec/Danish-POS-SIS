@@ -16,9 +16,10 @@
         <span style="color:var(--text-muted); font-size:13px;" id="hdrCashierInfo">Kasir: -</span>
         <span style="font-size:12px; background:#F1F5F9; padding:4px 10px; border-radius:8px;" id="hdrShiftId">Shift: Belum Buka</span>
       </div>
-      <div style="display:flex; align-items:center; gap:14px;">
+      <div style="display:flex; align-items:center; gap:10px;">
         <span id="hdrClock" style="font-weight:700; font-variant-numeric:tabular-nums;">00:00:00</span>
         <span id="syncStatusPill" class="status-pill status-online">● ONLINE & SYNCED</span>
+        <button id="btnKasirPrintLabel" onclick="openKasirLabelModal()" style="padding:6px 12px; border-radius:8px; border:1px solid #FDE68A; background:#FFFBEB; color:#B45309; cursor:pointer; font-weight:700;">Label Rak</button>
         <button onclick="openCustomerDisplay()" style="padding:6px 12px; border-radius:8px; border:1px solid var(--border); cursor:pointer; font-weight:600;">Layar Pelanggan</button>
         <button onclick="openCloseShiftModal()" style="padding:6px 12px; border-radius:8px; border:1px solid #FECACA; background:#FEF2F2; color:#DC2626; cursor:pointer; font-weight:700;">Tutup Shift</button>
       </div>
@@ -34,15 +35,21 @@
           <button onclick="syncMasterNow()" style="padding:14px 14px; border-radius:12px; border:1px solid var(--border); background:#F8FAFC; font-weight:700; cursor:pointer;">Sync Master</button>
         </div>
 
-        <!-- Bar Status Pelanggan / Member Aktif (RENE POS) -->
+        <!-- Bar Status Pelanggan / Member Aktif & Nomor Meja -->
         <div id="activeMemberBar" style="display:flex; justify-content:space-between; align-items:center; background:#FFFFFF; border:1px solid var(--border); border-radius:12px; padding:8px 14px; font-size:13px;">
           <div>
             <span style="color:var(--text-muted);">Pelanggan:</span>
             <strong id="lblActiveMemberName">Pelanggan Umum (UMUM)</strong>
             <span id="lblActiveMemberBadge" style="margin-left:6px; padding:2px 8px; border-radius:6px; background:#F1F5F9; font-size:11px; font-weight:700;">0 Poin</span>
           </div>
-          <button onclick="resetActiveMember()" id="btnResetMember" style="display:none; background:none; border:none; color:#DC2626; font-weight:600; cursor:pointer; font-size:12px;">Ganti ke Umum</button>
+          <div style="display:flex; align-items:center; gap:8px;">
+            <input type="text" id="kasirTableNumberInput" placeholder="No. Meja / Antrean" style="display:none; width:135px; padding:4px 8px; border:1px solid var(--border); border-radius:6px; font-size:12px;">
+            <button onclick="resetActiveMember()" id="btnResetMember" style="display:none; background:none; border:none; color:#DC2626; font-weight:600; cursor:pointer; font-size:12px;">Ganti ke Umum</button>
+          </div>
         </div>
+
+        <!-- Bar Kategori Cepat (Aktif otomatis jika preset Touch / Cafe & Resto dipilih) -->
+        <div id="kasirCategoryQuickBar" style="display:none; gap:6px; overflow-x:auto; padding:6px 10px; background:#FFFFFF; border:1px solid var(--border); border-radius:12px; align-items:center;"></div>
 
         <div class="card cart-card">
           <div class="cart-scroll">
@@ -126,7 +133,7 @@
     </div>
   </div>
 
-  <!-- MODAL PEMBAYARAN LENGKAP (RENE POS: Diskon Faktur, Tukar Poin, PPN, Pembulatan, Tunai, QRIS, EDC, Tempo) -->
+  <!-- MODAL PEMBAYARAN LENGKAP -->
   <div id="checkoutModal" class="modal-backdrop">
     <div class="modal-box" style="max-width:520px;">
       <div style="display:flex; justify-content:space-between; align-items:center;">
@@ -139,7 +146,6 @@
         <div style="font-size:28px; font-weight:800; color:var(--emerald);" id="modalTotalDue">Rp 0</div>
       </div>
 
-      <!-- Diskon Global Faktur & Tukar Poin Member -->
       <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px; background:#F8FAFC; padding:10px; border-radius:10px; border:1px solid var(--border); margin-bottom:10px;">
         <div>
           <label style="font-size:12px; font-weight:600; display:block; margin-bottom:4px;">Diskon Faktur (Rp)</label>
@@ -151,7 +157,6 @@
         </div>
       </div>
 
-      <!-- Opsi PPN 11% & Pembulatan Otomatis -->
       <div style="display:flex; justify-content:space-between; align-items:center; font-size:12px; margin-bottom:10px; padding:6px 10px; background:#F1F5F9; border-radius:8px;">
         <label style="display:flex; align-items:center; gap:6px; cursor:pointer; font-weight:600;">
           <input type="checkbox" id="payIncludePpn" onchange="calcChange()" style="width:auto; margin:0;"> Tambah PPN 11% (Exclusive)
@@ -161,7 +166,6 @@
         </label>
       </div>
 
-      <!-- Tombol Pecahan Uang Cepat (RENE POS Quick Cash) -->
       <div style="display:flex; gap:6px; flex-wrap:wrap; margin-bottom:10px;">
         <button type="button" onclick="setQuickCash('EXACT')" style="flex:1; padding:7px 8px; border-radius:8px; border:1px solid #10B981; background:#ECFDF5; color:#047857; font-weight:700; font-size:12px; cursor:pointer;">Uang Pas</button>
         <button type="button" onclick="setQuickCash(10000)" style="padding:7px 10px; border-radius:8px; border:1px solid var(--border); background:#F8FAFC; font-weight:700; font-size:12px; cursor:pointer;">+10rb</button>
@@ -170,7 +174,6 @@
         <button type="button" onclick="setQuickCash(100000)" style="padding:7px 10px; border-radius:8px; border:1px solid var(--border); background:#F8FAFC; font-weight:700; font-size:12px; cursor:pointer;">+100rb</button>
       </div>
 
-      <!-- Multi-Metode Bayar -->
       <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-bottom:10px;">
         <div>
           <label style="font-size:12px; font-weight:600; display:block; margin-bottom:4px;">Tunai Diterima (Rp)</label>
@@ -397,7 +400,40 @@
     </div>
   </div>
 
-  <!-- AREA CETAK STRUK THERMAL (58mm / 80mm) -->
+  <!-- MODAL CETAK LABEL HARGA & RAK DARI KASIR -->
+  <div id="kasirLabelModal" class="modal-backdrop">
+    <div class="modal-box" style="max-width:600px;">
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
+        <h3 style="margin:0;">Cetak Label Harga &amp; Rak</h3>
+        <select id="kasirLabelModelSelect" style="width:auto; margin:0; padding:6px 10px; font-size:13px;">
+          <option value="PRICE_TAG_2">Label Harga 2 Kolom</option>
+          <option value="PRICE_TAG_3">Label Harga 3 Kolom</option>
+          <option value="RACK_TAG_2">Label Rak Kuning 2 Kolom</option>
+          <option value="RACK_TAG_3">Label Rak Kuning 3 Kolom</option>
+        </select>
+      </div>
+      <input type="text" id="kasirLabelSearch" placeholder="Cari nama barang atau scan barcode untuk cetak label..." oninput="searchKasirLabelProducts()">
+      <div style="max-height:260px; overflow-y:auto; border:1px solid var(--border); border-radius:10px; margin-bottom:12px;">
+        <table class="cart-table">
+          <thead>
+            <tr>
+              <th style="width:36px;">Pilih</th>
+              <th>Barang</th>
+              <th class="num">Harga</th>
+              <th class="num" style="width:75px;">Qty Label</th>
+            </tr>
+          </thead>
+          <tbody id="kasirLabelTableBody"></tbody>
+        </table>
+      </div>
+      <div style="display:flex; gap:10px;">
+        <button onclick="closeModals()" style="flex:1; padding:10px; border-radius:10px; border:1px solid var(--border); cursor:pointer;">Tutup</button>
+        <button onclick="printKasirSelectedLabels()" style="flex:2; padding:10px; border-radius:10px; border:none; background:var(--amber); color:#0F172A; font-weight:800; cursor:pointer;">Cetak Label Sekarang</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- AREA CETAK STRUK THERMAL (58mm / 80mm) & LABEL RAK -->
   <div id="thermalReceiptArea" class="thermal-only"></div>
 
   <script src="https://unpkg.com/dexie@3.2.4/dist/dexie.min.js"></script>

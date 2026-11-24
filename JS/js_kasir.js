@@ -17,6 +17,27 @@ let LAST_REPRINT_COUNT = 0;
 let ACTIVE_SHIFT = JSON.parse(localStorage.getItem('POS_ACTIVE_SHIFT') || 'null');
 let RETURN_TARGET_TRX = null;
 
+// Konfigurasi Desain Kasir & Struk (Tersinkronisasi dengan Admin -> Desain)
+let KASIR_DESIGN_CFG = {
+  preset: 'Minimarket 1',
+  compScan: true,
+  compActiveItem: true,
+  compCatMenu: false,
+  compCustomer: true,
+  compTableNo: false,
+  compQuickMenu: true,
+  compHoldRecall: true,
+  compSplit: false,
+  compLogo: true,
+  accentColor: '#1D4ED8',
+  totalSize: '40px',
+  strukPaperSize: '58mm',
+  strukShowTaxDetail: false,
+  strukShowMemberPoint: false,
+  strukPrintOrderSlip: false,
+  labelModel: 'RACK_TAG_3'
+};
+
 // Saluran Layar Pelanggan Tanpa Internet (0ms)
 const customerChannel = new BroadcastChannel('POS_CUSTOMER_DISPLAY');
 
@@ -42,6 +63,10 @@ window.addEventListener('DOMContentLoaded', async () => {
   if ((await db.products.count()) === 0) {
     await syncMasterNow();
   }
+
+  // Terapkan Desain Layar Kasir & Struk dari Admin
+  await initKasirDesignConfig();
+
   focusScanner();
 });
 
@@ -76,7 +101,6 @@ function focusScanner() {
 
 // Pemindaian Barcode Instan (< 50ms dari IndexedDB) + Navigasi Zero-Mouse RENE POS
 document.getElementById('barcodeInput').addEventListener('keydown', async function(e) {
-  // Navigasi baris keranjang dengan panah Atas/Bawah
   if (e.key === 'ArrowDown' && CART.length > 0) {
     e.preventDefault();
     SELECTED_INDEX = (SELECTED_INDEX + 1) % CART.length;
@@ -90,7 +114,6 @@ document.getElementById('barcodeInput').addEventListener('keydown', async functi
     return;
   }
 
-  // Shortcut cepat '+' atau '-' saat kotak input kosong untuk ubah Qty baris terpilih
   if ((e.key === '+' || e.key === '=') && this.value === '' && SELECTED_INDEX >= 0 && CART[SELECTED_INDEX]) {
     e.preventDefault();
     CART[SELECTED_INDEX].qty += 1;
@@ -112,7 +135,6 @@ document.getElementById('barcodeInput').addEventListener('keydown', async functi
     this.value = '';
     if (!rawCode) return;
 
-    // Mendukung format qty*barcode (misal: 3*899999900101)
     let qty = 1;
     let barcode = rawCode;
     if (rawCode.includes('*')) {
@@ -156,7 +178,6 @@ function addToCart(product, qty = 1) {
 function evaluateCartWithMember() {
   const evalResult = PromoEngine.evaluateCart(CART, ACTIVE_PROMOS);
 
-  // Pertahankan diskon manual per item jika diberikan supervisor via [F4]
   let manualExtra = 0;
   CART.forEach(item => {
     if ((item.manual_discount || 0) > (item.discount || 0)) {
@@ -202,19 +223,11 @@ function renderCart() {
       </tr>
     `;
   }).join('');
-// Kirim pembaruan real-time ke Layar Pelanggan (display.html)
-  customerChannel.postMessage({
-    type: CART.length > 0 ? 'CART_UPDATE' : 'IDLE',
-    storeName: SESSION.store.namaToko,
-    member: ACTIVE_MEMBER,
-    items: CART,
-    summary: evalResult
-  });
+
   document.getElementById('lblSubtotal').textContent = 'Rp ' + evalResult.subtotal.toLocaleString('id-ID');
   document.getElementById('lblDiscount').textContent = 'Rp ' + evalResult.totalDiscount.toLocaleString('id-ID');
   document.getElementById('lblGrandTotal').textContent = 'Rp ' + evalResult.grandTotal.toLocaleString('id-ID');
 
-  // Notifikasi PWP (Tebus Murah)
   const pwpBox = document.getElementById('pwpAlertBox');
   if (evalResult.pwpOffers.length > 0) {
     pwpBox.style.display = 'block';
@@ -223,10 +236,10 @@ function renderCart() {
     pwpBox.style.display = 'none';
   }
 
-  // Kirim pembaruan real-time ke Layar Pelanggan (display.html)
   customerChannel.postMessage({
     type: CART.length > 0 ? 'CART_UPDATE' : 'IDLE',
     storeName: SESSION.store.namaToko,
+    member: ACTIVE_MEMBER,
     items: CART,
     summary: evalResult
   });
@@ -426,14 +439,12 @@ function openCheckoutModal(defaultMode) {
   document.getElementById('checkoutMemberTag').textContent = `${ACTIVE_MEMBER.name} (${ACTIVE_MEMBER.points} Poin)`;
   document.getElementById('payInvoiceDiscount').value = 0;
 
-  // Kontrol Tukar Poin Member
   const redeemInp = document.getElementById('payRedeemPoints');
   document.getElementById('availPointsLbl').textContent = ACTIVE_MEMBER.points;
   redeemInp.value = 0;
   redeemInp.max = ACTIVE_MEMBER.points;
   redeemInp.disabled = ACTIVE_MEMBER.member_id === 'MBR-000' || ACTIVE_MEMBER.points <= 0;
 
-  // Kontrol Kredit / Tempo Member
   const sisaLimit = Math.max(0, (ACTIVE_MEMBER.credit_limit || 0) - (ACTIVE_MEMBER.current_debt || 0));
   const tempoRow = document.getElementById('tempoPaymentRow');
   document.getElementById('availCreditLbl').textContent = 'Rp ' + sisaLimit.toLocaleString('id-ID');
@@ -466,7 +477,7 @@ function getCheckoutComputation() {
   const invoiceDisc = Math.max(0, Number(document.getElementById('payInvoiceDiscount').value) || 0);
   const maxPts = ACTIVE_MEMBER.points || 0;
   const redeemPts = Math.min(maxPts, Math.max(0, Number(document.getElementById('payRedeemPoints').value) || 0));
-  const redeemValue = redeemPts * 100; // 1 Poin = Rp 100
+  const redeemValue = redeemPts * 100;
 
   let netBeforeTax = Math.max(0, evalResult.grandTotal - invoiceDisc - redeemValue);
   const includePpn = document.getElementById('payIncludePpn') && document.getElementById('payIncludePpn').checked;
@@ -542,7 +553,6 @@ async function processFinalPayment() {
   const shiftId = ACTIVE_SHIFT ? ACTIVE_SHIFT.shiftId : 'SHF-OFFLINE';
   const itemsJson = JSON.stringify(CART);
 
-  // Hitung SHA-256 Checksum lokal untuk anti-tampering
   const checksum = await SecurityModule.sha256(`${trxId}|${shiftId}|${comp.netDue}|${itemsJson}`);
 
   const trxRecord = {
@@ -566,7 +576,6 @@ async function processFinalPayment() {
 
   await LocalDB.saveTransaction(trxRecord);
 
-  // Update poin lokal member secara langsung agar akurat untuk transaksi berikutnya
   if (ACTIVE_MEMBER.member_id !== 'MBR-000') {
     const earnedPts = Math.floor(comp.netDue / 10000);
     ACTIVE_MEMBER.points = Math.max(0, ACTIVE_MEMBER.points - comp.redeemPts + earnedPts);
@@ -576,19 +585,40 @@ async function processFinalPayment() {
 
   printThermalReceipt(trxRecord, CART, comp, false);
 
-  // Reset keranjang & kirim sinyal kembalian ke layar pelanggan
   customerChannel.postMessage({ type: 'PAYMENT_DONE', grandTotal: comp.netDue, change: Math.max(0, comp.change) });
   CART = [];
   SELECTED_INDEX = -1;
   resetActiveMember();
   closeModals();
   renderCart();
-  ApiClient.syncQueue(); // Trigger background sync
+  ApiClient.syncQueue();
 }
 
 function printThermalReceipt(trx, items, comp, isCopy) {
-  const paperClass = SESSION.store.ukuranKertas === '58mm' ? 'paper-58' : 'paper-80';
+  const paperChoice = KASIR_DESIGN_CFG.strukPaperSize || SESSION.store.ukuranKertas || '58mm';
+  const paperClass = paperChoice === '58mm' ? 'paper-58' : 'paper-80';
   const copyBanner = isCopy ? '<div style="text-align:center;font-weight:bold;border:1px dashed #000;margin:4px 0;">*** COPY STRUK ***</div>' : '';
+  const tableNo = (document.getElementById('kasirTableNumberInput')?.value || '').trim();
+  const earnedPts = Math.floor(trx.grand_total / 10000);
+
+  const taxSection = KASIR_DESIGN_CFG.strukShowTaxDetail
+    ? `<hr><small>PAJAK: PPN 11% | DPP: ${(trx.grand_total - (comp.ppnAmount || 0)).toLocaleString('id-ID')} | PPN: ${(comp.ppnAmount || 0).toLocaleString('id-ID')}</small>`
+    : '';
+
+  const memberPointSection = (KASIR_DESIGN_CFG.strukShowMemberPoint && ACTIVE_MEMBER.member_id !== 'MBR-000')
+    ? `<hr><small>MEMBER: ${ACTIVE_MEMBER.name}<br>POIN TRANSAKSI: +${earnedPts} | TOTAL POIN: ${ACTIVE_MEMBER.points}</small>`
+    : '';
+
+  const orderSlipSection = KASIR_DESIGN_CFG.strukPrintOrderSlip
+    ? `
+      <div class="receipt ${paperClass}" style="page-break-before:always; border-top:2px dashed #000; margin-top:12px; padding-top:8px;">
+        <div style="text-align:center; font-weight:bold;">*** SLIP PESANAN / DAPUR ***</div>
+        <small>No: ${trx.trx_id} ${tableNo ? '| Meja: ' + tableNo : ''}<br>Pelanggan: ${ACTIVE_MEMBER.name} | ${new Date(trx.timestamp).toLocaleTimeString('id-ID')}</small>
+        <hr>
+        ${items.map(i => `<div><strong>${i.qty}x</strong> ${i.name}</div>`).join('')}
+      </div>
+    `
+    : '';
 
   const html = `
     <div class="receipt ${paperClass}">
@@ -598,7 +628,7 @@ function printThermalReceipt(trx, items, comp, isCopy) {
       </div>
       ${copyBanner}
       <hr>
-      <small>No: ${trx.trx_id}<br>Kasir: ${SESSION.user.nama} | ${new Date(trx.timestamp).toLocaleString('id-ID')}<br>Member: ${ACTIVE_MEMBER.name}</small>
+      <small>No: ${trx.trx_id}<br>Kasir: ${SESSION.user.nama} | ${new Date(trx.timestamp).toLocaleString('id-ID')}<br>Member: ${ACTIVE_MEMBER.name}${tableNo ? ' | Meja: ' + tableNo : ''}</small>
       <hr>
       ${items.map(i => `
         <div>${i.name}</div>
@@ -617,9 +647,12 @@ function printThermalReceipt(trx, items, comp, isCopy) {
       ${comp.edc > 0 ? `<div style="display:flex;justify-content:space-between;"><span>EDC</span><span>${comp.edc.toLocaleString('id-ID')}</span></div>` : ''}
       ${comp.tempo > 0 ? `<div style="display:flex;justify-content:space-between;"><span>Kredit/Tempo</span><span>${comp.tempo.toLocaleString('id-ID')}</span></div>` : ''}
       <div style="display:flex;justify-content:space-between;"><span>Kembali</span><span>${Math.max(0, comp.change).toLocaleString('id-ID')}</span></div>
+      ${taxSection}
+      ${memberPointSection}
       <hr>
       <div style="text-align:center;"><small>Terima Kasih Atas Kunjungan Anda</small></div>
     </div>
+    ${orderSlipSection}
   `;
   LAST_RECEIPT_HTML = html.replace('</small>\n      </div>', `</small>\n      </div><div style="text-align:center;font-weight:bold;border:1px dashed #000;margin:4px 0;">*** COPY STRUK ***</div>`);
   LAST_REPRINT_COUNT = 0;
@@ -628,7 +661,6 @@ function printThermalReceipt(trx, items, comp, isCopy) {
   window.print();
 }
 
-// Kontrol Cetak Ulang Maksimal 1x dengan Label Wajib COPY STRUK + Audit Log
 async function reprintLastReceipt() {
   if (!LAST_RECEIPT_HTML) return alert('Belum ada transaksi untuk dicetak ulang.');
   if (LAST_REPRINT_COUNT >= 1) return alert('Batas cetak ulang (maksimal 1x) sudah tercapai!');
@@ -864,8 +896,8 @@ async function submitSalesReturn() {
       reason: reason
     });
 
-    // Cetak bukti retur thermal
-    const paperClass = SESSION.store.ukuranKertas === '58mm' ? 'paper-58' : 'paper-80';
+    const paperChoice = KASIR_DESIGN_CFG.strukPaperSize || SESSION.store.ukuranKertas || '58mm';
+    const paperClass = paperChoice === '58mm' ? 'paper-58' : 'paper-80';
     document.getElementById('thermalReceiptArea').innerHTML = `
       <div class="receipt ${paperClass}">
         <div style="text-align:center;">
@@ -930,7 +962,8 @@ async function submitCloseShift() {
       supervisorPin: supervisorPin
     });
 
-    const paperClass = SESSION.store.ukuranKertas === '58mm' ? 'paper-58' : 'paper-80';
+    const paperChoice = KASIR_DESIGN_CFG.strukPaperSize || SESSION.store.ukuranKertas || '58mm';
+    const paperClass = paperChoice === '58mm' ? 'paper-58' : 'paper-80';
     document.getElementById('thermalReceiptArea').innerHTML = `
       <div class="receipt ${paperClass}">
         <div style="text-align:center;">
@@ -970,6 +1003,180 @@ function closeModals() {
   focusScanner();
 }
 
+// === INTEGRASI DESAIN LAYAR KASIR & CETAK LABEL RAK ===
+async function initKasirDesignConfig() {
+  const storeCode = SESSION?.store?.kodeToko || 'GLOBAL';
+  const cacheKey = 'DANISH_DESIGN_CONFIG_' + storeCode;
+
+  try {
+    const cached = localStorage.getItem(cacheKey);
+    if (cached) {
+      KASIR_DESIGN_CFG = { ...KASIR_DESIGN_CFG, ...JSON.parse(cached) };
+      applyKasirDesignToDOM();
+    }
+  } catch (e) {}
+
+  try {
+    const cloudCfg = await ApiClient.call('admin/get-design', { kodeToko: storeCode });
+    if (cloudCfg && Object.keys(cloudCfg).length > 0) {
+      KASIR_DESIGN_CFG = { ...KASIR_DESIGN_CFG, ...cloudCfg };
+      localStorage.setItem(cacheKey, JSON.stringify(KASIR_DESIGN_CFG));
+      applyKasirDesignToDOM();
+    }
+  } catch (e) {}
+}
+
+async function applyKasirDesignToDOM() {
+  const cfg = KASIR_DESIGN_CFG;
+
+  const headerEl = document.querySelector('.pos-header');
+  if (headerEl && cfg.accentColor) {
+    headerEl.style.borderTop = `4px solid ${cfg.accentColor}`;
+  }
+  const grandTotalEl = document.getElementById('lblGrandTotal');
+  if (grandTotalEl && cfg.totalSize) {
+    grandTotalEl.style.fontSize = cfg.totalSize;
+  }
+
+  const scanCard = document.querySelector('.scan-card');
+  if (scanCard) scanCard.style.display = cfg.compScan !== false ? 'flex' : 'none';
+
+  const memberBar = document.getElementById('activeMemberBar');
+  if (memberBar) memberBar.style.display = cfg.compCustomer !== false ? 'flex' : 'none';
+
+  const tableInput = document.getElementById('kasirTableNumberInput');
+  if (tableInput) tableInput.style.display = cfg.compTableNo ? 'inline-block' : 'none';
+
+  const actionGrid = document.querySelector('.action-grid');
+  if (actionGrid) actionGrid.style.display = cfg.compQuickMenu !== false ? 'grid' : 'none';
+
+  const holdBtn = document.querySelector('[onclick="handleHoldRecall()"]');
+  if (holdBtn) holdBtn.style.display = cfg.compHoldRecall !== false ? 'flex' : 'none';
+
+  const lblModelSel = document.getElementById('kasirLabelModelSelect');
+  if (lblModelSel && cfg.labelModel) lblModelSel.value = cfg.labelModel;
+
+  const catBar = document.getElementById('kasirCategoryQuickBar');
+  if (catBar) {
+    if (cfg.compCatMenu) {
+      catBar.style.display = 'flex';
+      const allProds = await db.products.toArray();
+      const categories = [...new Set(allProds.map(p => p.category || 'Umum'))];
+      catBar.innerHTML = categories.map(cat => `
+        <button type="button" onclick="openSearchByCategory('${cat.replace(/'/g, "\\'")}')" style="padding:5px 12px; border-radius:99px; border:1px solid #CBD5E1; background:#F8FAFC; font-size:12px; font-weight:700; cursor:pointer; white-space:nowrap;">
+          ${cat}
+        </button>
+      `).join('');
+    } else {
+      catBar.style.display = 'none';
+    }
+  }
+}
+
+async function openSearchByCategory(catName) {
+  openSearchModal();
+  const allProds = await db.products.toArray();
+  const filtered = allProds.filter(p => (p.category || 'Umum') === catName);
+  document.getElementById('searchResultBody').innerHTML = filtered.map(p => `
+    <tr style="cursor:pointer;" onclick='addToCart(${JSON.stringify(p)}, 1); closeModals();'>
+      <td>${p.barcode}</td>
+      <td><strong>${p.name}</strong> <small style="color:#64748B;">(${p.unit || 'PCS'})</small></td>
+      <td class="num">Rp ${p.price.toLocaleString('id-ID')}</td>
+    </tr>
+  `).join('') || '<tr><td colspan="3" style="text-align:center;">Tidak ada barang di kategori ini.</td></tr>';
+}
+
+// === CETAK LABEL HARGA & RAK DARI KASIR ===
+let SELECTED_KASIR_LABELS = new Map();
+
+function openKasirLabelModal() {
+  SELECTED_KASIR_LABELS.clear();
+  document.getElementById('kasirLabelSearch').value = '';
+  document.getElementById('kasirLabelModal').style.display = 'flex';
+  document.getElementById('kasirLabelSearch').focus();
+  searchKasirLabelProducts();
+}
+
+async function searchKasirLabelProducts() {
+  const kw = document.getElementById('kasirLabelSearch').value;
+  const list = await LocalDB.searchProducts(kw);
+  const tbody = document.getElementById('kasirLabelTableBody');
+
+  tbody.innerHTML = list.slice(0, 40).map(p => {
+    const saved = SELECTED_KASIR_LABELS.get(p.barcode);
+    const checked = saved ? 'checked' : '';
+    const qty = saved ? saved.qty : 1;
+    return `
+      <tr>
+        <td>
+          <input type="checkbox" ${checked} onchange='toggleKasirLabelItem(${JSON.stringify(p)}, this.checked)' style="width:16px; height:16px; margin:0;">
+        </td>
+        <td><strong>${p.name}</strong><br><small style="color:#64748B;">${p.barcode}</small></td>
+        <td class="num">Rp ${Number(p.price || 0).toLocaleString('id-ID')}</td>
+        <td class="num">
+          <input type="number" min="1" max="100" value="${qty}" onchange="updateKasirLabelQty('${p.barcode}', this.value)" style="width:62px; padding:4px; margin:0; text-align:center;">
+        </td>
+      </tr>
+    `;
+  }).join('') || '<tr><td colspan="4" style="text-align:center;">Barang tidak ditemukan.</td></tr>';
+}
+
+function toggleKasirLabelItem(prod, isChecked) {
+  if (isChecked) {
+    SELECTED_KASIR_LABELS.set(prod.barcode, { ...prod, qty: 1 });
+  } else {
+    SELECTED_KASIR_LABELS.delete(prod.barcode);
+  }
+}
+
+function updateKasirLabelQty(barcode, qtyVal) {
+  if (SELECTED_KASIR_LABELS.has(barcode)) {
+    const item = SELECTED_KASIR_LABELS.get(barcode);
+    item.qty = Math.max(1, Number(qtyVal) || 1);
+    SELECTED_KASIR_LABELS.set(barcode, item);
+  }
+}
+
+function printKasirSelectedLabels() {
+  if (SELECTED_KASIR_LABELS.size === 0) {
+    return alert('Centang minimal 1 barang terlebih dahulu untuk mencetak label.');
+  }
+  const model = document.getElementById('kasirLabelModelSelect').value || 'RACK_TAG_3';
+  const cols = model.includes('_2') ? 2 : 3;
+  const isRackTag = model.startsWith('RACK_TAG');
+  const today = new Date().toLocaleDateString('id-ID');
+
+  const cards = [];
+  SELECTED_KASIR_LABELS.forEach(item => {
+    for (let i = 0; i < item.qty; i++) {
+      cards.push(item);
+    }
+  });
+
+  const area = document.getElementById('thermalReceiptArea');
+  area.innerHTML = `
+    <div style="display:grid; grid-template-columns:repeat(${cols}, 1fr); gap:6px; padding:6px;">
+      ${cards.map(c => isRackTag ? `
+        <div style="border:2px solid #000; border-radius:4px; overflow:hidden; font-family:Arial, sans-serif; break-inside:avoid;">
+          <div style="background:#FACC15; color:#000; font-weight:800; font-size:10px; padding:3px 6px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${c.name}</div>
+          <div style="padding:4px 6px; display:flex; justify-content:space-between; align-items:flex-end;">
+            <span style="font-size:9px; font-family:monospace;">${c.barcode}<br>${today}</span>
+            <span style="font-size:16px; font-weight:900;">Rp ${Number(c.price || 0).toLocaleString('id-ID')}</span>
+          </div>
+        </div>
+      ` : `
+        <div style="border:1.5px solid #000; padding:6px; text-align:center; font-family:Arial, sans-serif; break-inside:avoid;">
+          <div style="font-size:10px; font-weight:700; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${c.name}</div>
+          <div style="font-size:9px; font-family:monospace; margin:2px 0;">${c.barcode}</div>
+          <div style="font-size:16px; font-weight:900;">Rp ${Number(c.price || 0).toLocaleString('id-ID')}</div>
+        </div>
+      `).join('')}
+    </div>
+  `;
+
+  closeModals();
+  window.print();
+}
 
 // Global Keyboard Shortcuts sesuai PRD v3.1 & RENE POS
 document.addEventListener('keydown', function(e) {
