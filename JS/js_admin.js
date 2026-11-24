@@ -3298,8 +3298,61 @@ function openKasirColumnConfigModal() {
   alert('Kolom Aktif Tabel Kasir: KTS, NAMA BARANG, @ HARGA, DISKON, TOTAL.\n(Gunakan tombol Simpan Desain untuk menerapkan ke layar kasir).');
 }
 
+function applyDesignConfigToUI(cfg) {
+  if (!cfg || typeof cfg !== 'object') {
+    renderKasirDesignPreview();
+    return;
+  }
+
+  if (cfg.preset) {
+    const idx = KASIR_PRESETS.indexOf(cfg.preset);
+    if (idx >= 0) {
+      currentKasirPresetIdx = idx;
+      const lbl = document.getElementById('dsgKasirPresetLabel');
+      if (lbl) lbl.textContent = KASIR_PRESETS[idx];
+    }
+  }
+
+  if (document.getElementById('dsgCompScan')) document.getElementById('dsgCompScan').checked = cfg.compScan !== false;
+  if (document.getElementById('dsgCompActiveItem')) document.getElementById('dsgCompActiveItem').checked = cfg.compActiveItem !== false;
+  if (document.getElementById('dsgCompCatMenu')) document.getElementById('dsgCompCatMenu').checked = !!cfg.compCatMenu;
+  if (document.getElementById('dsgCompCustomer')) document.getElementById('dsgCompCustomer').checked = cfg.compCustomer !== false;
+  if (document.getElementById('dsgCompTableNo')) document.getElementById('dsgCompTableNo').checked = !!cfg.compTableNo;
+  if (document.getElementById('dsgCompQuickMenu')) document.getElementById('dsgCompQuickMenu').checked = cfg.compQuickMenu !== false;
+  if (document.getElementById('dsgCompHoldRecall')) document.getElementById('dsgCompHoldRecall').checked = cfg.compHoldRecall !== false;
+  if (document.getElementById('dsgCompSplit')) document.getElementById('dsgCompSplit').checked = !!cfg.compSplit;
+  if (document.getElementById('dsgCompLogo')) document.getElementById('dsgCompLogo').checked = cfg.compLogo !== false;
+
+  if (cfg.accentColor && document.getElementById('dsgKasirAccentColor')) {
+    document.getElementById('dsgKasirAccentColor').value = cfg.accentColor;
+  }
+  if (cfg.totalSize && document.getElementById('dsgKasirTotalSize')) {
+    document.getElementById('dsgKasirTotalSize').value = cfg.totalSize;
+  }
+  if (cfg.strukPaperSize && document.getElementById('strukPaperSizeSelect')) {
+    document.getElementById('strukPaperSizeSelect').value = cfg.strukPaperSize;
+  }
+  if (document.getElementById('strukShowTaxDetail')) {
+    document.getElementById('strukShowTaxDetail').checked = !!cfg.strukShowTaxDetail;
+  }
+  if (document.getElementById('strukShowMemberPoint')) {
+    document.getElementById('strukShowMemberPoint').checked = !!cfg.strukShowMemberPoint;
+  }
+  if (document.getElementById('strukPrintOrderSlip')) {
+    document.getElementById('strukPrintOrderSlip').checked = !!cfg.strukPrintOrderSlip;
+  }
+  if (cfg.labelModel && document.getElementById('lblModelSelect')) {
+    document.getElementById('lblModelSelect').value = cfg.labelModel;
+  }
+
+  renderKasirDesignPreview();
+  renderStrukDocPreview();
+}
+
 function saveDesignSettings() {
+  const storeCode = getActiveTokoCode();
   const payload = {
+    kodeToko: storeCode,
     preset: KASIR_PRESETS[currentKasirPresetIdx],
     compScan: document.getElementById('dsgCompScan')?.checked,
     compActiveItem: document.getElementById('dsgCompActiveItem')?.checked,
@@ -3315,31 +3368,41 @@ function saveDesignSettings() {
     strukPaperSize: document.getElementById('strukPaperSizeSelect')?.value || '58mm',
     strukShowTaxDetail: document.getElementById('strukShowTaxDetail')?.checked,
     strukShowMemberPoint: document.getElementById('strukShowMemberPoint')?.checked,
-    strukPrintOrderSlip: document.getElementById('strukPrintOrderSlip')?.checked
+    strukPrintOrderSlip: document.getElementById('strukPrintOrderSlip')?.checked,
+    labelModel: document.getElementById('lblModelSelect')?.value || 'PRICE_TAG_2'
   };
-  localStorage.setItem('DANISH_DESIGN_CONFIG_' + getActiveTokoCode(), JSON.stringify(payload));
-  alert('Pengaturan Desain Layar Kasir & Cetak Struk berhasil disimpan!');
+
+  // Simpan instan ke cache lokal
+  localStorage.setItem('DANISH_DESIGN_CONFIG_' + storeCode, JSON.stringify(payload));
+
+  // Simpan permanen ke Backend Google Sheets
+  callAdminApi('admin/save-design', payload, res => {
+    alert((res && res.message) ? res.message : 'Pengaturan Desain berhasil disimpan ke Server!');
+  }, 'Menyimpan Desain ke Cloud...');
 }
 
 function loadDesignSettings() {
+  const storeCode = getActiveTokoCode();
+
+  // 1. Tampilkan instan dari cache lokal terlebih dahulu
   try {
-    const raw = localStorage.getItem('DANISH_DESIGN_CONFIG_' + getActiveTokoCode());
-    if (!raw) { renderKasirDesignPreview(); return; }
-    const cfg = JSON.parse(raw);
-    if (document.getElementById('dsgCompScan')) document.getElementById('dsgCompScan').checked = cfg.compScan !== false;
-    if (document.getElementById('dsgCompActiveItem')) document.getElementById('dsgCompActiveItem').checked = cfg.compActiveItem !== false;
-    if (document.getElementById('dsgCompCatMenu')) document.getElementById('dsgCompCatMenu').checked = !!cfg.compCatMenu;
-    if (document.getElementById('dsgCompCustomer')) document.getElementById('dsgCompCustomer').checked = cfg.compCustomer !== false;
-    if (document.getElementById('dsgCompTableNo')) document.getElementById('dsgCompTableNo').checked = !!cfg.compTableNo;
-    if (document.getElementById('dsgCompQuickMenu')) document.getElementById('dsgCompQuickMenu').checked = cfg.compQuickMenu !== false;
-    if (document.getElementById('dsgCompHoldRecall')) document.getElementById('dsgCompHoldRecall').checked = cfg.compHoldRecall !== false;
-    if (document.getElementById('dsgCompSplit')) document.getElementById('dsgCompSplit').checked = !!cfg.compSplit;
-    if (document.getElementById('dsgCompLogo')) document.getElementById('dsgCompLogo').checked = cfg.compLogo !== false;
-    if (cfg.accentColor && document.getElementById('dsgKasirAccentColor')) document.getElementById('dsgKasirAccentColor').value = cfg.accentColor;
-    if (cfg.totalSize && document.getElementById('dsgKasirTotalSize')) document.getElementById('dsgKasirTotalSize').value = cfg.totalSize;
-    if (cfg.strukPaperSize && document.getElementById('strukPaperSizeSelect')) document.getElementById('strukPaperSizeSelect').value = cfg.strukPaperSize;
-  } catch (e) {}
-  renderKasirDesignPreview();
+    const raw = localStorage.getItem('DANISH_DESIGN_CONFIG_' + storeCode);
+    if (raw) {
+      applyDesignConfigToUI(JSON.parse(raw));
+    } else {
+      renderKasirDesignPreview();
+    }
+  } catch (e) {
+    renderKasirDesignPreview();
+  }
+
+  // 2. Sinkronkan dari Backend Google Sheets di latar belakang
+  callAdminApi('admin/get-design', { kodeToko: storeCode }, cloudCfg => {
+    if (cloudCfg && Object.keys(cloudCfg).length > 0) {
+      localStorage.setItem('DANISH_DESIGN_CONFIG_' + storeCode, JSON.stringify(cloudCfg));
+      applyDesignConfigToUI(cloudCfg);
+    }
+  }, '', true);
 }
 
 /* --- SUB-MODUL 2: CETAK STRUK & DOKUMEN --- */
