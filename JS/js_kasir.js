@@ -1241,6 +1241,35 @@ function printKasirSelectedLabels() {
   window.print();
 }
 
+// === LAYAR PENUH & KELUAR DARI HALAMAN KASIR ===
+function togglePosFullscreen() {
+  if (!document.fullscreenElement) {
+    document.documentElement.requestFullscreen().catch(() => {});
+  } else {
+    document.exitFullscreen().catch(() => {});
+  }
+}
+
+function exitPosScreen() {
+  if (CART.length > 0) {
+    return alert('Selesaikan, Tunda (F5), atau Clear (F12) keranjang belanja terlebih dahulu sebelum keluar.');
+  }
+
+  if (SESSION?.user?.role === 'Owner' || SESSION?.user?.role === 'Kepala Toko') {
+    const goAdmin = confirm('Kembali ke Dashboard Admin?\n(Shift kasir saat ini tetap aktif berjalan)');
+    if (goAdmin) {
+      window.location.href = 'admin.html';
+    }
+    return;
+  }
+
+  const doLogout = confirm('Keluar (Logout) dari akun kasir sekarang?\nCatatan: Jika pergantian shift, gunakan tombol "Tutup Shift" terlebih dahulu.');
+  if (doLogout) {
+    localStorage.removeItem('POS_SESSION');
+    window.location.href = 'index.html';
+  }
+}
+
 // Global Keyboard Shortcuts sesuai Studio Desain RENE POS
 document.addEventListener('keydown', function(e) {
   if (e.key === 'F2') { e.preventDefault(); openSearchModal(); }
