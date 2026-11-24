@@ -941,8 +941,7 @@
           </table>
         </div>
       </div>
-    </main>
-  </div>
+   
   <!-- TAB 10: PERUSAHAAN & PREFERENSI (REFERENSI RENE POS) -->
       <div id="tab-company" class="section">
         <!-- TOOLBAR ATAS PERUSAHAAN -->
@@ -967,8 +966,7 @@
         </div>
 
         <!-- PANEL UTAMA PREFERENSI (SIDEBAR KIRI 15 MENU + FORM KANAN) -->
-        <div style="display:grid; grid-template-columns: 230px 1fr; gap:16px; align-items:start;">
-          <!-- NAVIGASI KIRI PREFERENSI -->
+        <div class="pref-split-grid" style="display:grid; grid-template-columns: 230px minmax(0, 1fr); gap:16px; align-items:start;">          <!-- NAVIGASI KIRI PREFERENSI -->
           <div class="card" style="padding:10px; display:flex; flex-direction:column; gap:4px;">
             <button type="button" class="btn btn-blue btn-sm pref-nav-btn" style="justify-content:flex-start;" onclick="switchPrefPanel('perusahaan', this)">1. Perusahaan</button>
             <button type="button" class="btn btn-dark btn-sm pref-nav-btn" style="justify-content:flex-start;" onclick="switchPrefPanel('pajak', this)">2. Pajak &amp; PPN</button>
@@ -1298,7 +1296,8 @@
           </div>
         </div>
       </div>
-
+    </div> <!-- PENUTUP .content-area -->
+  </main>
 
   <!-- MODAL 1: KARTU STOK DIGITAL PER SKU -->
   <div id="stockCardModal" class="modal-backdrop">

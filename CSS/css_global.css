@@ -299,3 +299,12 @@ html, body {
     @media (max-width: 1200px) {
       .company-watermark-marquee { display: none; }
     }
+#tab-company .card {
+  min-width: 0;
+  overflow: hidden;
+}
+@media (max-width: 900px) {
+  .pref-split-grid {
+    grid-template-columns: 1fr !important;
+  }
+}    
