@@ -1,4 +1,4 @@
-// JS/js_admin.js - Logika Backoffice & Admin SIS v3.5 (Enterprise Edition + Modal Penyesuaian Stok, Set Harga, Komisi & Promo)
+// JS/js_admin.js - Logika Backoffice & Admin SIS v3.5 (Enterprise Edition + Instant Cache)
 let PENDING_TAGS_CACHE = [];
 let MASTER_PRODUCTS_CACHE = [];
 let SELECTED_BARCODE_SKUS = new Set();
@@ -10,6 +10,7 @@ let STOCK_ADJ_ROWS = [];
 let SET_HARGA_ROWS = [];
 let MEMBERS_CACHE = [];
 let KOMISI_ROWS = [];
+let GUDANG_SUPPLIERS_CACHE = [];
 
 if (SESSION) {
   document.getElementById('storeTitle').textContent = `${SESSION.store.namaToko} (${SESSION.store.kodeToko})`;
@@ -43,7 +44,8 @@ function toggleAdminSidebar() {
   } else {
     sidebar.classList.toggle('collapsed');
   }
-} 
+}
+
 function closeMobileSidebar() {
   if (window.innerWidth <= 1100) {
     const sidebar = document.getElementById('adminSidebar');
@@ -62,7 +64,26 @@ document.querySelectorAll('table').forEach(tbl => {
   }
 });
 
-// === GLOBAL LOADING SCREEN ===
+// === GLOBAL LOADING SCREEN & INSTANT CACHE ===
+const ADMIN_CACHE_PREFIX = 'DANISH_POS_CACHE_';
+
+function getAdminCache(key) {
+  try {
+    const storeCode = (SESSION && SESSION.store && SESSION.store.kodeToko) ? SESSION.store.kodeToko : 'GLOBAL';
+    const raw = localStorage.getItem(ADMIN_CACHE_PREFIX + storeCode + '_' + key);
+    return raw ? JSON.parse(raw) : null;
+  } catch (e) {
+    return null;
+  }
+}
+
+function setAdminCache(key, data) {
+  try {
+    const storeCode = (SESSION && SESSION.store && SESSION.store.kodeToko) ? SESSION.store.kodeToko : 'GLOBAL';
+    localStorage.setItem(ADMIN_CACHE_PREFIX + storeCode + '_' + key, JSON.stringify(data));
+  } catch (e) { /* abaikan jika kuota penuh */ }
+}
+
 function setLoadingScreen(isShow, titleText, subText) {
   const overlay = document.getElementById('globalLoadingOverlay');
   const titleEl = document.getElementById('globalLoadingTitle');
@@ -80,20 +101,26 @@ function setLoadingScreen(isShow, titleText, subText) {
   }
 }
 
-async function callAdminApi(endpoint, payload, onSuccess, loadingLabel) {
+async function callAdminApi(endpoint, payload, onSuccess, loadingLabel, silent = false) {
   const isWriteAction = !endpoint.includes('dashboard') && !endpoint.includes('products') &&
                         !endpoint.includes('categories') && !endpoint.includes('list') &&
                         !endpoint.includes('report') && !endpoint.includes('stok-toko') &&
-                        !endpoint.includes('stock-card') && !endpoint.includes('users');
+                        !endpoint.includes('stock-card') && !endpoint.includes('users') &&
+                        !endpoint.includes('get-preferences');
   const title = loadingLabel || (isWriteAction ? 'Menyimpan Data...' : 'Memuat Data...');
-  setLoadingScreen(true, title, 'Mohon tunggu, menghubungi server...');
+
+  if (!silent) {
+    setLoadingScreen(true, title, 'Mohon tunggu, menghubungi server...');
+  }
   try {
     const data = await ApiClient.call(endpoint, payload || {});
-    setLoadingScreen(false);
+    if (!silent) setLoadingScreen(false);
     onSuccess(data);
   } catch (err) {
-    setLoadingScreen(false);
-    alert('Error: ' + err.message);
+    if (!silent) {
+      setLoadingScreen(false);
+      alert('Error: ' + err.message);
+    }
   }
 }
 
@@ -126,82 +153,97 @@ function switchTab(tabName, btn) {
 // =========================================================
 // DASHBOARD KPI & ANALITIK
 // =========================================================
-function loadDashboard() {
-  if (SESSION.user.role === 'Pramuniaga') {
-    document.getElementById('kpiOmzet').textContent = 'RESTRICTED';
-    return;
-  }
+function renderDashboardData(data) {
+  if (!data) return;
+  document.getElementById('kpiOmzet').textContent = 'Rp ' + (data.omzetHariIni || 0).toLocaleString('id-ID');
+  document.getElementById('kpiStruk').textContent = (data.jumlahStruk || 0) + ' Struk';
+  document.getElementById('kpiLowStock').textContent = (data.lowStockCount || 0) + ' SKU';
+  document.getElementById('kpiFraud').textContent = data.flaggedFraudCount || 0;
 
-  callAdminApi('finance/dashboard', {}, data => {
-    document.getElementById('kpiOmzet').textContent = 'Rp ' + data.omzetHariIni.toLocaleString('id-ID');
-    document.getElementById('kpiStruk').textContent = data.jumlahStruk + ' Struk';
-    document.getElementById('kpiLowStock').textContent = data.lowStockCount + ' SKU';
-    document.getElementById('kpiFraud').textContent = data.flaggedFraudCount;
+  renderDashboardAnalytics(data);
 
-    renderDashboardAnalytics(data);
-
-    const auditBody = document.getElementById('auditTableBody');
-    auditBody.innerHTML = data.recentLogs.map(l => `
+  const auditBody = document.getElementById('auditTableBody');
+  if (auditBody) {
+    auditBody.innerHTML = (data.recentLogs || []).map(l => `
       <tr>
         <td>${l.waktu}</td><td>${l.toko}</td><td>${l.user}</td>
         <td><span class="badge ${l.aktivitas.includes('FAIL') || l.aktivitas.includes('BLOCK') || l.aktivitas.includes('FRAUD') ? 'badge-danger' : 'badge-ok'}">${l.aktivitas}</span></td>
         <td>${l.keterangan}</td>
       </tr>
     `).join('');
+  }
 
-    PENDING_TAGS_CACHE = data.pendingPriceTags || [];
-    const tagBody = document.getElementById('priceTagBody');
+  PENDING_TAGS_CACHE = data.pendingPriceTags || [];
+  const tagBody = document.getElementById('priceTagBody');
+  if (tagBody) {
     tagBody.innerHTML = PENDING_TAGS_CACHE.map(t => `
       <tr><td>${t.sku} - ${t.nama}</td><td><strong>Rp ${Number(t.hargaBaru).toLocaleString('id-ID')}</strong></td></tr>
     `).join('') || '<tr><td colspan="2">Semua label harga sudah terbaru.</td></tr>';
+  }
 
-    const lowStockBody = document.getElementById('lowStockTableBody');
-    if (lowStockBody) {
-      lowStockBody.innerHTML = (data.lowStockItems || []).map(item => `
+  const lowStockBody = document.getElementById('lowStockTableBody');
+  if (lowStockBody) {
+    lowStockBody.innerHTML = (data.lowStockItems || []).map(item => `
+      <tr>
+        <td><strong>${item.sku}</strong> - ${item.nama}</td>
+        <td><span class="badge badge-danger">${item.stokGood} Pcs</span></td>
+        <td>
+          <button class="btn btn-blue btn-sm" onclick="quickReorderPO('${item.sku}', ${item.hpp || 0})">Order Ulang (PO)</button>
+        </td>
+      </tr>
+    `).join('') || '<tr><td colspan="3">Seluruh stok barang dalam kondisi aman.</td></tr>';
+  }
+
+  const fefoBody = document.getElementById('fefoTableBody');
+  if (fefoBody) {
+    fefoBody.innerHTML = (data.expiringItems || []).map(item => {
+      const isExpired = item.daysLeft <= 0;
+      const statusBadge = isExpired
+        ? `<span class="badge badge-danger">EXPIRED (${Math.abs(item.daysLeft)} hr lalu)</span>`
+        : `<span class="badge badge-warn">Sisa ${item.daysLeft} Hari</span>`;
+      return `
         <tr>
-          <td><strong>${item.sku}</strong> - ${item.nama}</td>
-          <td><span class="badge badge-danger">${item.stokGood} Pcs</span></td>
-          <td>
-            <button class="btn btn-blue btn-sm" onclick="quickReorderPO('${item.sku}', ${item.hpp || 0})">Order Ulang (PO)</button>
-          </td>
+          <td><strong>${item.sku}</strong> - ${item.nama} (${item.stokGood} Pcs)</td>
+          <td><strong>${item.expiredDate}</strong></td>
+          <td>${statusBadge}</td>
         </tr>
-      `).join('') || '<tr><td colspan="3">Seluruh stok barang dalam kondisi aman.</td></tr>';
-    }
+      `;
+    }).join('') || '<tr><td colspan="3">Tidak ada barang mendekati tanggal kedaluwarsa.</td></tr>';
+  }
 
-    const fefoBody = document.getElementById('fefoTableBody');
-    if (fefoBody) {
-      fefoBody.innerHTML = (data.expiringItems || []).map(item => {
-        const isExpired = item.daysLeft <= 0;
-        const statusBadge = isExpired
-          ? `<span class="badge badge-danger">EXPIRED (${Math.abs(item.daysLeft)} hr lalu)</span>`
-          : `<span class="badge badge-warn">Sisa ${item.daysLeft} Hari</span>`;
-        return `
-          <tr>
-            <td><strong>${item.sku}</strong> - ${item.nama} (${item.stokGood} Pcs)</td>
-            <td><strong>${item.expiredDate}</strong></td>
-            <td>${statusBadge}</td>
-          </tr>
-        `;
-      }).join('') || '<tr><td colspan="3">Tidak ada barang mendekati tanggal kedaluwarsa.</td></tr>';
-    }
+  const fraudBody = document.getElementById('fraudTableBody');
+  if (fraudBody) {
+    fraudBody.innerHTML = (data.flaggedTransactions || []).map(f => `
+      <tr>
+        <td><strong>${f.trxId}</strong></td>
+        <td>${f.toko}</td>
+        <td>${f.waktu}</td>
+        <td>${f.kasir}</td>
+        <td><strong>Rp ${Number(f.total).toLocaleString('id-ID')}</strong></td>
+        <td style="display:flex; gap:6px;">
+          <button class="btn btn-green btn-sm" onclick="resolveFraudItem('${f.trxId}', 'VERIFIED_OK')">Tandai Wajar (OK)</button>
+          <button class="btn btn-red btn-sm" onclick="resolveFraudItem('${f.trxId}', 'CONFIRMED_FRAUD')">Konfirmasi Fraud</button>
+        </td>
+      </tr>
+    `).join('') || '<tr><td colspan="6">Tidak ada transaksi anomali (FLAGGED_FRAUD) yang tertunda.</td></tr>';
+  }
+}
 
-    const fraudBody = document.getElementById('fraudTableBody');
-    if (fraudBody) {
-      fraudBody.innerHTML = (data.flaggedTransactions || []).map(f => `
-        <tr>
-          <td><strong>${f.trxId}</strong></td>
-          <td>${f.toko}</td>
-          <td>${f.waktu}</td>
-          <td>${f.kasir}</td>
-          <td><strong>Rp ${Number(f.total).toLocaleString('id-ID')}</strong></td>
-          <td style="display:flex; gap:6px;">
-            <button class="btn btn-green btn-sm" onclick="resolveFraudItem('${f.trxId}', 'VERIFIED_OK')">Tandai Wajar (OK)</button>
-            <button class="btn btn-red btn-sm" onclick="resolveFraudItem('${f.trxId}', 'CONFIRMED_FRAUD')">Konfirmasi Fraud</button>
-          </td>
-        </tr>
-      `).join('') || '<tr><td colspan="6">Tidak ada transaksi anomali (FLAGGED_FRAUD) yang tertunda.</td></tr>';
-    }
-  }, 'Memuat Dashboard KPI...');
+function loadDashboard() {
+  if (SESSION && SESSION.user.role === 'Pramuniaga') {
+    document.getElementById('kpiOmzet').textContent = 'RESTRICTED';
+    return;
+  }
+
+  const cachedDash = getAdminCache('DASHBOARD');
+  if (cachedDash) {
+    renderDashboardData(cachedDash);
+  }
+
+  callAdminApi('finance/dashboard', {}, data => {
+    setAdminCache('DASHBOARD', data);
+    renderDashboardData(data);
+  }, 'Memuat Dashboard KPI...', Boolean(cachedDash));
 }
 
 function renderDashboardAnalytics(data) {
@@ -477,11 +519,19 @@ function openCategoryModal() {
 }
 
 function loadCategoriesAdmin() {
-  callAdminApi('admin/categories', {}, data => {
-    cachedCategories = (data && data.categories) ? data.categories : [{ id: 'CAT-01', nama: 'Umum', lokasi: '- Tidak Pakai -' }];
+  const cachedCat = getAdminCache('CATEGORIES');
+  if (cachedCat && Array.isArray(cachedCat)) {
+    cachedCategories = cachedCat;
     renderCategoryTable();
     populateCategoryDropdown();
-  }, 'Memuat Kategori Barang...');
+  }
+
+  callAdminApi('admin/categories', {}, data => {
+    cachedCategories = (data && data.categories) ? data.categories : [{ id: 'CAT-01', nama: 'Umum', lokasi: '- Tidak Pakai -' }];
+    setAdminCache('CATEGORIES', cachedCategories);
+    renderCategoryTable();
+    populateCategoryDropdown();
+  }, 'Memuat Kategori Barang...', Boolean(cachedCat));
 }
 
 function renderCategoryTable() {
@@ -620,11 +670,20 @@ function renderProductImagePreview(url) {
 }
 
 function loadMasterCatalog() {
-  callAdminApi('admin/products', {}, items => {
-    MASTER_PRODUCTS_CACHE = items || [];
+  const cachedProd = getAdminCache('PRODUCTS');
+  const hasCache = Boolean(cachedProd && Array.isArray(cachedProd) && cachedProd.length > 0);
+  if (hasCache) {
+    MASTER_PRODUCTS_CACHE = cachedProd;
     populateCatalogDataList();
     filterMasterCatalog();
-  }, 'Memuat Katalog Barang...');
+  }
+
+  callAdminApi('admin/products', {}, items => {
+    MASTER_PRODUCTS_CACHE = items || [];
+    setAdminCache('PRODUCTS', MASTER_PRODUCTS_CACHE);
+    populateCatalogDataList();
+    filterMasterCatalog();
+  }, 'Memuat Katalog Barang...', hasCache);
 }
 
 function renderMasterCatalogTable(items) {
@@ -1444,10 +1503,17 @@ function resetMemberForm() {
 }
 
 function loadMembersTable() {
+  const cachedMbr = getAdminCache('MEMBERS');
+  if (cachedMbr && Array.isArray(cachedMbr)) {
+    MEMBERS_CACHE = cachedMbr;
+    filterMembersTable();
+  }
+
   callAdminApi('member/list', {}, members => {
     MEMBERS_CACHE = members || [];
+    setAdminCache('MEMBERS', MEMBERS_CACHE);
     filterMembersTable();
-  }, 'Memuat Data Pelanggan & Piutang...');
+  }, 'Memuat Data Pelanggan & Piutang...', Boolean(cachedMbr));
 }
 
 function filterMembersTable() {
@@ -1625,32 +1691,44 @@ function printMemberList() {
 }
 
 // === SUPPLIER, PEMBELIAN LPB & HUTANG USAHA ===
-function loadSuppliersTable() {
-  callAdminApi('supplier/list', {}, suppliers => {
-    const sel = document.getElementById('purSupplierId');
-    if (sel) {
-      sel.innerHTML = suppliers.map(s => `<option value="${s.supplier_id}">${s.supplier_id} - ${s.nama_supplier}</option>`).join('');
-    }
+function renderSuppliersListUI(suppliers) {
+  const sel = document.getElementById('purSupplierId');
+  if (sel) {
+    sel.innerHTML = suppliers.map(s => `<option value="${s.supplier_id}">${s.supplier_id} - ${s.nama_supplier}</option>`).join('');
+  }
 
-    const tbody = document.getElementById('suppliersTableBody');
-    if (tbody) {
-      tbody.innerHTML = suppliers.map(s => `
-        <tr>
-          <td><strong>${s.supplier_id}</strong></td>
-          <td>${s.nama_supplier}<br><small style="color:#64748B;">${s.alamat}</small></td>
-          <td>${s.kontak_hp}</td>
-          <td>${s.termin_hari} Hari</td>
-          <td style="color:${s.saldo_hutang > 0 ? '#DC2626' : '#0F172A'}; font-weight:700;">
-            Rp ${s.saldo_hutang.toLocaleString('id-ID')}
-          </td>
-          <td style="display:flex; gap:6px;">
-            <button class="btn btn-blue btn-sm" onclick='fillSupplierForm(${JSON.stringify(s)})'>Edit</button>
-            ${s.saldo_hutang > 0 ? `<button class="btn btn-amber btn-sm" onclick="paySupplierDebtModal('${s.supplier_id}', '${s.nama_supplier}', ${s.saldo_hutang})">Bayar Hutang</button>` : ''}
-          </td>
-        </tr>
-      `).join('');
-    }
-  }, 'Memuat Data Supplier...');
+  const tbody = document.getElementById('suppliersTableBody');
+  if (tbody) {
+    tbody.innerHTML = suppliers.map(s => `
+      <tr>
+        <td><strong>${s.supplier_id}</strong></td>
+        <td>${s.nama_supplier}<br><small style="color:#64748B;">${s.alamat}</small></td>
+        <td>${s.kontak_hp}</td>
+        <td>${s.termin_hari} Hari</td>
+        <td style="color:${s.saldo_hutang > 0 ? '#DC2626' : '#0F172A'}; font-weight:700;">
+          Rp ${s.saldo_hutang.toLocaleString('id-ID')}
+        </td>
+        <td style="display:flex; gap:6px;">
+          <button class="btn btn-blue btn-sm" onclick='fillSupplierForm(${JSON.stringify(s)})'>Edit</button>
+          ${s.saldo_hutang > 0 ? `<button class="btn btn-amber btn-sm" onclick="paySupplierDebtModal('${s.supplier_id}', '${s.nama_supplier}', ${s.saldo_hutang})">Bayar Hutang</button>` : ''}
+        </td>
+      </tr>
+    `).join('');
+  }
+}
+
+function loadSuppliersTable() {
+  const cachedSup = getAdminCache('SUPPLIERS');
+  if (cachedSup && Array.isArray(cachedSup)) {
+    GUDANG_SUPPLIERS_CACHE = cachedSup;
+    renderSuppliersListUI(cachedSup);
+  }
+
+  callAdminApi('supplier/list', {}, suppliers => {
+    GUDANG_SUPPLIERS_CACHE = suppliers || [];
+    setAdminCache('SUPPLIERS', GUDANG_SUPPLIERS_CACHE);
+    renderSuppliersListUI(GUDANG_SUPPLIERS_CACHE);
+  }, 'Memuat Data Supplier...', Boolean(cachedSup));
 }
 
 function fillSupplierForm(s) {
@@ -1797,6 +1875,7 @@ function openRepackModal() {
   document.getElementById('repackModal').classList.add('open');
   setTimeout(() => document.getElementById('repSrcSku').focus(), 100);
 }
+
 function submitGudangDoc() {
   const payload = {
     tipe: document.getElementById('docTipe').value,
@@ -1924,24 +2003,35 @@ function submitKasBrankas() {
 }
 
 // === MANAJEMEN USER & DEVICE BINDING ===
+function renderUsersListUI(users) {
+  const tbody = document.getElementById('usersTableBody');
+  if (!tbody) return;
+  tbody.innerHTML = users.map(u => `
+    <tr>
+      <td><strong>${u.idUser}</strong></td>
+      <td>${u.nama}</td>
+      <td>${u.username}</td>
+      <td><span class="badge badge-ok">${u.role}</span></td>
+      <td>${u.aksesToko}</td>
+      <td><code>${u.deviceId}</code></td>
+      <td style="display:flex; gap:6px;">
+        <button class="btn btn-blue btn-sm" onclick="bindUserDevice('${u.idUser}', '${u.deviceId}')">Set Device</button>
+        <button class="btn btn-red btn-sm" onclick="resetUserDevice('${u.idUser}')">Reset</button>
+      </td>
+    </tr>
+  `).join('');
+}
+
 function loadUsersTable() {
+  const cachedUsr = getAdminCache('USERS');
+  if (cachedUsr && Array.isArray(cachedUsr)) {
+    renderUsersListUI(cachedUsr);
+  }
+
   callAdminApi('admin/users', {}, users => {
-    const tbody = document.getElementById('usersTableBody');
-    tbody.innerHTML = users.map(u => `
-      <tr>
-        <td><strong>${u.idUser}</strong></td>
-        <td>${u.nama}</td>
-        <td>${u.username}</td>
-        <td><span class="badge badge-ok">${u.role}</span></td>
-        <td>${u.aksesToko}</td>
-        <td><code>${u.deviceId}</code></td>
-        <td style="display:flex; gap:6px;">
-          <button class="btn btn-blue btn-sm" onclick="bindUserDevice('${u.idUser}', '${u.deviceId}')">Set Device</button>
-          <button class="btn btn-red btn-sm" onclick="resetUserDevice('${u.idUser}')">Reset</button>
-        </td>
-      </tr>
-    `).join('');
-  }, 'Memuat Daftar Pengguna...');
+    setAdminCache('USERS', users || []);
+    renderUsersListUI(users || []);
+  }, 'Memuat Daftar Pengguna...', Boolean(cachedUsr));
 }
 
 function submitNewUser() {
@@ -1988,8 +2078,6 @@ function logout() {
   localStorage.removeItem('POS_SESSION');
   window.location.href = 'login.html';
 }
-
-loadDashboard();
 
 /* ============================================================================
    MODUL GUDANG, PEMASOK & PENERIMAAN BARANG (MULTI-ITEM)
@@ -2062,7 +2150,6 @@ function openPenerimaanBarangModal() {
   pbItemsList = [];
   renderPenerimaanBarangTable();
 
-  // Muat katalog & supplier jika cache masih kosong agar autocomplete dan dropdown pemasok terisi
   if (MASTER_PRODUCTS_CACHE.length === 0) {
     loadMasterCatalog();
   }
@@ -2078,7 +2165,7 @@ function openPenerimaanBarangModal() {
           ? suppliers.map(s => `<option value="${s.supplier_id} - ${s.nama_supplier}">${s.supplier_id} - ${s.nama_supplier}</option>`).join('')
           : '<option value="UMUM">-- Pemasok Umum --</option>';
       }
-    }, 'Memuat Daftar Pemasok...');
+    }, 'Memuat Daftar Pemasok...', true);
   }
 
   const modal = document.getElementById('penerimaanBarangModal');
@@ -2171,47 +2258,69 @@ function printPenerimaanBarang() {
 }
 
 // =========================================================
-// READ & MONITORING STOK GUDANG + RIWAYAT MUTASI
+// READ & MONITORING STOK GUDANG + RIWAYAT MUTASI (INSTANT CACHE)
 // =========================================================
-let GUDANG_SUPPLIERS_CACHE = [];
+function renderGudangLogs(dashData) {
+  const tbody = document.getElementById('gudangHistoryTableBody');
+  if (!tbody || !dashData) return;
+  const logs = (dashData.recentLogs || []).filter(l => {
+    const act = String(l.aktivitas || '').toUpperCase();
+    return act.includes('LPB') || act.includes('NRB') || act.includes('MUTASI') || act.includes('REPACK') || act.includes('PENERIMAAN') || act.includes('PURCHASE');
+  });
+
+  if (logs.length === 0) {
+    tbody.innerHTML = '<tr><td colspan="4" style="text-align:center; color:var(--text-muted); padding:16px;">Belum ada riwayat penerimaan / mutasi terbaru.</td></tr>';
+    return;
+  }
+
+  tbody.innerHTML = logs.map(l => `
+    <tr>
+      <td style="white-space:nowrap;">${l.waktu}</td>
+      <td><span class="badge badge-ok">${l.aktivitas}</span></td>
+      <td>${l.keterangan}</td>
+      <td>${l.user}</td>
+    </tr>
+  `).join('');
+}
 
 function loadGudangOverview() {
-  // 1. Muat Monitoring Stok Gudang
-  callAdminApi('admin/products', {}, items => {
-    MASTER_PRODUCTS_CACHE = items || [];
+  // 1. Tampilkan instan dari cache lokal (0 detik, tanpa popup loading)
+  const cachedProd = getAdminCache('PRODUCTS');
+  if (cachedProd) {
+    MASTER_PRODUCTS_CACHE = cachedProd;
     populateCatalogDataList();
     filterGudangStockTable();
-  }, 'Memuat Data Stok Gudang...');
+  }
 
-  // 2. Muat Daftar Pemasok (Supplier)
+  const cachedSup = getAdminCache('SUPPLIERS');
+  if (cachedSup) {
+    GUDANG_SUPPLIERS_CACHE = cachedSup;
+    filterGudangPemasokTable();
+  }
+
+  const cachedDash = getAdminCache('DASHBOARD');
+  if (cachedDash) {
+    renderGudangLogs(cachedDash);
+  }
+
+  // 2. Sinkronkan ke server secara diam-diam (silent = true) di latar belakang
+  callAdminApi('admin/products', {}, items => {
+    MASTER_PRODUCTS_CACHE = items || [];
+    setAdminCache('PRODUCTS', MASTER_PRODUCTS_CACHE);
+    populateCatalogDataList();
+    filterGudangStockTable();
+  }, '', true);
+
   callAdminApi('supplier/list', {}, suppliers => {
     GUDANG_SUPPLIERS_CACHE = suppliers || [];
+    setAdminCache('SUPPLIERS', GUDANG_SUPPLIERS_CACHE);
     filterGudangPemasokTable();
-  }, 'Memuat Daftar Pemasok...');
+  }, '', true);
 
-  // 3. Muat Riwayat Penerimaan Barang & Mutasi dari Log Aktivitas
   callAdminApi('finance/dashboard', {}, data => {
-    const tbody = document.getElementById('gudangHistoryTableBody');
-    if (!tbody) return;
-    const logs = (data.recentLogs || []).filter(l => {
-      const act = String(l.aktivitas || '').toUpperCase();
-      return act.includes('LPB') || act.includes('NRB') || act.includes('MUTASI') || act.includes('REPACK') || act.includes('PENERIMAAN') || act.includes('PURCHASE');
-    });
-
-    if (logs.length === 0) {
-      tbody.innerHTML = '<tr><td colspan="4" style="text-align:center; color:var(--text-muted); padding:16px;">Belum ada riwayat penerimaan / mutasi terbaru.</td></tr>';
-      return;
-    }
-
-    tbody.innerHTML = logs.map(l => `
-      <tr>
-        <td style="white-space:nowrap;">${l.waktu}</td>
-        <td><span class="badge badge-ok">${l.aktivitas}</span></td>
-        <td>${l.keterangan}</td>
-        <td>${l.user}</td>
-      </tr>
-    `).join('');
-  }, 'Memuat Riwayat Gudang...');
+    setAdminCache('DASHBOARD', data);
+    renderGudangLogs(data);
+  }, '', true);
 }
 
 function filterGudangPemasokTable() {
@@ -2553,7 +2662,7 @@ function loadCompanyPreferences() {
       localStorage.setItem(COMPANY_PREF_STORAGE_KEY, JSON.stringify(cloudPrefs));
       applyPreferencesToForm(cloudPrefs);
     }
-  }, 'Memuat Preferensi Perusahaan...');
+  }, '', true);
 }
 
 function saveCompanyPreferences() {
@@ -2780,3 +2889,31 @@ function openCustomerDisplayWindow() {
     </body></html>
   `);
 }
+
+// =========================================================
+// INISIALISASI AWAL & PRE-FETCH CACHE LATAR BELAKANG
+// =========================================================
+loadDashboard();
+
+setTimeout(() => {
+  if (!getAdminCache('PRODUCTS')) {
+    callAdminApi('admin/products', {}, items => {
+      MASTER_PRODUCTS_CACHE = items || [];
+      setAdminCache('PRODUCTS', MASTER_PRODUCTS_CACHE);
+      populateCatalogDataList();
+    }, '', true);
+  }
+  if (!getAdminCache('CATEGORIES')) {
+    callAdminApi('admin/categories', {}, data => {
+      cachedCategories = (data && data.categories) ? data.categories : [];
+      setAdminCache('CATEGORIES', cachedCategories);
+      populateCategoryDropdown();
+    }, '', true);
+  }
+  if (!getAdminCache('SUPPLIERS')) {
+    callAdminApi('supplier/list', {}, suppliers => {
+      GUDANG_SUPPLIERS_CACHE = suppliers || [];
+      setAdminCache('SUPPLIERS', GUDANG_SUPPLIERS_CACHE);
+    }, '', true);
+  }
+}, 1500);
