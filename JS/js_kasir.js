@@ -75,16 +75,26 @@ let CURRENCY_CONFIG = {
   }
 };
 
-// Desain Kustomisasi dari Admin
+// Desain Kustomisasi dari Admin (Sesuai Struktur Database)
 let KASIR_DESIGN_CFG = {
-  primaryColor: '#1E3A8A',
-  topbarGrad1: '#1E3A8A',
-  topbarGrad2: '#2563EB',
-  accentColor: '#10B981',
-  fontFamily: 'Inter',
+  kodeToko: 'TK-001',
+  preset: 'Minimarket 1',
+  compScan: true,
+  compActiveItem: true,
+  compCatMenu: true,
+  compCustomer: true,
+  compTableNo: true,
+  compQuickMenu: true,
+  compHoldRecall: true,
+  compSplit: true,
   compLogo: true,
-  compPromo: true,
-  compCategory: true
+  accentColor: '#4004cd',
+  totalSize: '52px',
+  strukPaperSize: '58mm',
+  strukShowTaxDetail: true,
+  strukShowMemberPoint: false,
+  strukPrintOrderSlip: false,
+  labelModel: 'PRICE_TAG_2'
 };
 
 // Preferensi Perusahaan & Struk dari Admin
@@ -302,16 +312,30 @@ function applyKasirDesignToDOM() {
   const cfg = KASIR_DESIGN_CFG;
   const prefs = KASIR_COMPANY_PREFS;
 
+  // Terapkan accentColor ke Topbar & variabel CSS
+  const accent = cfg.accentColor || cfg.primaryColor || '#1E3A8A';
+  document.documentElement.style.setProperty('--royal-blue', accent);
   const titleBar = document.getElementById('reneTitleBar');
-  if (titleBar && (cfg.topbarGrad1 || cfg.primaryColor)) {
-    const g1 = cfg.topbarGrad1 || cfg.primaryColor || '#1E3A8A';
-    const g2 = cfg.topbarGrad2 || cfg.primaryColor || '#2563EB';
-    titleBar.style.background = `linear-gradient(90deg, ${g1} 0%, ${g2} 100%)`;
+  if (titleBar) {
+    titleBar.style.background = `linear-gradient(90deg, ${accent} 0%, #2563EB 100%)`;
   }
 
-  if (cfg.fontFamily) {
-    document.body.style.fontFamily = `'${cfg.fontFamily}', system-ui, -apple-system, sans-serif`;
+  // Terapkan ukuran font Grand Total (totalSize: "52px")
+  const grandTotalEl = document.getElementById('lblGrandTotal');
+  if (grandTotalEl && cfg.totalSize) {
+    grandTotalEl.style.fontSize = cfg.totalSize;
   }
+
+  // Visibilitas komponen dari database Admin
+  const toggleEl = (selectorOrId, visible) => {
+    const el = document.getElementById(selectorOrId) || document.querySelector(selectorOrId);
+    if (el) el.style.display = visible === false ? 'none' : '';
+  };
+
+  toggleEl('kasirCategoryQuickBar', cfg.compCatMenu);
+  toggleEl('kasirTableNumberInput', cfg.compTableNo);
+  toggleEl('.rene-member-bar', cfg.compCustomer);
+  toggleEl('.rene-active-item-box', cfg.compActiveItem);
 
   const hdrStore = document.getElementById('hdrStoreName');
   if (hdrStore && prefs.companyName) {
@@ -329,7 +353,6 @@ function applyKasirDesignToDOM() {
 
   renderLogoToBox();
 }
-
 // =========================================================================
 // 4. MULTI-MATA UANG (DUAL CURRENCY / FOREX ENGINE)
 // =========================================================================
