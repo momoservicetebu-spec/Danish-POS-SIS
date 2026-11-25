@@ -520,28 +520,14 @@ function getShowcaseItemsList() {
         text.includes('mie')
       );
     });
-    if (ffFromMaster.length > 0) return ffFromMaster.slice(0, 8);
-
-    return [
-      { id: 'FF-01', sku: 'FF-01', barcode: 'FF001', nama: 'Ayam Goreng Krispi + Nasi', kategori: 'Fast Food', satuan: 'Porsi', hargaJual: 18500, emoji: '🍗', badge: 'HOT', trackStock: false },
-      { id: 'FF-02', sku: 'FF-02', barcode: 'FF002', nama: 'Paket Hemat Burger + Es Teh', kategori: 'Fast Food', satuan: 'Paket', hargaJual: 22000, emoji: '🍔', badge: 'PAKET', trackStock: false },
-      { id: 'FF-03', sku: 'FF-03', barcode: 'FF003', nama: 'Kentang Goreng (French Fries)', kategori: 'Fast Food', satuan: 'Porsi', hargaJual: 12000, emoji: '🍟', badge: 'BEST', trackStock: false },
-      { id: 'FF-04', sku: 'FF-04', barcode: 'FF004', nama: 'Kopi Susu Gula Aren Dingin', kategori: 'Fast Food', satuan: 'Cup', hargaJual: 15000, emoji: '🧋', badge: 'CAFE', trackStock: false }
-    ];
+    return ffFromMaster.slice(0, 12);
   }
 
   const promoBarcodes = new Set((PROMOTIONS || []).map((pr) => String(pr.target_barcode || '')));
   const promoFromMaster = PRODUCTS.filter((p) => p.isPromo || promoBarcodes.has(String(p.barcode)));
-  if (promoFromMaster.length > 0) return promoFromMaster.slice(0, 8);
+  if (promoFromMaster.length > 0) return promoFromMaster.slice(0, 12);
 
-  if (PRODUCTS.length > 0) return PRODUCTS.slice(0, 6);
-
-  return [
-    { id: 'PRM-01', sku: 'SKU-1001', barcode: '899999900101', nama: 'Air Mineral 600ml', kategori: 'Minuman', satuan: 'Pcs', hargaJual: 3500, emoji: '💧', badge: 'PROMO', trackStock: false },
-    { id: 'PRM-02', sku: 'SKU-1002', barcode: '899999900102', nama: 'Mie Instan Goreng', kategori: 'Makanan', satuan: 'Pcs', hargaJual: 3200, emoji: '🍜', badge: 'HEMAT', trackStock: false },
-    { id: 'PRM-03', sku: 'SKU-1003', barcode: '899999900103', nama: 'Susu UHT Full Cream 1L', kategori: 'Minuman', satuan: 'Pcs', hargaJual: 19500, emoji: '🥛', badge: '15% OFF', trackStock: false },
-    { id: 'PRM-04', sku: 'PRM-04', barcode: 'PRM004', nama: 'Roti Coklat Lumer + Kopi', kategori: 'Promo', satuan: 'Paket', hargaJual: 14000, emoji: '🥐', badge: 'BUNDLING', trackStock: false }
-  ];
+  return PRODUCTS.slice(0, 12);
 }
 
 function renderShowcaseItems() {
@@ -551,6 +537,18 @@ function renderShowcaseItems() {
   const items = getShowcaseItemsList();
   const isFF = SHOWCASE_TAB === 'FASTFOOD';
 
+  if (items.length === 0) {
+    grid.style.display = 'flex';
+    grid.style.alignItems = 'center';
+    grid.style.justifyContent = 'center';
+    grid.innerHTML = `
+      <div style="text-align:center; color:#64748B; font-size:12px; padding:16px;">
+        Belum ada produk kategori <strong>${isFF ? 'Fast Food / Makanan' : 'Promo'}</strong> di Admin.
+      </div>`;
+    return;
+  }
+
+  grid.style.display = 'grid';
   let html = '';
   items.forEach((item, idx) => {
     const badgeLabel = item.badge || (isFF ? 'FAST FOOD' : 'PROMO');
