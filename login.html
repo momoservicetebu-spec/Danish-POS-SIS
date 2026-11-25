@@ -2,6 +2,7 @@
 <html lang="id">
 <head>
   <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Login - Enterprise Retail POS & SIS v3.1</title>
   <style>
     :root {
@@ -113,14 +114,35 @@
       btn.disabled = true;
       btn.textContent = 'Memverifikasi Perangkat & Sesi...';
 
+      const storeCodeInput = document.getElementById('storeCode').value.trim().toUpperCase();
+      const usernameInput = document.getElementById('username').value.trim();
+
       try {
         const data = await ApiClient.call('auth/login', {
-          storeCode: document.getElementById('storeCode').value.trim().toUpperCase(),
-          username: document.getElementById('username').value.trim(),
+          storeCode: storeCodeInput,
+          username: usernameInput,
           password: document.getElementById('password').value
         }, true);
 
-        localStorage.setItem('POS_SESSION', JSON.stringify(data));
+        const normalizedSession = {
+          ...data,
+          storeCode: data.storeCode || data.store?.kodeToko || storeCodeInput,
+          user: data.user || {
+            idUser: data.idUser || data.user_id || usernameInput,
+            username: data.username || usernameInput,
+            nama: data.nama || data.name || usernameInput,
+            role: data.role || 'KASIR'
+          },
+          store: data.store || {
+            kodeToko: data.storeCode || storeCodeInput,
+            namaToko: data.namaToko || data.storeName || 'Minimarket Pusat 01',
+            alamat: data.alamat || ''
+          }
+        };
+
+        localStorage.setItem('POS_SESSION', JSON.stringify(normalizedSession));
+        localStorage.setItem('DANISH_POS_SESSION', JSON.stringify(normalizedSession));
+
         const mode = document.getElementById('targetTerminal').value;
         window.location.href = `${mode}.html`;
       } catch (err) {

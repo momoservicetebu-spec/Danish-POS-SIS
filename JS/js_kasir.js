@@ -100,55 +100,54 @@ document.addEventListener('DOMContentLoaded', async () => {
 
 function checkSessionSecurity() {
   const raw =
-    localStorage.getItem('DANISH_POS_SESSION') ||
     localStorage.getItem('POS_SESSION') ||
-    sessionStorage.getItem('DANISH_POS_SESSION') ||
+    localStorage.getItem('DANISH_POS_SESSION') ||
     sessionStorage.getItem('POS_SESSION');
 
   if (!raw) {
-    window.location.href = 'index.html';
+    window.location.href = 'login.html';
     return;
   }
 
   try {
     const parsed = JSON.parse(raw);
-    if (!parsed || typeof parsed !== 'object') {
-      throw new Error('Format sesi kosong');
-    }
-
-    // Normalisasi struktur sesi agar kompatibel dengan semua versi login
-    const userObj = parsed.user || {
-      idUser: parsed.idUser || parsed.user_id || parsed.username || 'KSR-01',
-      username: parsed.username || parsed.nama || 'kasir',
-      nama: parsed.nama || parsed.name || parsed.username || 'Kasir',
-      role: parsed.role || 'KASIR'
-    };
-
-    const storeObj = parsed.store || {
-      kodeToko: parsed.kodeToko || parsed.storeCode || parsed.store_id || 'TK-001',
-      namaToko: parsed.namaToko || parsed.storeName || 'Minimarket Pusat 01',
-      alamat: parsed.alamat || ''
-    };
+    if (!parsed || typeof parsed !== 'object') throw new Error('Sesi kosong');
 
     SESSION = {
       ...parsed,
-      user: userObj,
-      store: storeObj
+      user: parsed.user || {
+        idUser: parsed.idUser || parsed.username || 'KSR-01',
+        username: parsed.username || 'kasir',
+        nama: parsed.nama || parsed.name || parsed.username || 'Kasir',
+        role: parsed.role || 'KASIR'
+      },
+      store: parsed.store || {
+        kodeToko: parsed.storeCode || parsed.kodeToko || 'TK-001',
+        namaToko: parsed.namaToko || 'Minimarket Pusat 01',
+        alamat: parsed.alamat || ''
+      }
     };
 
     const hdrStore = document.getElementById('hdrStoreName');
     const hdrCashier = document.getElementById('hdrCashierInfo');
-    if (hdrStore) hdrStore.textContent = `${storeObj.namaToko} (${storeObj.kodeToko})`;
-    if (hdrCashier) hdrCashier.textContent = `[${userObj.nama}]`;
+    if (hdrStore) hdrStore.textContent = `${SESSION.store.namaToko} (${SESSION.store.kodeToko})`;
+    if (hdrCashier) hdrCashier.textContent = `[${SESSION.user.nama}]`;
   } catch (e) {
-    console.warn('Sesi kasir tidak terbaca:', e);
-    // Hapus semua kemungkinan key sesi agar tidak terjadi redirect loop
-    localStorage.removeItem('DANISH_POS_SESSION');
     localStorage.removeItem('POS_SESSION');
-    sessionStorage.removeItem('DANISH_POS_SESSION');
-    sessionStorage.removeItem('POS_SESSION');
-    window.location.href = 'index.html';
+    localStorage.removeItem('DANISH_POS_SESSION');
+    window.location.href = 'login.html';
   }
+}
+
+function logoutKasir() {
+  if (CART.length > 0) {
+    if (!confirm('Masih ada item di keranjang aktif. Yakin ingin keluar dari kasir?')) return;
+  }
+  localStorage.removeItem('POS_SESSION');
+  localStorage.removeItem('DANISH_POS_SESSION');
+  sessionStorage.removeItem('POS_SESSION');
+  sessionStorage.removeItem('DANISH_POS_SESSION');
+  window.location.href = 'login.html';
 }
 
 function loadShiftState() {
