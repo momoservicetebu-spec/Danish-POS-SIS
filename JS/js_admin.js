@@ -3650,3 +3650,66 @@ async function saveAdminQrisConfig() {
     alert('Tersimpan lokal, gagal sinkron cloud: ' + e.message);
   }
 }
+// === FOOTER LIVE CLOCK & STORE SYNC ===
+(function initModernFooter() {
+  const yearEl = document.getElementById('footerYear');
+  if (yearEl) yearEl.textContent = new Date().getFullYear();
+
+  // Fungsi sinkronisasi nama toko ke footer
+  function syncFooterStoreName() {
+    const storeInput = document.getElementById('cfgStoreName');
+    const footerStore = document.getElementById('footerStoreName');
+    if (storeInput && footerStore && storeInput.value.trim()) {
+      footerStore.textContent = storeInput.value.trim();
+    }
+  }
+
+  // Jalankan saat halaman siap & saat input nama toko diubah
+  document.addEventListener('DOMContentLoaded', () => {
+    setTimeout(syncFooterStoreName, 500); // Beri jeda agar data config selesai dimuat
+    const storeInput = document.getElementById('cfgStoreName');
+    if (storeInput) {
+      storeInput.addEventListener('input', syncFooterStoreName);
+    }
+  });
+
+  // Jam digital real-time
+  function updateFooterClock() {
+    const clockEl = document.getElementById('footerClock');
+    if (!clockEl) return;
+    const now = new Date();
+    clockEl.textContent = now.toLocaleTimeString('id-ID', {
+      hour: '2-digit',
+      minute: '2-digit',
+      second: '2-digit'
+    });
+  }
+  updateFooterClock();
+  setInterval(updateFooterClock, 1000);
+
+  // Deteksi status koneksi internet / offline mode otomatis
+  function updateConnectionStatus() {
+    const badge = document.getElementById('footerSyncBadge');
+    const dot = document.getElementById('footerSyncDot');
+    const text = document.getElementById('footerSyncText');
+    if (!badge || !dot || !text) return;
+
+    if (navigator.onLine) {
+      badge.style.background = '#ecfdf5';
+      badge.style.color = '#065f46';
+      badge.style.borderColor = '#a7f3d0';
+      dot.style.background = '#10b981';
+      text.textContent = 'Server & Cloud Aktif';
+    } else {
+      badge.style.background = '#fef2f2';
+      badge.style.color = '#991b1b';
+      badge.style.borderColor = '#fecaca';
+      dot.style.background = '#ef4444';
+      text.textContent = 'Mode Offline Lokal';
+    }
+  }
+
+  updateConnectionStatus();
+  window.addEventListener('online', updateConnectionStatus);
+  window.addEventListener('offline', updateConnectionStatus);
+})();

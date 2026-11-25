@@ -466,6 +466,127 @@
     grid-template-columns: 1fr !important;
     gap: 10px !important;
   }
+
+  /* === MODERN APP FOOTER === */
+    .app-footer {
+      margin-top: 32px;
+      padding: 18px 24px;
+      background: linear-gradient(135deg, #ffffff 0%, #f8fafc 100%);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: space-between;
+      align-items: center;
+      gap: 16px;
+      box-shadow: 0 4px 12px rgba(15, 23, 42, 0.03);
+      font-size: 12.5px;
+      color: var(--muted);
+    }
+
+    .footer-brand {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .footer-logo-badge {
+      width: 34px;
+      height: 34px;
+      border-radius: 10px;
+      background: linear-gradient(135deg, var(--blue), #1d4ed8);
+      color: #ffffff;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: 800;
+      font-size: 14px;
+      box-shadow: 0 4px 10px rgba(37, 99, 235, 0.25);
+    }
+
+    .footer-title {
+      font-weight: 800;
+      color: var(--ink);
+      font-size: 13.5px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .footer-version {
+      background: #eff6ff;
+      color: var(--blue);
+      padding: 2px 8px;
+      border-radius: 999px;
+      font-size: 10.5px;
+      font-weight: 700;
+      border: 1px solid #bfdbfe;
+    }
+
+    .footer-links {
+      display: flex;
+      align-items: center;
+      gap: 18px;
+    }
+
+    .footer-link {
+      color: var(--muted);
+      text-decoration: none;
+      font-weight: 600;
+      transition: color 0.2s ease;
+      cursor: pointer;
+    }
+
+    .footer-link:hover {
+      color: var(--blue);
+    }
+
+    .footer-status {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+    }
+
+    .status-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 7px;
+      background: #ecfdf5;
+      color: #065f46;
+      border: 1px solid #a7f3d0;
+      padding: 5px 12px;
+      border-radius: 999px;
+      font-weight: 700;
+      font-size: 11.5px;
+    }
+
+    .status-dot {
+      width: 8px;
+      height: 8px;
+      background: #10b981;
+      border-radius: 50%;
+      box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.7);
+      animation: pulseGreen 2s infinite;
+    }
+
+    @keyframes pulseGreen {
+      0% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.7); }
+      70% { transform: scale(1); box-shadow: 0 0 0 6px rgba(16, 185, 129, 0); }
+      100% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(16, 185, 129, 0); }
+    }
+
+    @media (max-width: 768px) {
+      .app-footer {
+        flex-direction: column;
+        align-items: flex-start;
+      }
+      .footer-status {
+        width: 100%;
+        justify-content: space-between;
+        padding-top: 10px;
+        border-top: 1px dashed var(--border);
+      }
+    }
   </style>
 </head>
 <body>
@@ -2239,6 +2360,39 @@
           </div>
         </div>
       </div>
+
+      <footer class="app-footer">
+      <div class="footer-brand">
+        <div class="footer-logo-badge">POS</div>
+        <div>
+          <div class="footer-title">
+            <span id="footerStoreName">POS Pro Enterprise</span>
+            <span class="footer-version">v2.5.0</span>
+          </div>
+          <div style="font-size: 11.5px; margin-top: 2px;">
+            &copy; <span id="footerYear">2026</span> Sistem Manajemen Kasir &amp; Inventori Terpadu.
+          </div>
+        </div>
+      </div>
+
+      <div class="footer-links">
+        <a class="footer-link" onclick="switchView('dashboard')">Dashboard</a>
+        <a class="footer-link" onclick="switchView('reports')">Laporan</a>
+        <a class="footer-link" onclick="switchView('preferences')">Pengaturan</a>
+        <a class="footer-link" href="../pos/pos.html" target="_blank">Buka Layar Kasir &#8599;</a>
+      </div>
+
+      <div class="footer-status">
+        <div class="status-pill" id="footerSyncBadge">
+          <span class="status-dot" id="footerSyncDot"></span>
+          <span id="footerSyncText">Server &amp; Cloud Aktif</span>
+        </div>
+        <div style="text-align: right; font-variant-numeric: tabular-nums;">
+          <div id="footerClock" style="font-weight: 800; color: var(--ink); font-size: 13px;">--:--:--</div>
+          <div style="font-size: 10.5px;">WIB / Lokal</div>
+        </div>
+      </div>
+    </footer>
     </main>
 
   <!-- MODAL 1: KARTU STOK DIGITAL PER SKU -->
