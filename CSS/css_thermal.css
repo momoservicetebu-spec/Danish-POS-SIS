@@ -110,3 +110,40 @@
     padding-top: 1px;
   }
 }
+
+/* Ukuran Kertas A4 / Dotmatrix */
+  .receipt.paper-a4 {
+    box-sizing: border-box;
+    width: 100%;
+    max-width: 190mm;
+    margin: 0 auto;
+    padding: 8mm 10mm;
+    font-family: 'Courier New', Courier, monospace;
+    font-size: 13px;
+    line-height: 1.4;
+    color: #000000;
+  }
+
+  /* Ukuran Kertas Thermal 58mm */
+  .receipt.paper-58 {
+    box-sizing: border-box;
+    width: 58mm;
+    max-width: 58mm;
+    padding: 2mm 2.5mm 18mm 2.5mm;
+    font-family: 'Courier New', Courier, monospace;
+    font-size: 11px;
+    line-height: 1.3;
+    word-wrap: break-word;
+  }
+
+  /* Ukuran Kertas Thermal 80mm */
+  .receipt.paper-80 {
+    box-sizing: border-box;
+    width: 80mm;
+    max-width: 80mm;
+    padding: 3mm 4mm 20mm 4mm;
+    font-family: 'Courier New', Courier, monospace;
+    font-size: 12px;
+    line-height: 1.35;
+    word-wrap: break-word;
+  }

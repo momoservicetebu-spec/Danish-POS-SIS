@@ -1,11 +1,11 @@
 /**
- * DANISH POS - KASIR TERMINAL ENGINE (V3.4 - COMPLETE MERGED EDITION)
- * Menggabungkan seluruh fitur V3.2 + UI kasir_2.html:
+ * DANISH POS - KASIR TERMINAL ENGINE (V3.5 - COMPLETE UNIFIED EDITION)
  * - Auto-Sync Logo Base64/URL + Fallback Brand Vector
- * - Etalase Cepat PROMO SPESIAL & FAST FOOD
- * - Modal Pembayaran 6 Kanal Berwarna + QRIS Dinamis EMVCo (CRC16) & Gateway
+ * - Etalase Cepat PROMO SPESIAL & FAST FOOD (Murni Data Admin)
+ * - Modal Pembayaran 6 Kanal + QRIS Dinamis EMVCo (CRC16) & Gateway
  * - Multi-Currency (IDR, USD, SGD, MYR, EUR, JPY)
  * - Engine Promo Otomatis, Stok Lokal, Poin Member, Riwayat Transaksi, Retur, Cash Drop & Tutup Shift
+ * - Auto-Sync Pengaturan Struk Admin (58mm / 80mm / A4 + DPP/PPN + Poin + Slip Pesanan + Jarak Sobek)
  */
 
 // =========================================================================
@@ -92,7 +92,6 @@ let KASIR_COMPANY_PREFS = {
   companyName: '',
   companyAddress: '',
   companyPhone: '',
-  receiptFooter: 'Terima Kasih Atas Kunjungan Anda',
   logoBase64: '',
   logoUrl: '',
   taxEnabled: false,
@@ -103,7 +102,8 @@ let KASIR_COMPANY_PREFS = {
   roundStep: 100,
   pointEarnStep: 10000,
   pointRedeemVal: 100,
-  prefixStruk: 'TRX-'
+  prefixStruk: 'TRX-',
+  receiptFooter: 'TERIMA KASIH\n# Barang yang sudah dibeli tidak dapat ditukar/dikembalikan'
 };
 
 // QRIS Hybrid State
@@ -210,7 +210,8 @@ function normalizeLogoDataUrl(rawLogo) {
 }
 
 function getDefaultBrandLogoSvg() {
-  const brandTitle = (KASIR_COMPANY_PREFS.companyName || SESSION?.store?.namaToko || 'DANISH').toUpperCase();
+  const activeSess = getActiveSession();
+  const brandTitle = (KASIR_COMPANY_PREFS.companyName || activeSess?.store?.namaToko || 'DANISH').toUpperCase();
   const shortTitle = brandTitle.length > 14 ? 'DANISH' : brandTitle;
   return `
     <div style="display:flex; flex-direction:column; align-items:center; justify-content:center; width:100%; height:100%;">
@@ -401,7 +402,7 @@ function normalizeBackendMember(raw) {
 }
 
 async function syncMasterNow() {
-  showToast('Menyinkronkan master data, promo & logo...', 'info');
+  showToast('Menyinkronkan master data, promo & pengaturan cetak...', 'info');
   await initKasirDesignConfig();
   await loadInitialPosData();
 }
@@ -1341,7 +1342,7 @@ async function processFinalPayment() {
     localStorage.setItem('DANISH_CUSTOMERS_' + storeCode, JSON.stringify(CUSTOMERS));
   }
 
-LAST_RECEIPT_OBJ = {
+  LAST_RECEIPT_OBJ = {
     trxId,
     tanggal: timestamp,
     namaToko: KASIR_COMPANY_PREFS.companyName || activeSess.store?.namaToko || 'DANISH POS',
@@ -1358,6 +1359,7 @@ LAST_RECEIPT_OBJ = {
     kembalian: change,
     payments
   };
+
   saveTransactionToLocalHistory(LAST_RECEIPT_OBJ);
   enqueueOfflineTransaction(serverTrx);
   syncOfflineTransactions();
@@ -1398,55 +1400,219 @@ function reprintLastReceipt() {
   printThermalReceipt(LAST_RECEIPT_OBJ);
 }
 
+function getReceiptPrintConfig() {
+  const storeCode = getStoreCode();
+  let saved = { ...KASIR_DESIGN_CFG };
+
+  const candidateKeys = [
+    'DANISH_DESIGN_CONFIG_' + storeCode,
+    'DANISH_RECEIPT_CONFIG_' + storeCode,
+    'DANISH_POS_RECEIPT_CFG',
+    'DANISH_PRINT_SETTINGS_' + storeCode
+  ];
+
+  for (const k of candidateKeys) {
+    try {
+      const raw = localStorage.getItem(k);
+      if (raw) saved = { ...saved, ...JSON.parse(raw) };
+    } catch (e) {}
+  }
+
+  const rawPaper = String(
+    saved.receiptPaperSize ||
+    saved.paperSize ||
+    saved.receiptFormat ||
+    saved.receiptTemplate ||
+    saved.ukuranKertas ||
+    '58'
+  ).toUpperCase();
+
+  let paperMode = '58';
+  if (rawPaper.includes('80')) paperMode = '80';
+  else if (rawPaper.includes('A4') || rawPaper.includes('DOT')) paperMode = 'A4';
+
+  return {
+    paperMode,
+    showTax: saved.showTaxDetail !== false && saved.tampilkanPpn !== false,
+    showPoints: Boolean(saved.showMemberPoints || saved.tampilkanPoin),
+    showOrderSlip: Boolean(saved.printOrderSlip || saved.cetakSlipPesanan),
+    customFooterNote: saved.receiptFooterNote || saved.catatanStruk || ''
+  };
+}
+
+function applyDynamicPageSizeCss(paperMode) {
+  let styleEl = document.getElementById('dynamicPrintPageStyle');
+  if (!styleEl) {
+    styleEl = document.createElement('style');
+    styleEl.id = 'dynamicPrintPageStyle';
+    document.head.appendChild(styleEl);
+  }
+
+  if (paperMode === '80') {
+    styleEl.textContent = `@media print { @page { size: 80mm auto; margin: 0; } html, body { width: 80mm !important; } }`;
+  } else if (paperMode === 'A4') {
+    styleEl.textContent = `@media print { @page { size: A4 portrait; margin: 10mm; } html, body { width: 100% !important; } }`;
+  } else {
+    styleEl.textContent = `@media print { @page { size: 58mm auto; margin: 0; } html, body { width: 58mm !important; } }`;
+  }
+}
+
 function printThermalReceipt(trx) {
   const area = document.getElementById('thermalReceiptArea');
   if (!area) return;
+
   const prefs = KASIR_COMPANY_PREFS;
+  const printCfg = getReceiptPrintConfig();
+  applyDynamicPageSizeCss(printCfg.paperMode);
+
   const logoSrc = normalizeLogoDataUrl(prefs.logoBase64 || prefs.logoUrl || '');
+  const tableNo = (document.getElementById('kasirTableNumberInput')?.value || '').trim();
+  const paperClass =
+    printCfg.paperMode === '80'
+      ? 'receipt paper-80'
+      : printCfg.paperMode === 'A4'
+      ? 'receipt paper-a4'
+      : 'receipt paper-58';
+
+  const d = new Date(trx.tanggal);
+  const tglFormatted = `${String(d.getDate()).padStart(2, '0')}-${String(d.getMonth() + 1).padStart(2, '0')}-${d.getFullYear()} ${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
+
+  const totalQty = trx.items.reduce((acc, it) => acc + (Number(it.qty) || 0), 0);
+  const netBeforeRound = Math.max(0, (trx.subtotal || 0) - (trx.totalDiskon || 0) + (trx.pajak || 0));
+  const roundingDiff = (trx.grandTotal || 0) - netBeforeRound;
+  const taxPct = Number(prefs.taxPct) || 11;
+  const dppVal = Math.max(0, (trx.subtotal || 0) - (trx.totalDiskon || 0));
+  const footerText =
+    printCfg.customFooterNote ||
+    prefs.receiptFooter ||
+    'TERIMA KASIH\n# Barang yang sudah dibeli tidak dapat ditukar/dikembalikan';
 
   let rows = '';
-  trx.items.forEach((it) => {
-    const sub = it.harga * it.qty - (it.discNominal || 0);
-    rows += `
-      <div style="margin-bottom:4px;">
-        <div style="font-weight:bold;">${escapeHtml(it.nama)}</div>
-        <div style="display:flex; justify-content:space-between; font-size:11px;">
-          <span>${it.qty} x ${formatNumber(it.harga)}</span>
-          <span>${formatNumber(sub)}</span>
-        </div>
+  if (printCfg.paperMode === 'A4') {
+    rows = `
+      <table style="width:100%; border-collapse:collapse; font-size:12px; margin:8px 0;">
+        <thead>
+          <tr style="border-top:1px solid #000; border-bottom:1px solid #000;">
+            <th style="text-align:left; padding:4px 0;">Kts Nama Barang</th>
+            <th style="text-align:right; padding:4px;">Harga</th>
+            <th style="text-align:right; padding:4px;">Diskon</th>
+            <th style="text-align:right; padding:4px 0;">Jumlah</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${trx.items.map((it) => {
+            const sub = it.harga * it.qty - (it.discNominal || 0);
+            return `
+              <tr style="border-bottom:1px dashed #ccc;">
+                <td style="padding:4px 0;">${it.qty} ${escapeHtml(it.nama)}</td>
+                <td style="text-align:right; padding:4px;">${formatNumber(it.harga)}</td>
+                <td style="text-align:right; padding:4px;">${formatNumber(it.discNominal || 0)}</td>
+                <td style="text-align:right; padding:4px 0;">${formatNumber(sub)}</td>
+              </tr>`;
+          }).join('')}
+        </tbody>
+      </table>`;
+  } else {
+    rows = `
+      <div style="display:flex; justify-content:space-between; font-weight:bold; font-size:11px; margin-bottom:4px;">
+        <span>Kts Nama Barang</span>
+        <span>Jumlah</span>
       </div>`;
-  });
+    trx.items.forEach((it) => {
+      const sub = it.harga * it.qty - (it.discNominal || 0);
+      const taxMark = printCfg.showTax && trx.pajak > 0 ? ' *' : '';
+      rows += `
+        <div style="display:flex; justify-content:space-between; font-size:11px; margin-bottom:2px;">
+          <span style="padding-right:6px;">${it.qty} ${escapeHtml(it.nama)}</span>
+          <span style="white-space:nowrap;">${formatNumber(sub)}${taxMark}</span>
+        </div>`;
+    });
+  }
 
-  area.innerHTML = `
-    <div class="receipt paper-58">
-      <div style="text-align:center; border-bottom:1px dashed #000; padding-bottom:6px; margin-bottom:6px;">
-        ${logoSrc ? `<img src="${logoSrc}" style="max-width:40mm; max-height:16mm; object-fit:contain;"><br>` : ''}
-        <strong>${escapeHtml(trx.namaToko)}</strong><br>
-        ${prefs.companyAddress ? `<span style="font-size:10px;">${escapeHtml(prefs.companyAddress)}</span>` : ''}
+  let html = `
+    <div class="${paperClass}">
+      <div style="text-align:center; margin-bottom:6px;">
+        ${logoSrc ? `<img src="${logoSrc}" style="max-width:40mm; max-height:15mm; object-fit:contain; margin-bottom:2px;"><br>` : ''}
+        <strong style="font-size:${printCfg.paperMode === 'A4' ? '15px' : '12px'};">${escapeHtml(trx.namaToko)}</strong><br>
+        ${prefs.companyAddress ? `<span style="font-size:10px;">${escapeHtml(prefs.companyAddress)}</span><br>` : ''}
+        ${prefs.companyPhone ? `<span style="font-size:10px;">Telp. ${escapeHtml(prefs.companyPhone)}</span>` : ''}
       </div>
-      <div style="font-size:11px; border-bottom:1px dashed #000; padding-bottom:6px; margin-bottom:6px;">
-        <div>No   : ${escapeHtml(trx.trxId)}</div>
-        <div>Tgl  : ${new Date(trx.tanggal).toLocaleString('id-ID')}</div>
-        <div>Kasir: ${escapeHtml(trx.kasirNama)}</div>
-        ${trx.customerName ? `<div>Member: ${escapeHtml(trx.customerName)}</div>` : ''}
+
+      <div style="font-size:10.5px; border-top:1px dashed #000; border-bottom:1px dashed #000; padding:4px 0; margin-bottom:5px;">
+        <div>No# : ${escapeHtml(tableNo || trx.trxId)}</div>
+        <div>Kasir : ${escapeHtml(trx.kasirNama)}</div>
+        <div>Tanggal : ${tglFormatted}</div>
+        ${trx.customerName ? `<div>Member : ${escapeHtml(trx.customerName)}</div>` : ''}
       </div>
-      <div style="border-bottom:1px dashed #000; padding-bottom:6px; margin-bottom:6px;">${rows}</div>
-      <div style="font-size:12px;">
-        <div style="display:flex; justify-content:space-between; font-weight:bold;"><span>TOTAL</span><span>Rp ${formatNumber(trx.grandTotal)}</span></div>
-        <div style="display:flex; justify-content:space-between;"><span>BAYAR</span><span>Rp ${formatNumber(trx.totalBayar)}</span></div>
-        <div style="display:flex; justify-content:space-between; font-weight:bold;"><span>KEMBALI</span><span>Rp ${formatNumber(trx.kembalian)}</span></div>
+
+      <div style="border-bottom:1px dashed #000; padding-bottom:5px; margin-bottom:5px;">
+        ${rows}
       </div>
+
+      <div style="font-size:11px;">
+        <div style="margin-bottom:2px;">Total barang dibeli ${totalQty}</div>
+        <div style="display:flex; justify-content:space-between;"><span>SUBTOTAL</span><span>${formatNumber(trx.subtotal)}</span></div>
+        <div style="display:flex; justify-content:space-between;"><span>DISKON</span><span>${trx.totalDiskon > 0 ? '-' + formatNumber(trx.totalDiskon) : '0'}</span></div>
+        ${roundingDiff !== 0 ? `<div style="display:flex; justify-content:space-between;"><span>PEMBULATAN</span><span>${formatNumber(roundingDiff)}</span></div>` : ''}
+
+        <div style="display:flex; justify-content:space-between; font-weight:bold; font-size:12px; border-top:1px dashed #000; margin-top:4px; padding-top:4px;">
+          <span>TOTAL</span><span>${formatNumber(trx.grandTotal)}</span>
+        </div>
+        ${(trx.payments || []).map((p) => `
+          <div style="display:flex; justify-content:space-between;">
+            <span>${escapeHtml(p.method === 'CASH' ? 'TUNAI' : p.method)}</span>
+            <span>${formatNumber(p.amount)}</span>
+          </div>`).join('')}
+        <div style="display:flex; justify-content:space-between;"><span>KEMBALI</span><span>${formatNumber(trx.kembalian)}</span></div>
+      </div>
+
       ${
-        trx.customerName
-          ? `<div style="font-size:10px; text-align:center; margin-top:6px;">Poin +${trx.earnedPts || 0} | Saldo Poin: ${trx.saldoPts || 0}</div>`
+        printCfg.showTax && trx.pajak > 0
+          ? `<div style="font-size:10px; border-top:1px dashed #000; margin-top:5px; padding-top:4px;">
+               <div style="display:grid; grid-template-columns:22px 38px 1fr 1fr; font-weight:bold;">
+                 <span>PAJAK</span><span>TARIF</span><span style="text-align:right;">DPP</span><span style="text-align:right;">PPN</span>
+               </div>
+               <div style="display:grid; grid-template-columns:22px 38px 1fr 1fr;">
+                 <span>*</span><span>${taxPct}%</span><span style="text-align:right;">${formatNumber(dppVal)}</span><span style="text-align:right;">${formatNumber(trx.pajak)}</span>
+               </div>
+             </div>`
           : ''
       }
-      <div style="text-align:center; font-size:11px; margin-top:8px;">${escapeHtml(prefs.receiptFooter || 'Terima Kasih')}</div>
+
+      ${
+        printCfg.showPoints && trx.customerName
+          ? `<div style="font-size:10px; text-align:center; border-top:1px dashed #000; margin-top:5px; padding-top:4px;">
+               Poin Didapat: +${trx.earnedPts || 0} | Total Saldo Poin: ${trx.saldoPts || 0}
+             </div>`
+          : ''
+      }
+
+      <div style="text-align:center; font-size:10.5px; border-top:1px dashed #000; margin-top:6px; padding-top:6px; white-space:pre-line;">
+        ${escapeHtml(footerText)}
+      </div>
+
+      <div style="text-align:center; font-size:9px; margin-top:12mm; padding-bottom:4mm; letter-spacing:2px;">
+        . . . . . . . . . .
+      </div>
     </div>`;
+
+  if (printCfg.showOrderSlip) {
+    html += `
+      <div class="${paperClass}" style="page-break-before:always; border-top:2px dashed #000; padding-top:6px;">
+        <div style="text-align:center; font-weight:bold; border-bottom:1px dashed #000; padding-bottom:4px; margin-bottom:6px;">
+          SLIP PESANAN / DELIVERY<br>
+          <span style="font-size:10px;">${escapeHtml(tableNo || trx.trxId)} • ${tglFormatted}</span>
+        </div>
+        ${trx.items.map((it) => `<div style="font-size:12px; margin-bottom:3px;"><strong>${it.qty}x</strong> ${escapeHtml(it.nama)}</div>`).join('')}
+        <div style="text-align:center; font-size:9px; margin-top:12mm; padding-bottom:4mm; letter-spacing:2px;">. . . . . . . . . .</div>
+      </div>`;
+  }
+
+  area.innerHTML = html;
 
   setTimeout(() => {
     window.print();
-  }, 120);
+  }, 150);
 }
 
 // =========================================================================
@@ -1491,11 +1657,12 @@ async function submitCashOutTransaction() {
     showToast('Masukkan nominal tarik tunai', 'error');
     return;
   }
+  const activeSess = getActiveSession();
   try {
     await ApiClient.call('pos/cash-out', {
       kodeToko: getStoreCode(),
       shiftId: ACTIVE_SHIFT?.shiftId || '',
-      kasir: SESSION?.user?.username || '',
+      kasir: activeSess?.user?.username || '',
       nominal: amount,
       biayaAdmin: fee,
       referensi: ref
@@ -1561,6 +1728,7 @@ async function submitSalesReturn() {
     return;
   }
 
+  const activeSess = getActiveSession();
   try {
     await ApiClient.call('pos/return', {
       kodeToko: getStoreCode(),
@@ -1568,7 +1736,7 @@ async function submitSalesReturn() {
       items: returnedItems,
       alasan: reason,
       spvPin: spvPin,
-      kasir: SESSION?.user?.username || ''
+      kasir: activeSess?.user?.username || ''
     });
   } catch (e) {}
 
@@ -1587,13 +1755,14 @@ async function submitCashDrop() {
     showToast('Nominal Cash Drop dan PIN Supervisor wajib diisi', 'error');
     return;
   }
+  const activeSess = getActiveSession();
   try {
     await ApiClient.call('pos/cash-drop', {
       kodeToko: getStoreCode(),
       shiftId: ACTIVE_SHIFT?.shiftId || '',
       nominal: amt,
       spvPin: pin,
-      kasir: SESSION?.user?.username || ''
+      kasir: activeSess?.user?.username || ''
     });
   } catch (e) {}
   showToast(`Cash Drop Rp ${formatNumber(amt)} dicatat ke brankas`, 'success');
@@ -1611,13 +1780,14 @@ async function submitCloseShift() {
     showToast('Masukkan PIN Supervisor untuk menutup shift', 'error');
     return;
   }
+  const activeSess = getActiveSession();
   try {
     await ApiClient.call('pos/close-shift', {
       kodeToko: getStoreCode(),
       shiftId: ACTIVE_SHIFT?.shiftId || '',
       setoranFisik: physicalCash,
       spvPin: spvPin,
-      kasir: SESSION?.user?.username || ''
+      kasir: activeSess?.user?.username || ''
     });
   } catch (e) {}
   localStorage.removeItem('DANISH_ACTIVE_SHIFT_' + getStoreCode());
@@ -1668,7 +1838,7 @@ function printKasirSelectedLabels() {
 
   if (area) {
     area.innerHTML = labelsHtml;
-    window.print();
+    setTimeout(() => window.print(), 120);
   }
   closeModals();
 }
@@ -1683,10 +1853,11 @@ function openCustomerDisplay() {
 }
 
 function syncCustomerDisplay(qrisPayload = '', qrisAmount = 0) {
+  const activeSess = getActiveSession();
   const totals = getCartTotals();
   const payload = {
     updatedAt: Date.now(),
-    storeName: KASIR_COMPANY_PREFS.companyName || SESSION?.store?.namaToko || 'DANISH POS',
+    storeName: KASIR_COMPANY_PREFS.companyName || activeSess?.store?.namaToko || 'DANISH POS',
     logoSrc: normalizeLogoDataUrl(KASIR_COMPANY_PREFS.logoBase64 || KASIR_COMPANY_PREFS.logoUrl || ''),
     items: CART,
     subtotal: totals.subtotal,
