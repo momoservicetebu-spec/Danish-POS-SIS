@@ -1506,6 +1506,7 @@
             </div>
 
             <!-- 3. PEMBAYARAN -->
+          
             <div id="pref-panel-pembayaran" class="pref-panel" style="display:none;">
               <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
                 <h3 style="margin:0;">Metode Pembayaran, Mesin EDC &amp; Jenis Kartu</h3>
@@ -1517,44 +1518,45 @@
                 <label style="display:flex; align-items:center; gap:8px; font-weight:600;"><input type="checkbox" id="cfgPayEdc" checked style="width:16px; height:16px;"> Kartu Debit / Kredit (EDC)</label>
                 <label style="display:flex; align-items:center; gap:8px; font-weight:600;"><input type="checkbox" id="cfgPayTempo" checked style="width:16px; height:16px;"> Piutang / Tempo Member</label>
               </div>
+
+              <!-- PINDAHKAN PENGATURAN QRIS HYBRID KE DALAM SINI -->
+              <div style="margin-top:16px; padding-top:16px; border-top:1px solid var(--border);">
+                <h4 style="margin:0 0 10px 0;">Pengaturan QRIS Hybrid (Offline EMVCo &amp; API Gateway)</h4>
+                <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px; margin-bottom:10px;">
+                  <div>
+                    <label style="font-size:12px; font-weight:700; display:block; margin-bottom:4px;">Mode QRIS Aktif</label>
+                    <select id="cfgQrisMode">
+                      <option value="OFFLINE_EMVCO">Mode 1: QRIS Dinamis Offline (Tanpa Token API)</option>
+                      <option value="API_GATEWAY">Mode 2: Payment Gateway (Auto-Lunas via Token API)</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label style="font-size:12px; font-weight:700; display:block; margin-bottom:4px;">Provider Payment Gateway (Jika Mode 2)</label>
+                    <select id="cfgQrisProvider">
+                      <option value="MIDTRANS">Midtrans (Sandbox / Production)</option>
+                      <option value="XENDIT">Xendit QRIS</option>
+                    </select>
+                  </div>
+                </div>
+
+                <label style="font-size:12px; font-weight:700; display:block; margin-bottom:4px;">Payload String QRIS Statis Bank (Cadangan &amp; Mode 1)</label>
+                <textarea id="cfgQrisStaticPayload" rows="2" placeholder="Tempel teks hasil scan stiker QRIS Bank Anda (diawali 000201010211...)" style="width:100%; padding:10px; border-radius:8px; border:1px solid var(--border); font-family:monospace; font-size:12px;"></textarea>
+
+                <div style="display:grid; grid-template-columns:2fr 1fr; gap:12px; margin-top:8px; margin-bottom:12px;">
+                  <div>
+                    <label style="font-size:12px; font-weight:700; display:block; margin-bottom:4px;">Server Key / Token API (Opsional - Mode 2)</label>
+                    <input type="password" id="cfgQrisServerKey" placeholder="Contoh: SB-Mid-server-xxxx atau Mid-server-xxxx">
+                  </div>
+                  <div style="display:flex; align-items:center; padding-top:18px;">
+                    <label style="display:flex; align-items:center; gap:8px; font-size:13px; font-weight:600; cursor:pointer;">
+                      <input type="checkbox" id="cfgQrisIsProd" style="width:auto; margin:0;"> Mode Production (Live)
+                    </label>
+                  </div>
+                </div>
+
+                <button type="button" class="btn btn-blue" onclick="saveAdminQrisConfig()">Simpan Pengaturan QRIS</button>
+              </div>
             </div>
-
-            <div class="card" style="margin-top:16px;">
-            <h3 style="margin-top:0;">Pengaturan QRIS Hybrid (Offline EMVCo &amp; API Gateway)</h3>
-            <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px;">
-              <div>
-                <label style="font-size:12px; font-weight:700;">Mode QRIS Aktif</label>
-                <select id="cfgQrisMode">
-                  <option value="OFFLINE_EMVCO">Mode 1: QRIS Dinamis Offline (Tanpa Token API)</option>
-                  <option value="API_GATEWAY">Mode 2: Payment Gateway (Auto-Lunas via Token API)</option>
-                </select>
-              </div>
-              <div>
-                <label style="font-size:12px; font-weight:700;">Provider Payment Gateway (Jika Mode 2)</label>
-                <select id="cfgQrisProvider">
-                  <option value="MIDTRANS">Midtrans (Sandbox / Production)</option>
-                  <option value="XENDIT">Xendit QRIS</option>
-                </select>
-              </div>
-            </div>
-
-            <label style="font-size:12px; font-weight:700;">Payload String QRIS Statis Bank (Cadangan &amp; Mode 1)</label>
-            <textarea id="cfgQrisStaticPayload" rows="2" placeholder="Tempel teks hasil scan stiker QRIS Bank Anda (diawali 000201010211...)" style="width:100%; padding:10px; border-radius:8px; border:1px solid var(--border); font-family:monospace; font-size:12px;"></textarea>
-
-            <div style="display:grid; grid-template-columns:2fr 1fr; gap:12px; margin-top:8px;">
-              <div>
-                <label style="font-size:12px; font-weight:700;">Server Key / Token API (Opsional - Mode 2)</label>
-                <input type="password" id="cfgQrisServerKey" placeholder="Contoh: SB-Mid-server-xxxx atau Mid-server-xxxx">
-              </div>
-              <div style="display:flex; align-items:center; padding-top:18px;">
-                <label style="display:flex; align-items:center; gap:8px; font-size:13px; font-weight:600; cursor:pointer;">
-                  <input type="checkbox" id="cfgQrisIsProd" style="width:auto; margin:0;"> Mode Production (Live)
-                </label>
-              </div>
-            </div>
-
-            <button type="button" onclick="saveAdminQrisConfig()" style="padding:10px 18px; border-radius:8px; border:none; background:var(--royal-blue); color:#fff; font-weight:700; cursor:pointer;">Simpan Pengaturan QRIS</button>
-          </div>
 
             <!-- 4. PEMBULATAN STRUK -->
             <div id="pref-panel-pembulatan" class="pref-panel" style="display:none;">
