@@ -288,6 +288,72 @@
       color: #1E293B !important; font-weight: 600 !important;
     }
     .pay-box-6-approval:focus { background: #FFFBEB !important; border-color: #F59E0B !important; }
+  :root {
+      --emerald: #10B981;
+      --royal-blue: #2563EB;
+      --crimson: #DC2626;
+      --amber: #F59E0B;
+      --border: #CBD5E1;
+      --text-muted: #64748B;
+    }
+
+    /* Overlay & Kotak Modal */
+    .modal-backdrop {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: rgba(15, 23, 42, 0.65);
+      z-index: 9000;
+      align-items: center;
+      justify-content: center;
+      padding: 16px;
+    }
+    .modal-backdrop.active {
+      display: flex !important;
+    }
+    .modal-box {
+      background: #FFFFFF;
+      border-radius: 14px;
+      padding: 20px 24px;
+      width: 100%;
+      max-height: 92vh;
+      overflow-y: auto;
+      box-shadow: 0 20px 40px rgba(15, 23, 42, 0.28);
+      border: 1px solid #E2E8F0;
+    }
+    .modal-box input,
+    .modal-box select {
+      width: 100%;
+      padding: 9px 12px;
+      border-radius: 8px;
+      border: 1px solid #CBD5E1;
+      font-size: 13px;
+      margin-bottom: 10px;
+      box-sizing: border-box;
+    }
+    .cart-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 13px;
+    }
+    .cart-table th {
+      background: #F1F5F9;
+      padding: 8px 10px;
+      text-align: left;
+      font-size: 11px;
+      color: #475569;
+      border-bottom: 1px solid #CBD5E1;
+    }
+    .cart-table td {
+      padding: 8px 10px;
+      border-bottom: 1px solid #E2E8F0;
+    }
+    .cart-table tr:hover {
+      background: #F8FAFC;
+    }
+    .cart-table .num {
+      text-align: right;
+    }
   </style>
 </head>
 <body>

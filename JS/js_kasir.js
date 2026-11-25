@@ -1273,12 +1273,13 @@ async function processFinalPayment() {
     return;
   }
 
+  const activeSess = getActiveSession() || { user: {}, store: {} };
   const change = Math.max(0, totalPaid - summary.finalDue);
   const storeCode = getStoreCode();
   const prefix = KASIR_COMPANY_PREFS.prefixStruk || 'TRX-';
   const trxId = `${prefix}${storeCode}-${Date.now()}`;
   const shiftId = ACTIVE_SHIFT?.shiftId || `SHF-${storeCode}-DEFAULT`;
-  const cashierId = SESSION.user.idUser || SESSION.user.username;
+  const cashierId = activeSess.user?.idUser || activeSess.user?.username || 'KASIR';
   const timestamp = new Date().toISOString();
 
   const earnStep = Number(KASIR_COMPANY_PREFS.pointEarnStep) || 10000;
