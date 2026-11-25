@@ -1341,11 +1341,11 @@ async function processFinalPayment() {
     localStorage.setItem('DANISH_CUSTOMERS_' + storeCode, JSON.stringify(CUSTOMERS));
   }
 
-  LAST_RECEIPT_OBJ = {
+LAST_RECEIPT_OBJ = {
     trxId,
     tanggal: timestamp,
-    namaToko: KASIR_COMPANY_PREFS.companyName || SESSION.store?.namaToko || 'DANISH POS',
-    kasirNama: SESSION.user.nama || SESSION.user.username,
+    namaToko: KASIR_COMPANY_PREFS.companyName || activeSess.store?.namaToko || 'DANISH POS',
+    kasirNama: activeSess.user?.nama || activeSess.user?.username || 'Kasir',
     customerName: SELECTED_CUSTOMER ? SELECTED_CUSTOMER.nama : '',
     earnedPts,
     saldoPts: SELECTED_CUSTOMER ? SELECTED_CUSTOMER.poin : 0,
@@ -1358,7 +1358,6 @@ async function processFinalPayment() {
     kembalian: change,
     payments
   };
-
   saveTransactionToLocalHistory(LAST_RECEIPT_OBJ);
   enqueueOfflineTransaction(serverTrx);
   syncOfflineTransactions();
@@ -1419,7 +1418,7 @@ function printThermalReceipt(trx) {
   });
 
   area.innerHTML = `
-    <div style="width:58mm; font-family:'Courier New',monospace; font-size:12px; color:#000; padding:4px;">
+    <div class="receipt paper-58">
       <div style="text-align:center; border-bottom:1px dashed #000; padding-bottom:6px; margin-bottom:6px;">
         ${logoSrc ? `<img src="${logoSrc}" style="max-width:40mm; max-height:16mm; object-fit:contain;"><br>` : ''}
         <strong>${escapeHtml(trx.namaToko)}</strong><br>
@@ -1445,7 +1444,9 @@ function printThermalReceipt(trx) {
       <div style="text-align:center; font-size:11px; margin-top:8px;">${escapeHtml(prefs.receiptFooter || 'Terima Kasih')}</div>
     </div>`;
 
-  window.print();
+  setTimeout(() => {
+    window.print();
+  }, 120);
 }
 
 // =========================================================================
