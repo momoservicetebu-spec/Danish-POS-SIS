@@ -79,23 +79,29 @@ let QRIS_STATE = {
 };
 
 // =========================================================================
-// 2. INISIALISASI HALAMAN & KEAMANAN SESI
+// 2. INISIALISASI HALAMAN & KEAMANAN SESI (TAHAN ERROR)
 // =========================================================================
 document.addEventListener('DOMContentLoaded', async () => {
-  checkSessionSecurity();
-  loadShiftState();
-  loadCurrencyState();
-  updateClockDisplay();
-  setInterval(updateClockDisplay, 1000);
-
-  renderLogoToBox();
-  await initKasirDesignConfig();
-  await loadInitialPosData();
-
-  bindBarcodeScannerInput();
+  // Pasang shortcut PALING PERTAMA agar tidak pernah gagal aktif
   bindGlobalShortcuts();
-  updateSyncStatusBadge();
-  setInterval(syncOfflineTransactions, 30000);
+  bindBarcodeScannerInput();
+
+  try {
+    checkSessionSecurity();
+    loadShiftState();
+    loadCurrencyState();
+    updateClockDisplay();
+    setInterval(updateClockDisplay, 1000);
+
+    renderLogoToBox();
+    await initKasirDesignConfig();
+    await loadInitialPosData();
+
+    updateSyncStatusBadge();
+    setInterval(syncOfflineTransactions, 30000);
+  } catch (err) {
+    console.warn('Init warning:', err);
+  }
 });
 
 function checkSessionSecurity() {
@@ -1721,65 +1727,139 @@ function updateSyncStatusBadge() {
 }
 
 // =========================================================================
-// 11. KEYBOARD SHORTCUTS & UTILITIES
+// 11. KEYBOARD SHORTCUTS (CAPTURE PHASE - ANTI BLOKIR)
 // =========================================================================
+let SHORTCUT_BOUND = false;
+
 function bindGlobalShortcuts() {
-  document.addEventListener('keydown', (e) => {
-    if (e.key === 'F2') {
+  if (SHORTCUT_BOUND) return;
+  SHORTCUT_BOUND = true;
+
+  window.addEventListener('keydown', (e) => {
+    const key = e.key;
+    const code = e.code;
+
+    // F2 - Katalog Barang
+    if (key === 'F2' || code === 'F2') {
       e.preventDefault();
+      e.stopImmediatePropagation();
       openSearchModal();
-    } else if (e.key === 'F3') {
+      return;
+    }
+    // F3 - Panggil Antrean (Recall)
+    if (key === 'F3' || code === 'F3') {
       e.preventDefault();
+      e.stopImmediatePropagation();
       handleHoldRecall('RECALL');
-    } else if (e.key === 'F4') {
+      return;
+    }
+    // F4 - Cari / Pilih Pelanggan Member
+    if (key === 'F4' || code === 'F4') {
       e.preventDefault();
+      e.stopImmediatePropagation();
       openMemberModal();
-    } else if (e.key === 'F5') {
+      return;
+    }
+    // F5 - Tunda Transaksi (Hold) - cegah reload halaman
+    if (key === 'F5' || code === 'F5') {
       e.preventDefault();
+      e.stopImmediatePropagation();
       handleHoldRecall('HOLD');
-    } else if (e.key === 'F6') {
+      return;
+    }
+    // F6 - Cetak Ulang Struk Terakhir
+    if (key === 'F6' || code === 'F6') {
       e.preventDefault();
+      e.stopImmediatePropagation();
       reprintLastReceipt();
-    } else if (e.key === 'F7') {
+      return;
+    }
+    // F7 - Ubah Qty / Diskon Baris Terpilih
+    if (key === 'F7' || code === 'F7') {
       e.preventDefault();
+      e.stopImmediatePropagation();
       openEditItemModal();
-    } else if (e.key === 'F8') {
+      return;
+    }
+    // F8 - Hapus Baris Terpilih
+    if (key === 'F8' || code === 'F8') {
       e.preventDefault();
+      e.stopImmediatePropagation();
       voidSelectedItem();
-    } else if (e.key === 'F9') {
+      return;
+    }
+    // F9 - Bayar / Checkout
+    if (key === 'F9' || code === 'F9') {
       e.preventDefault();
+      e.stopImmediatePropagation();
       openCheckoutModal('CASH');
-    } else if (e.key === 'F11') {
+      return;
+    }
+    // F11 - Cash Drop Brankas
+    if (key === 'F11' || code === 'F11') {
       e.preventDefault();
+      e.stopImmediatePropagation();
       openCashDropModal();
-    } else if (e.key === 'F12') {
+      return;
+    }
+    // F12 - Clear Keranjang (cegah DevTools jika perlu)
+    if (key === 'F12' || code === 'F12') {
       e.preventDefault();
+      e.stopImmediatePropagation();
       clearCartWithPin();
-    } else if (e.key === 'Escape') {
+      return;
+    }
+    // ESC - Tutup Semua Modal & Fokus ke Scan Barcode
+    if (key === 'Escape' || code === 'Escape') {
+      e.preventDefault();
       closeModals();
-    } else if (e.altKey && e.key === '1') {
+      return;
+    }
+    // Alt + 1 : PPOB / Pulsa
+    if (e.altKey && (key === '1' || code === 'Digit1' || code === 'Numpad1')) {
       e.preventDefault();
+      e.stopImmediatePropagation();
       openNonPhysicalModal();
-    } else if (e.altKey && e.key === '2') {
+      return;
+    }
+    // Alt + 2 : Retur Struk
+    if (e.altKey && (key === '2' || code === 'Digit2' || code === 'Numpad2')) {
       e.preventDefault();
+      e.stopImmediatePropagation();
       openReturnModal();
-    } else if (e.altKey && e.key === '3') {
+      return;
+    }
+    // Alt + 3 : Buka Laci Kasir
+    if (e.altKey && (key === '3' || code === 'Digit3' || code === 'Numpad3')) {
       e.preventDefault();
+      e.stopImmediatePropagation();
       manualKickDrawer();
-    } else if (document.activeElement?.tagName !== 'INPUT') {
-      if (e.key === 'ArrowDown' && CART.length > 0) {
+      return;
+    }
+
+    // Navigasi Tabel Keranjang (Panah Atas/Bawah & +/- Qty)
+    const activeTag = document.activeElement?.tagName;
+    const isBarcodeBox = document.activeElement?.id === 'barcodeInput';
+    const isEmptyBarcode = isBarcodeBox && document.activeElement.value === '';
+
+    if (activeTag !== 'INPUT' || isEmptyBarcode) {
+      if (key === 'ArrowDown' && CART.length > 0) {
+        e.preventDefault();
         SELECTED_CART_INDEX = Math.min(CART.length - 1, SELECTED_CART_INDEX + 1);
         renderCartTable();
-      } else if (e.key === 'ArrowUp' && CART.length > 0) {
+      } else if (key === 'ArrowUp' && CART.length > 0) {
+        e.preventDefault();
         SELECTED_CART_INDEX = Math.max(0, SELECTED_CART_INDEX - 1);
         renderCartTable();
-      } else if (e.key === '+' && SELECTED_CART_INDEX >= 0) {
+      } else if ((key === '+' || key === '=') && SELECTED_CART_INDEX >= 0) {
+        e.preventDefault();
         adjustCartRowQty(SELECTED_CART_INDEX, 1);
-      } else if (e.key === '-' && SELECTED_CART_INDEX >= 0) {
+      } else if ((key === '-' || key === '_') && SELECTED_CART_INDEX >= 0) {
+        e.preventDefault();
         adjustCartRowQty(SELECTED_CART_INDEX, -1);
       }
     }
-  });
+  }, true); // <-- true (Capture Phase) berjalan SEBELUM js_security.js!
 
   window.addEventListener('online', () => {
     updateSyncStatusBadge();
