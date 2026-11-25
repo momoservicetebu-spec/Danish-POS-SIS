@@ -104,28 +104,51 @@ function checkSessionSecurity() {
     localStorage.getItem('POS_SESSION') ||
     sessionStorage.getItem('DANISH_POS_SESSION') ||
     sessionStorage.getItem('POS_SESSION');
+
   if (!raw) {
     window.location.href = 'index.html';
     return;
   }
-  try {
-    SESSION = JSON.parse(raw);
-    if (!SESSION || !SESSION.user) throw new Error('Sesi tidak valid');
 
-    const storeCode = getStoreCode();
-    const storeName = SESSION.store?.namaToko || 'Minimarket Pusat 01';
+  try {
+    const parsed = JSON.parse(raw);
+    if (!parsed || typeof parsed !== 'object') {
+      throw new Error('Format sesi kosong');
+    }
+
+    // Normalisasi struktur sesi agar kompatibel dengan semua versi login
+    const userObj = parsed.user || {
+      idUser: parsed.idUser || parsed.user_id || parsed.username || 'KSR-01',
+      username: parsed.username || parsed.nama || 'kasir',
+      nama: parsed.nama || parsed.name || parsed.username || 'Kasir',
+      role: parsed.role || 'KASIR'
+    };
+
+    const storeObj = parsed.store || {
+      kodeToko: parsed.kodeToko || parsed.storeCode || parsed.store_id || 'TK-001',
+      namaToko: parsed.namaToko || parsed.storeName || 'Minimarket Pusat 01',
+      alamat: parsed.alamat || ''
+    };
+
+    SESSION = {
+      ...parsed,
+      user: userObj,
+      store: storeObj
+    };
+
     const hdrStore = document.getElementById('hdrStoreName');
     const hdrCashier = document.getElementById('hdrCashierInfo');
-
-    if (hdrStore) hdrStore.textContent = `${storeName} (${storeCode})`;
-    if (hdrCashier) hdrCashier.textContent = `[${SESSION.user.nama || SESSION.user.username}]`;
+    if (hdrStore) hdrStore.textContent = `${storeObj.namaToko} (${storeObj.kodeToko})`;
+    if (hdrCashier) hdrCashier.textContent = `[${userObj.nama}]`;
   } catch (e) {
+    console.warn('Sesi kasir tidak terbaca:', e);
+    // Hapus semua kemungkinan key sesi agar tidak terjadi redirect loop
     localStorage.removeItem('DANISH_POS_SESSION');
+    localStorage.removeItem('POS_SESSION');
+    sessionStorage.removeItem('DANISH_POS_SESSION');
+    sessionStorage.removeItem('POS_SESSION');
     window.location.href = 'index.html';
   }
-}
-function getStoreCode() {
-  return SESSION?.store?.kodeToko || SESSION?.storeCode || 'TK-001';
 }
 
 function loadShiftState() {
