@@ -1,4 +1,4 @@
-// JS/js_admin.js - Logika Backoffice & Admin SIS v3.5 (Enterprise Edition + Instant Cache + Desain)
+// JS/js_admin.js - Logika Backoffice & Admin SISv1.0 (Enterprise Edition + Instant Cache + Desain)
 let PENDING_TAGS_CACHE = [];
 let MASTER_PRODUCTS_CACHE = [];
 let SELECTED_BARCODE_SKUS = new Set();
