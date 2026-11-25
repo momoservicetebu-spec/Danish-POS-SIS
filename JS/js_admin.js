@@ -3713,3 +3713,74 @@ async function saveAdminQrisConfig() {
   window.addEventListener('online', updateConnectionStatus);
   window.addEventListener('offline', updateConnectionStatus);
 })();
+
+// Fungsi untuk mengunggah & mengompres gambar lokal ke Base64
+function handleProductImageUpload(input) {
+  const file = input.files[0];
+  if (!file) return;
+
+  const reader = new FileReader();
+  reader.onload = function (e) {
+    const img = new Image();
+    img.onload = function () {
+      // Kompres ukuran gambar maksimal 400x400px agar ringan di database
+      const canvas = document.createElement('canvas');
+      const maxSize = 400;
+      let width = img.width;
+      let height = img.height;
+
+      if (width > height && width > maxSize) {
+        height *= maxSize / width;
+        width = maxSize;
+      } else if (height > maxSize) {
+        width *= maxSize / height;
+        height = maxSize;
+      }
+
+      canvas.width = width;
+      canvas.height = height;
+      const ctx = canvas.getContext('2d');
+      ctx.drawImage(img, 0, 0, width, height);
+
+      const compressedBase64 = canvas.toDataURL('image/jpeg', 0.8);
+      
+      // Masukkan hasil ke input URL gambar & perbarui preview
+      const urlInput = document.getElementById('itemImageUrl'); // sesuaikan ID input Anda
+      if (urlInput) urlInput.value = compressedBase64;
+      updateProductImagePreview(compressedBase64);
+    };
+    img.src = e.target.result;
+  };
+  reader.readAsDataURL(file);
+}
+function updateProductImagePreview(src) {
+  const imgEl = document.getElementById('itemPreviewImg'); // sesuaikan ID tag <img>
+  const placeholderEl = document.getElementById('itemPreviewPlaceholder'); // teks placeholder
+
+  if (!src || !src.trim()) {
+    if (imgEl) {
+      imgEl.style.display = 'none';
+      imgEl.removeAttribute('src');
+    }
+    if (placeholderEl) {
+      placeholderEl.textContent = 'Belum ada gambar';
+      placeholderEl.style.display = 'block';
+    }
+    return;
+  }
+
+  if (imgEl) {
+    imgEl.onload = function () {
+      imgEl.style.display = 'block';
+      if (placeholderEl) placeholderEl.style.display = 'none';
+    };
+    imgEl.onerror = function () {
+      imgEl.style.display = 'none';
+      if (placeholderEl) {
+        placeholderEl.textContent = 'Gambar gagal dimuat (Pastikan URL langsung ke file .jpg/.png)';
+        placeholderEl.style.display = 'block';
+      }
+    };
+    imgEl.src = src.trim();
+  }
+}
