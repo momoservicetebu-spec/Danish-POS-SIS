@@ -1476,12 +1476,8 @@ function applyDynamicPageSizeCss(paperMode) {
 }
 
 function printThermalReceipt(trx) {
-  const area = document.getElementById('thermalReceiptArea');
-  if (!area) return;
-
   const prefs = KASIR_COMPANY_PREFS;
   const printCfg = getReceiptPrintConfig();
-  applyDynamicPageSizeCss(printCfg.paperMode);
 
   const logoSrc = normalizeLogoDataUrl(prefs.logoBase64 || prefs.logoUrl || '');
   const tableNo = (document.getElementById('kasirTableNumberInput')?.value || '').trim();
@@ -1626,13 +1622,57 @@ function printThermalReceipt(trx) {
       </div>`;
   }
 
-  area.innerHTML = html;
+  // Isi thermalReceiptArea jika ada (untuk fallback), tapi JANGAN return jika null
+  const area = document.getElementById('thermalReceiptArea');
+  if (area) area.innerHTML = html;
+
+  // Buat iframe berukuran nyata di luar layar (off-screen) agar Chrome tidak memblokir print()
+  let printFrame = document.getElementById('hiddenThermalPrintFrame');
+  if (printFrame) printFrame.remove();
+
+  printFrame = document.createElement('iframe');
+  printFrame.id = 'hiddenThermalPrintFrame';
+  printFrame.style.cssText = 'position:fixed; left:-9999px; top:0; width:350px; height:600px; border:0; opacity:1;';
+  document.body.appendChild(printFrame);
+
+  const pageWidthCss =
+    printCfg.paperMode === '80'
+      ? '@page { size: 80mm auto; margin: 0; } body { width: 80mm; margin: 0; padding: 2mm 3mm; }'
+      : printCfg.paperMode === 'A4'
+      ? '@page { size: A4 portrait; margin: 10mm; } body { width: 100%; margin: 0; padding: 0; }'
+      : '@page { size: 58mm auto; margin: 0; } body { width: 58mm; margin: 0; padding: 2mm 2.5mm; }';
+
+  const frameWin = printFrame.contentWindow;
+  const frameDoc = frameWin.document;
+  frameDoc.open();
+  frameDoc.write(`
+    <!DOCTYPE html>
+    <html>
+    <head>
+      <meta charset="UTF-8">
+      <title>Struk ${escapeHtml(trx.trxId)}</title>
+      <style>
+        ${pageWidthCss}
+        * { box-sizing: border-box; }
+        body {
+          font-family: 'Courier New', Courier, monospace;
+          color: #000000;
+          background: #FFFFFF;
+          font-size: ${printCfg.paperMode === 'A4' ? '13px' : '11.5px'};
+          line-height: 1.3;
+        }
+      </style>
+    </head>
+    <body>${html}</body>
+    </html>
+  `);
+  frameDoc.close();
 
   setTimeout(() => {
-    window.print();
-  }, 150);
+    frameWin.focus();
+    frameWin.print();
+  }, 250);
 }
-
 // =========================================================================
 // 10. PPOB, TARIK TUNAI, RETUR, CASH DROP, TUTUP SHIFT & CETAK LABEL
 // =========================================================================
