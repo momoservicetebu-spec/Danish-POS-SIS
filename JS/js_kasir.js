@@ -11,7 +11,42 @@
 // =========================================================================
 // 1. STATE & KONFIGURASI GLOBAL
 // =========================================================================
-window.SESSION = window.SESSION || null;
+function getActiveSession() {
+  try {
+    const raw =
+      localStorage.getItem('POS_SESSION') ||
+      localStorage.getItem('DANISH_POS_SESSION') ||
+      sessionStorage.getItem('POS_SESSION') ||
+      sessionStorage.getItem('DANISH_POS_SESSION');
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      if (parsed && typeof parsed === 'object') {
+        return {
+          ...parsed,
+          user: parsed.user || {
+            idUser: parsed.idUser || parsed.userId || parsed.username || 'KSR-01',
+            username: parsed.username || parsed.nama || 'kasir',
+            nama: parsed.nama || parsed.name || parsed.username || 'Kasir',
+            role: parsed.role || 'KASIR'
+          },
+          store: parsed.store || {
+            kodeToko: parsed.storeCode || parsed.kodeToko || 'TK-001',
+            namaToko: parsed.namaToko || parsed.storeName || 'Minimarket Pusat 01',
+            alamat: parsed.alamat || ''
+          }
+        };
+      }
+    }
+  } catch (e) {}
+  if (typeof SESSION !== 'undefined' && SESSION) return SESSION;
+  return null;
+}
+
+function getStoreCode() {
+  const s = getActiveSession();
+  return s?.store?.kodeToko || s?.storeCode || s?.kodeToko || 'TK-001';
+}
+
 let ACTIVE_SHIFT = null;
 let PRODUCTS = [];
 let PROMOTIONS = [];
@@ -82,7 +117,7 @@ let QRIS_STATE = {
 // 2. INISIALISASI HALAMAN & KEAMANAN SESI
 // =========================================================================
 document.addEventListener('DOMContentLoaded', async () => {
-  checkSessionSecurity();
+  if (!checkSessionSecurity()) return;
   loadShiftState();
   loadCurrencyState();
   updateClockDisplay();
@@ -99,16 +134,13 @@ document.addEventListener('DOMContentLoaded', async () => {
 });
 
 function checkSessionSecurity() {
-  const activeSession =
-    (typeof SESSION !== 'undefined' && SESSION) ||
-    JSON.parse(localStorage.getItem('POS_SESSION') || localStorage.getItem('DANISH_POS_SESSION') || 'null');
-
-  if (!activeSession || !activeSession.user) {
+  const activeSession = getActiveSession();
+  if (!activeSession) {
     window.location.href = 'login.html';
-    return;
+    return false;
   }
 
-  const storeCode = activeSession.store?.kodeToko || activeSession.storeCode || 'TK-001';
+  const storeCode = getStoreCode();
   const storeName = activeSession.store?.namaToko || 'Minimarket Pusat 01';
   const userName = activeSession.user?.nama || activeSession.user?.username || 'Kasir';
 
@@ -116,6 +148,7 @@ function checkSessionSecurity() {
   const hdrCashier = document.getElementById('hdrCashierInfo');
   if (hdrStore) hdrStore.textContent = `${storeName} (${storeCode})`;
   if (hdrCashier) hdrCashier.textContent = `[${userName}]`;
+  return true;
 }
 
 function logoutKasir() {
@@ -124,6 +157,8 @@ function logoutKasir() {
   }
   localStorage.removeItem('POS_SESSION');
   localStorage.removeItem('DANISH_POS_SESSION');
+  sessionStorage.removeItem('POS_SESSION');
+  sessionStorage.removeItem('DANISH_POS_SESSION');
   window.location.href = 'login.html';
 }
 
@@ -155,10 +190,7 @@ function togglePosFullscreen() {
 }
 
 function exitPosScreen() {
-  if (CART.length > 0 && !confirm('Masih ada item di keranjang aktif. Yakin ingin keluar dari kasir?')) return;
-  localStorage.removeItem('DANISH_POS_SESSION');
-  sessionStorage.removeItem('DANISH_POS_SESSION');
-  window.location.href = 'index.html';
+  logoutKasir();
 }
 
 // =========================================================================
