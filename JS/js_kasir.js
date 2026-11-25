@@ -268,7 +268,6 @@ function renderLogoToBox() {
     logoBox.innerHTML = getDefaultBrandLogoSvg();
   }
 }
-
 async function initKasirDesignConfig() {
   const storeCode = getStoreCode();
   const designCacheKey = 'DANISH_DESIGN_CONFIG_' + storeCode;
@@ -292,13 +291,15 @@ async function initKasirDesignConfig() {
       ApiClient.call('admin/get-preferences', { kodeToko: storeCode }).catch(() => null)
     ]);
 
-    if (cloudCfg && typeof cloudCfg === 'object' && Object.keys(cloudCfg).length > 0) {
-      KASIR_DESIGN_CFG = { ...KASIR_DESIGN_CFG, ...cloudCfg };
+    const rawDesign = cloudCfg?.data || cloudCfg?.config || cloudCfg;
+    if (rawDesign && typeof rawDesign === 'object' && Object.keys(rawDesign).length > 0) {
+      KASIR_DESIGN_CFG = { ...KASIR_DESIGN_CFG, ...rawDesign };
       localStorage.setItem(designCacheKey, JSON.stringify(KASIR_DESIGN_CFG));
     }
 
-    if (cloudPrefs && typeof cloudPrefs === 'object' && Object.keys(cloudPrefs).length > 0) {
-      KASIR_COMPANY_PREFS = { ...KASIR_COMPANY_PREFS, ...cloudPrefs };
+    const rawPrefs = cloudPrefs?.data || cloudPrefs?.preferences || cloudPrefs;
+    if (rawPrefs && typeof rawPrefs === 'object' && Object.keys(rawPrefs).length > 0) {
+      KASIR_COMPANY_PREFS = { ...KASIR_COMPANY_PREFS, ...rawPrefs };
       localStorage.setItem('DANISH_POS_COMPANY_PREFS', JSON.stringify(KASIR_COMPANY_PREFS));
     }
 
@@ -1441,25 +1442,19 @@ function getReceiptPrintConfig() {
     } catch (e) {}
   }
 
-  const rawPaper = String(
-    saved.receiptPaperSize ||
-    saved.paperSize ||
-    saved.receiptFormat ||
-    saved.receiptTemplate ||
-    saved.ukuranKertas ||
-    '58'
-  ).toUpperCase();
-
+  // Ambil langsung dari key database: strukPaperSize ("58mm" | "80mm" | "A4")
+  const rawPaper = String(saved.strukPaperSize || '58mm').toUpperCase();
   let paperMode = '58';
   if (rawPaper.includes('80')) paperMode = '80';
   else if (rawPaper.includes('A4') || rawPaper.includes('DOT')) paperMode = 'A4';
 
   return {
     paperMode,
-    showTax: saved.showTaxDetail !== false && saved.tampilkanPpn !== false,
-    showPoints: Boolean(saved.showMemberPoints || saved.tampilkanPoin),
-    showOrderSlip: Boolean(saved.printOrderSlip || saved.cetakSlipPesanan),
-    customFooterNote: saved.receiptFooterNote || saved.catatanStruk || ''
+    showTax: saved.strukShowTaxDetail !== false,
+    showPoints: Boolean(saved.strukShowMemberPoint),
+    showOrderSlip: Boolean(saved.strukPrintOrderSlip),
+    labelModel: saved.labelModel || 'PRICE_TAG_1',
+    customFooterNote: saved.receiptFooterNote || ''
   };
 }
 
