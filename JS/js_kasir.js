@@ -99,44 +99,23 @@ document.addEventListener('DOMContentLoaded', async () => {
 });
 
 function checkSessionSecurity() {
-  const raw =
-    localStorage.getItem('POS_SESSION') ||
-    localStorage.getItem('DANISH_POS_SESSION') ||
-    sessionStorage.getItem('POS_SESSION');
+  const activeSession =
+    (typeof SESSION !== 'undefined' && SESSION) ||
+    JSON.parse(localStorage.getItem('POS_SESSION') || localStorage.getItem('DANISH_POS_SESSION') || 'null');
 
-  if (!raw) {
+  if (!activeSession || !activeSession.user) {
     window.location.href = 'login.html';
     return;
   }
 
-  try {
-    const parsed = JSON.parse(raw);
-    if (!parsed || typeof parsed !== 'object') throw new Error('Sesi kosong');
+  const storeCode = activeSession.store?.kodeToko || activeSession.storeCode || 'TK-001';
+  const storeName = activeSession.store?.namaToko || 'Minimarket Pusat 01';
+  const userName = activeSession.user?.nama || activeSession.user?.username || 'Kasir';
 
-    SESSION = {
-      ...parsed,
-      user: parsed.user || {
-        idUser: parsed.idUser || parsed.username || 'KSR-01',
-        username: parsed.username || 'kasir',
-        nama: parsed.nama || parsed.name || parsed.username || 'Kasir',
-        role: parsed.role || 'KASIR'
-      },
-      store: parsed.store || {
-        kodeToko: parsed.storeCode || parsed.kodeToko || 'TK-001',
-        namaToko: parsed.namaToko || 'Minimarket Pusat 01',
-        alamat: parsed.alamat || ''
-      }
-    };
-
-    const hdrStore = document.getElementById('hdrStoreName');
-    const hdrCashier = document.getElementById('hdrCashierInfo');
-    if (hdrStore) hdrStore.textContent = `${SESSION.store.namaToko} (${SESSION.store.kodeToko})`;
-    if (hdrCashier) hdrCashier.textContent = `[${SESSION.user.nama}]`;
-  } catch (e) {
-    localStorage.removeItem('POS_SESSION');
-    localStorage.removeItem('DANISH_POS_SESSION');
-    window.location.href = 'login.html';
-  }
+  const hdrStore = document.getElementById('hdrStoreName');
+  const hdrCashier = document.getElementById('hdrCashierInfo');
+  if (hdrStore) hdrStore.textContent = `${storeName} (${storeCode})`;
+  if (hdrCashier) hdrCashier.textContent = `[${userName}]`;
 }
 
 function logoutKasir() {
@@ -145,8 +124,6 @@ function logoutKasir() {
   }
   localStorage.removeItem('POS_SESSION');
   localStorage.removeItem('DANISH_POS_SESSION');
-  sessionStorage.removeItem('POS_SESSION');
-  sessionStorage.removeItem('DANISH_POS_SESSION');
   window.location.href = 'login.html';
 }
 
