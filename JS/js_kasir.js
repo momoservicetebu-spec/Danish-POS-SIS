@@ -658,25 +658,33 @@ async function processFinalPayment() {
 function printThermalReceipt(trx, items, comp, isCopy) {
   const paperChoice = KASIR_DESIGN_CFG.strukPaperSize || SESSION.store.ukuranKertas || '58mm';
   const paperClass = paperChoice === '58mm' ? 'paper-58' : 'paper-80';
-  const copyBanner = isCopy ? '<div style="text-align:center;font-weight:bold;border:1px dashed #000;margin:4px 0;">*** COPY STRUK ***</div>' : '';
+  const copyBanner = isCopy ? '<div style="text-align:center;font-weight:bold;">*** COPY STRUK ***</div>' : '';
   const tableNo = (document.getElementById('kasirTableNumberInput')?.value || '').trim();
   const earnedPts = Math.floor(trx.grand_total / 10000);
+  const lineDivider = paperChoice === '58mm' ? '--------------------------------' : '------------------------------------------';
 
-  const taxSection = KASIR_DESIGN_CFG.strukShowTaxDetail
-    ? `<hr><small>PAJAK: PPN 11% | DPP: ${(trx.grand_total - (comp.ppnAmount || 0)).toLocaleString('id-ID')} | PPN: ${(comp.ppnAmount || 0).toLocaleString('id-ID')}</small>`
+  // Konversi boolean ketat agar nilai string "false" dari server/storage tidak dianggap aktif
+  const isTrue = (val) => val === true || val === 'true' || val === 1 || val === '1';
+  const showTax = isTrue(KASIR_DESIGN_CFG.strukShowTaxDetail);
+  const showMemberPts = isTrue(KASIR_DESIGN_CFG.strukShowMemberPoint);
+  const printOrderSlip = isTrue(KASIR_DESIGN_CFG.strukPrintOrderSlip);
+
+  const taxSection = showTax
+    ? `<div>${lineDivider}</div><div><small>PAJAK: PPN 11% | DPP: ${(trx.grand_total - (comp.ppnAmount || 0)).toLocaleString('id-ID')} | PPN: ${(comp.ppnAmount || 0).toLocaleString('id-ID')}</small></div>`
     : '';
 
-  const memberPointSection = (KASIR_DESIGN_CFG.strukShowMemberPoint && ACTIVE_MEMBER.member_id !== 'MBR-000')
-    ? `<hr><small>MEMBER: ${ACTIVE_MEMBER.name}<br>POIN TRANSAKSI: +${earnedPts} | TOTAL POIN: ${ACTIVE_MEMBER.points}</small>`
+  const memberPointSection = (showMemberPts && ACTIVE_MEMBER.member_id !== 'MBR-000')
+    ? `<div>${lineDivider}</div><div><small>MEMBER: ${ACTIVE_MEMBER.name}<br>POIN TRANSAKSI: +${earnedPts} | TOTAL POIN: ${ACTIVE_MEMBER.points}</small></div>`
     : '';
 
-  const orderSlipSection = KASIR_DESIGN_CFG.strukPrintOrderSlip
+  const orderSlipSection = printOrderSlip
     ? `
-      <div class="receipt ${paperClass}" style="page-break-before:always; border-top:2px dashed #000; margin-top:12px; padding-top:8px;">
+      <div class="receipt ${paperClass}" style="page-break-before:always; margin-top:12px; padding-top:8px;">
         <div style="text-align:center; font-weight:bold;">*** SLIP PESANAN / DAPUR ***</div>
-        <small>No: ${trx.trx_id} ${tableNo ? '| Meja: ' + tableNo : ''}<br>Pelanggan: ${ACTIVE_MEMBER.name} | ${new Date(trx.timestamp).toLocaleTimeString('id-ID')}</small>
-        <hr>
+        <div><small>No: ${trx.trx_id} ${tableNo ? '| Meja: ' + tableNo : ''}<br>Pelanggan: ${ACTIVE_MEMBER.name} | ${new Date(trx.timestamp).toLocaleTimeString('id-ID')}</small></div>
+        <div>${lineDivider}</div>
         ${items.map(i => `<div><strong>${i.qty}x</strong> ${i.name}</div>`).join('')}
+        <div>${lineDivider}</div>
       </div>
     `
     : '';
@@ -688,41 +696,42 @@ function printThermalReceipt(trx, items, comp, isCopy) {
         <small>${SESSION.store.alamat || ''}</small>
       </div>
       ${copyBanner}
-      <hr>
-      <small>No: ${trx.trx_id}<br>Kasir: ${SESSION.user.nama} | ${new Date(trx.timestamp).toLocaleString('id-ID')}<br>Member: ${ACTIVE_MEMBER.name}${tableNo ? ' | Meja: ' + tableNo : ''}</small>
-      <hr>
+      <div>${lineDivider}</div>
+      <div><small>No   : ${trx.trx_id}<br>Kasir: ${SESSION.user.nama} | ${new Date(trx.timestamp).toLocaleString('id-ID')}<br>Mbr  : ${ACTIVE_MEMBER.name}${tableNo ? ' | Meja: ' + tableNo : ''}</small></div>
+      <div>${lineDivider}</div>
       ${items.map(i => `
         <div>${i.name}</div>
         <div style="display:flex;justify-content:space-between;">
           <span>${i.qty} ${i.unit || ''} x ${i.price.toLocaleString('id-ID')}</span>
-          <span>${((i.price * i.qty) - (i.discount || 0)).toLocaleString('id-ID')}</span>
+          <span> = ${((i.price * i.qty) - (i.discount || 0)).toLocaleString('id-ID')}</span>
         </div>
       `).join('')}
-      <hr>
-      <div style="display:flex;justify-content:space-between;"><span>Subtotal</span><span>${trx.subtotal.toLocaleString('id-ID')}</span></div>
-      <div style="display:flex;justify-content:space-between;"><span>Total Diskon/Poin</span><span>-${trx.discount_total.toLocaleString('id-ID')}</span></div>
-      ${comp.ppnAmount > 0 ? `<div style="display:flex;justify-content:space-between;"><span>PPN (11%)</span><span>${comp.ppnAmount.toLocaleString('id-ID')}</span></div>` : ''}
-      <div style="display:flex;justify-content:space-between;font-weight:bold;font-size:14px;"><span>TOTAL</span><span>Rp ${trx.grand_total.toLocaleString('id-ID')}</span></div>
-      ${comp.cash > 0 ? `<div style="display:flex;justify-content:space-between;"><span>Tunai</span><span>${comp.cash.toLocaleString('id-ID')}</span></div>` : ''}
-      ${comp.qris > 0 ? `<div style="display:flex;justify-content:space-between;"><span>${comp.qrisProvider || 'QRIS'}</span><span>${comp.qris.toLocaleString('id-ID')}</span></div>` : ''}
-      ${comp.transfer > 0 ? `<div style="display:flex;justify-content:space-between;"><span>Transfer ${comp.bankProvider || ''}</span><span>${comp.transfer.toLocaleString('id-ID')}</span></div>` : ''}
-      ${comp.edc > 0 ? `<div style="display:flex;justify-content:space-between;"><span>EDC (${comp.edcType || 'DEBIT'})</span><span>${comp.edc.toLocaleString('id-ID')}</span></div>` : ''}
-      ${comp.tempo > 0 ? `<div style="display:flex;justify-content:space-between;"><span>Kredit/Tempo</span><span>${comp.tempo.toLocaleString('id-ID')}</span></div>` : ''}
-      <div style="display:flex;justify-content:space-between;"><span>Kembali</span><span>${Math.max(0, comp.change).toLocaleString('id-ID')}</span></div>
+      <div>${lineDivider}</div>
+      <div style="display:flex;justify-content:space-between;"><span>Subtotal     : </span><span>${trx.subtotal.toLocaleString('id-ID')}</span></div>
+      <div style="display:flex;justify-content:space-between;"><span>Diskon/Poin  : </span><span>-${trx.discount_total.toLocaleString('id-ID')}</span></div>
+      ${comp.ppnAmount > 0 ? `<div style="display:flex;justify-content:space-between;"><span>PPN (11%)    : </span><span>${comp.ppnAmount.toLocaleString('id-ID')}</span></div>` : ''}
+      <div style="display:flex;justify-content:space-between;font-weight:bold;font-size:14px;"><span>TOTAL        : </span><span>Rp ${trx.grand_total.toLocaleString('id-ID')}</span></div>
+      ${comp.cash > 0 ? `<div style="display:flex;justify-content:space-between;"><span>Tunai        : </span><span>${comp.cash.toLocaleString('id-ID')}</span></div>` : ''}
+      ${comp.qris > 0 ? `<div style="display:flex;justify-content:space-between;"><span>${(comp.qrisProvider || 'QRIS').padEnd(13, ' ')}: </span><span>${comp.qris.toLocaleString('id-ID')}</span></div>` : ''}
+      ${comp.transfer > 0 ? `<div style="display:flex;justify-content:space-between;"><span>Transfer ${comp.bankProvider || ''}: </span><span>${comp.transfer.toLocaleString('id-ID')}</span></div>` : ''}
+      ${comp.edc > 0 ? `<div style="display:flex;justify-content:space-between;"><span>EDC (${comp.edcType || 'DEBIT'}): </span><span>${comp.edc.toLocaleString('id-ID')}</span></div>` : ''}
+      ${comp.tempo > 0 ? `<div style="display:flex;justify-content:space-between;"><span>Kredit/Tempo : </span><span>${comp.tempo.toLocaleString('id-ID')}</span></div>` : ''}
+      <div style="display:flex;justify-content:space-between;"><span>Kembali      : </span><span>${Math.max(0, comp.change).toLocaleString('id-ID')}</span></div>
       ${taxSection}
       ${memberPointSection}
-      <hr>
+      <div>${lineDivider}</div>
       <div style="text-align:center;"><small>Terima Kasih Atas Kunjungan Anda</small></div>
+      <br><br>
     </div>
     ${orderSlipSection}
   `;
-  LAST_RECEIPT_HTML = html.replace('</small>\n      </div>', `</small>\n      </div><div style="text-align:center;font-weight:bold;border:1px dashed #000;margin:4px 0;">*** COPY STRUK ***</div>`);
+
+  LAST_RECEIPT_HTML = html.replace('</small>\n      </div>', `</small>\n      </div><div style="text-align:center;font-weight:bold;">*** COPY STRUK ***</div>`);
   LAST_REPRINT_COUNT = 0;
 
   document.getElementById('thermalReceiptArea').innerHTML = html;
   window.print();
 }
-
 async function reprintLastReceipt() {
   if (!LAST_RECEIPT_HTML) return alert('Belum ada transaksi untuk dicetak ulang.');
   if (LAST_REPRINT_COUNT >= 1) return alert('Batas cetak ulang (maksimal 1x) sudah tercapai!');
