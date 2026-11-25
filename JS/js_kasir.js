@@ -1,3 +1,33 @@
+// === GLOBAL LOADING SCREEN KASIR ===
+function showKasirLoading(text = 'Memuat data kasir...') {
+  let loader = document.getElementById('kasirGlobalLoader');
+  if (!loader) {
+    loader = document.createElement('div');
+    loader.id = 'kasirGlobalLoader';
+    loader.style.cssText = `
+      position: fixed; inset: 0; z-index: 99999;
+      background: rgba(15, 23, 42, 0.85); backdrop-filter: blur(4px);
+      display: flex; flex-direction: column; align-items: center; justify-content: center;
+      color: #FFFFFF; font-family: system-ui, -apple-system, sans-serif;
+    `;
+    loader.innerHTML = `
+      <div style="width:44px; height:44px; border:4px solid rgba(255,255,255,0.25); border-top-color:#EC4899; border-radius:50%; animation:kasirSpin 0.8s linear infinite;"></div>
+      <div id="kasirLoaderText" style="margin-top:14px; font-size:15px; font-weight:600; letter-spacing:0.3px;">${text}</div>
+      <style>@keyframes kasirSpin { to { transform: rotate(360deg); } }</style>
+    `;
+    document.body.appendChild(loader);
+  } else {
+    const txtEl = document.getElementById('kasirLoaderText');
+    if (txtEl) txtEl.textContent = text;
+    loader.style.display = 'flex';
+  }
+}
+
+function hideKasirLoading() {
+  const loader = document.getElementById('kasirGlobalLoader');
+  if (loader) loader.style.display = 'none';
+}
+
 let CART = [];
 let SELECTED_INDEX = -1;
 let ACTIVE_PROMOS = [];
@@ -41,34 +71,44 @@ let KASIR_DESIGN_CFG = {
 const customerChannel = new BroadcastChannel('POS_CUSTOMER_DISPLAY');
 
 window.addEventListener('DOMContentLoaded', async () => {
-  document.getElementById('hdrStoreName').textContent = `${SESSION.store.namaToko} (${SESSION.store.kodeToko})`;
-  document.getElementById('hdrCashierInfo').textContent = `[${SESSION.user.nama}]`;
+  showKasirLoading('Menyiapkan sistem & pengaturan kasir...');
+  try {
+    document.getElementById('hdrStoreName').textContent = `${SESSION.store.namaToko} (${SESSION.store.kodeToko})`;
+    document.getElementById('hdrCashierInfo').textContent = `[${SESSION.user.nama}]`;
 
-  setInterval(() => {
-    const now = new Date();
-    const dStr = now.toLocaleDateString('id-ID', { day: '2-digit', month: 'short', year: 'numeric' });
-    const tStr = now.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' });
-    document.getElementById('hdrClock').textContent = `${dStr} ${tStr}`;
-  }, 1000);
+    setInterval(() => {
+      const now = new Date();
+      const dStr = now.toLocaleDateString('id-ID', { day: '2-digit', month: 'short', year: 'numeric' });
+      const tStr = now.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' });
+      document.getElementById('hdrClock').textContent = `${dStr} ${tStr}`;
+    }, 1000);
 
-  if (!ACTIVE_SHIFT || ACTIVE_SHIFT.cashierId !== SESSION.user.userId) {
-    await promptOpenShift();
-  } else {
-    document.getElementById('hdrShiftId').textContent = `Shift: ${ACTIVE_SHIFT.shiftId}`;
+    if (!ACTIVE_SHIFT || ACTIVE_SHIFT.cashierId !== SESSION.user.userId) {
+      hideKasirLoading();
+      await promptOpenShift();
+      showKasirLoading('Memuat katalog & desain kasir...');
+    } else {
+      document.getElementById('hdrShiftId').textContent = `Shift: ${ACTIVE_SHIFT.shiftId}`;
+    }
+
+    ACTIVE_PROMOS = await LocalDB.getActivePromotions();
+    if ((await db.products.count()) === 0) {
+      showKasirLoading('Mengunduh katalog produk & promo...');
+      await syncMasterNow(true);
+    }
+
+    showKasirLoading('Menerapkan tata letak & desain struk...');
+    await initKasirDesignConfig();
+  } finally {
+    hideKasirLoading();
+    focusScanner();
   }
-
-  ACTIVE_PROMOS = await LocalDB.getActivePromotions();
-  if ((await db.products.count()) === 0) {
-    await syncMasterNow();
-  }
-
-  await initKasirDesignConfig();
-  focusScanner();
 });
 
 async function promptOpenShift() {
   const modalStr = prompt(`Buka Shift Kasir (${SESSION.user.nama})\nMasukkan Nominal Modal Awal / Petty Cash di laci (Rp):`, '200000');
   if (modalStr === null) return;
+  showKasirLoading('Membuka shift kasir...');
   try {
     const shiftData = await ApiClient.call('pos/open-shift', { modalAwal: Number(modalStr) || 0 });
     ACTIVE_SHIFT = shiftData;
@@ -76,17 +116,24 @@ async function promptOpenShift() {
     document.getElementById('hdrShiftId').textContent = `Shift: ${ACTIVE_SHIFT.shiftId}`;
   } catch (e) {
     alert('Gagal membuka shift: ' + e.message);
+  } finally {
+    hideKasirLoading();
   }
 }
 
-async function syncMasterNow() {
+async function syncMasterNow(silent = false) {
+  showKasirLoading('Menyinkronkan produk, promo & desain struk...');
   try {
     const data = await ApiClient.call('pos/sync-master', {});
     await LocalDB.saveMasterData(data.products, data.promotions, data.members || []);
     ACTIVE_PROMOS = await LocalDB.getActivePromotions();
-    await applyKasirDesignToDOM();
-    alert(`Sinkronisasi selesai: ${data.products.length} SKU, ${data.promotions.length} Promo, & ${(data.members || []).length} Member.`);
+    await initKasirDesignConfig();
+    hideKasirLoading();
+    if (!silent) {
+      alert(`Sinkronisasi selesai: ${data.products.length} SKU, ${data.promotions.length} Promo, & ${(data.members || []).length} Member.`);
+    }
   } catch (e) {
+    hideKasirLoading();
     alert('Gagal sinkron master: ' + e.message);
   }
 }
@@ -218,7 +265,6 @@ function renderCart() {
     `;
   }).join('');
 
-  // Update Baris Aktif Barang [Nama Barang] & Harga
   const activeItem = (SELECTED_INDEX >= 0 && CART[SELECTED_INDEX]) ? CART[SELECTED_INDEX] : CART[CART.length - 1];
   if (activeItem) {
     const activeLineTotal = (activeItem.price * activeItem.qty) - (activeItem.discount || 0);
@@ -301,6 +347,7 @@ async function quickRegisterMember() {
 
   if (!nama || !phone) return alert('Nama dan No. HP pelanggan wajib diisi.');
 
+  showKasirLoading('Mendaftarkan member baru...');
   try {
     const res = await ApiClient.call('member/save', { nama, phone, priceLevel: level, discountPct });
     if (res.member) {
@@ -310,6 +357,8 @@ async function quickRegisterMember() {
     }
   } catch (e) {
     alert('Gagal mendaftarkan member: ' + e.message);
+  } finally {
+    hideKasirLoading();
   }
 }
 
@@ -340,11 +389,14 @@ async function applyEditItem() {
 
   if (calcDisc > 0) {
     if (!pin) return alert('PIN Supervisor wajib diisi untuk memberikan diskon manual per item.');
+    showKasirLoading('Memverifikasi PIN Supervisor...');
     try {
       await ApiClient.call('auth/verify-pin', { pin });
     } catch (e) {
+      hideKasirLoading();
       return alert('PIN Supervisor ditolak: ' + e.message);
     }
+    hideKasirLoading();
   }
 
   item.qty = newQty;
@@ -362,6 +414,7 @@ async function voidSelectedItem() {
   const pin = prompt('OTORISASI VOID ITEM\nMasukkan PIN Kepala Toko / Supervisor:');
   if (!pin) return;
 
+  showKasirLoading('Memverifikasi otorisasi void...');
   try {
     const auth = await ApiClient.call('auth/verify-pin', { pin });
     const removed = CART.splice(SELECTED_INDEX, 1)[0];
@@ -378,8 +431,10 @@ async function voidSelectedItem() {
     });
   } catch (e) {
     alert('Otorisasi Ditolak: ' + e.message);
+  } finally {
+    hideKasirLoading();
+    focusScanner();
   }
-  focusScanner();
 }
 
 // Clear Seluruh Keranjang [F12]
@@ -387,6 +442,8 @@ async function clearCartWithPin() {
   if (CART.length === 0) return;
   const pin = prompt('BATALKAN TRANSAKSI (CLEAR)\nMasukkan PIN Kepala Toko / Supervisor:');
   if (!pin) return;
+
+  showKasirLoading('Memverifikasi pembatalan transaksi...');
   try {
     const auth = await ApiClient.call('auth/verify-pin', { pin });
     await db.audit_logs.add({
@@ -403,8 +460,10 @@ async function clearCartWithPin() {
     renderCart();
   } catch (e) {
     alert('Otorisasi Ditolak: ' + e.message);
+  } finally {
+    hideKasirLoading();
+    focusScanner();
   }
-  focusScanner();
 }
 
 // Pending / Recall Struk [F5 / F3]
@@ -459,10 +518,10 @@ async function recallHeldCart(holdId) {
   closeModals();
   renderCart();
 }
+
 // Pembayaran Lengkap Multi-Channel [F9]
 function openCheckoutModal(defaultMode) {
   if (CART.length === 0) return;
-  const evalResult = evaluateCartWithMember();
 
   document.getElementById('checkoutMemberTag').textContent = `${ACTIVE_MEMBER.name} (${ACTIVE_MEMBER.points} Poin)`;
   document.getElementById('payInvoiceDiscount').value = 0;
@@ -597,62 +656,69 @@ async function processFinalPayment() {
     return alert(`Nominal Tempo melebihi sisa limit piutang member (Rp ${sisaLimit.toLocaleString('id-ID')})!`);
   }
 
-  const payments = [];
-  const cashNet = comp.cash > 0 ? Math.max(0, comp.cash - Math.max(0, comp.change)) : 0;
-  if (cashNet > 0) payments.push({ method: 'CASH', amount: cashNet });
-  if (comp.qris > 0) payments.push({ method: comp.qrisProvider, amount: comp.qris });
-  if (comp.transfer > 0) payments.push({ method: `TRANSFER_${comp.bankProvider}`, amount: comp.transfer, ref: transferRef });
-  if (comp.edc > 0) payments.push({ method: `EDC_${comp.edcType}`, amount: comp.edc, ref: edcRef });
-  if (comp.tempo > 0) payments.push({ method: 'TEMPO', amount: comp.tempo });
-  if (comp.redeemValue > 0) payments.push({ method: 'POINTS_REDEEM', amount: comp.redeemValue, points: comp.redeemPts });
+  showKasirLoading('Menyimpan transaksi & menyiapkan struk...');
+  try {
+    const payments = [];
+    const cashNet = comp.cash > 0 ? Math.max(0, comp.cash - Math.max(0, comp.change)) : 0;
+    if (cashNet > 0) payments.push({ method: 'CASH', amount: cashNet });
+    if (comp.qris > 0) payments.push({ method: comp.qrisProvider, amount: comp.qris });
+    if (comp.transfer > 0) payments.push({ method: `TRANSFER_${comp.bankProvider}`, amount: comp.transfer, ref: transferRef });
+    if (comp.edc > 0) payments.push({ method: `EDC_${comp.edcType}`, amount: comp.edc, ref: edcRef });
+    if (comp.tempo > 0) payments.push({ method: 'TEMPO', amount: comp.tempo });
+    if (comp.redeemValue > 0) payments.push({ method: 'POINTS_REDEEM', amount: comp.redeemValue, points: comp.redeemPts });
 
-  const isPurePpob = CART.every(it => it.is_non_physical === true);
-  const trxType = isPurePpob ? 'PPOB' : 'SALE';
-  const totalAllDiscount = comp.evalResult.totalDiscount + comp.invoiceDisc + comp.redeemValue;
+    const isPurePpob = CART.every(it => it.is_non_physical === true);
+    const trxType = isPurePpob ? 'PPOB' : 'SALE';
+    const totalAllDiscount = comp.evalResult.totalDiscount + comp.invoiceDisc + comp.redeemValue;
 
-  const trxId = `TRX-${SESSION.store.kodeToko}-${Date.now()}`;
-  const shiftId = ACTIVE_SHIFT ? ACTIVE_SHIFT.shiftId : 'SHF-OFFLINE';
-  const itemsJson = JSON.stringify(CART);
+    const trxId = `TRX-${SESSION.store.kodeToko}-${Date.now()}`;
+    const shiftId = ACTIVE_SHIFT ? ACTIVE_SHIFT.shiftId : 'SHF-OFFLINE';
+    const itemsJson = JSON.stringify(CART);
 
-  const checksum = await SecurityModule.sha256(`${trxId}|${shiftId}|${comp.netDue}|${itemsJson}`);
+    const checksum = await SecurityModule.sha256(`${trxId}|${shiftId}|${comp.netDue}|${itemsJson}`);
 
-  const trxRecord = {
-    trx_id: trxId,
-    shift_id: shiftId,
-    timestamp: new Date().toISOString(),
-    cashier_id: SESSION.user.userId,
-    member_id: ACTIVE_MEMBER.member_id,
-    points_redeemed: comp.redeemPts,
-    items_json: itemsJson,
-    promo_applied_json: JSON.stringify(comp.evalResult.appliedPromos),
-    subtotal: comp.evalResult.subtotal,
-    discount_total: totalAllDiscount,
-    tax_amount: comp.ppnAmount,
-    grand_total: comp.netDue,
-    payments_json: JSON.stringify(payments),
-    trx_type: trxType,
-    sync_status: 'PENDING',
-    checksum: checksum
-  };
+    const trxRecord = {
+      trx_id: trxId,
+      shift_id: shiftId,
+      timestamp: new Date().toISOString(),
+      cashier_id: SESSION.user.userId,
+      member_id: ACTIVE_MEMBER.member_id,
+      points_redeemed: comp.redeemPts,
+      items_json: itemsJson,
+      promo_applied_json: JSON.stringify(comp.evalResult.appliedPromos),
+      subtotal: comp.evalResult.subtotal,
+      discount_total: totalAllDiscount,
+      tax_amount: comp.ppnAmount,
+      grand_total: comp.netDue,
+      payments_json: JSON.stringify(payments),
+      trx_type: trxType,
+      sync_status: 'PENDING',
+      checksum: checksum
+    };
 
-  await LocalDB.saveTransaction(trxRecord);
+    await LocalDB.saveTransaction(trxRecord);
 
-  if (ACTIVE_MEMBER.member_id !== 'MBR-000') {
-    const earnedPts = Math.floor(comp.netDue / 10000);
-    ACTIVE_MEMBER.points = Math.max(0, ACTIVE_MEMBER.points - comp.redeemPts + earnedPts);
-    ACTIVE_MEMBER.current_debt = (ACTIVE_MEMBER.current_debt || 0) + comp.tempo;
-    await LocalDB.upsertMember(ACTIVE_MEMBER);
+    if (ACTIVE_MEMBER.member_id !== 'MBR-000') {
+      const earnedPts = Math.floor(comp.netDue / 10000);
+      ACTIVE_MEMBER.points = Math.max(0, ACTIVE_MEMBER.points - comp.redeemPts + earnedPts);
+      ACTIVE_MEMBER.current_debt = (ACTIVE_MEMBER.current_debt || 0) + comp.tempo;
+      await LocalDB.upsertMember(ACTIVE_MEMBER);
+    }
+
+    hideKasirLoading();
+    printThermalReceipt(trxRecord, CART, comp, false);
+
+    customerChannel.postMessage({ type: 'PAYMENT_DONE', grandTotal: comp.netDue, change: Math.max(0, comp.change) });
+    CART = [];
+    SELECTED_INDEX = -1;
+    resetActiveMember();
+    closeModals();
+    renderCart();
+    ApiClient.syncQueue();
+  } catch (e) {
+    hideKasirLoading();
+    alert('Gagal memproses pembayaran: ' + e.message);
   }
-
-  printThermalReceipt(trxRecord, CART, comp, false);
-
-  customerChannel.postMessage({ type: 'PAYMENT_DONE', grandTotal: comp.netDue, change: Math.max(0, comp.change) });
-  CART = [];
-  SELECTED_INDEX = -1;
-  resetActiveMember();
-  closeModals();
-  renderCart();
-  ApiClient.syncQueue();
 }
 
 function printThermalReceipt(trx, items, comp, isCopy) {
@@ -663,7 +729,6 @@ function printThermalReceipt(trx, items, comp, isCopy) {
   const earnedPts = Math.floor(trx.grand_total / 10000);
   const lineDivider = paperChoice === '58mm' ? '--------------------------------' : '------------------------------------------';
 
-  // Konversi boolean ketat agar nilai string "false" dari server/storage tidak dianggap aktif
   const isTrue = (val) => val === true || val === 'true' || val === 1 || val === '1';
   const showTax = isTrue(KASIR_DESIGN_CFG.strukShowTaxDetail);
   const showMemberPts = isTrue(KASIR_DESIGN_CFG.strukShowMemberPoint);
@@ -732,6 +797,7 @@ function printThermalReceipt(trx, items, comp, isCopy) {
   document.getElementById('thermalReceiptArea').innerHTML = html;
   window.print();
 }
+
 async function reprintLastReceipt() {
   if (!LAST_RECEIPT_HTML) return alert('Belum ada transaksi untuk dicetak ulang.');
   if (LAST_REPRINT_COUNT >= 1) return alert('Batas cetak ulang (maksimal 1x) sudah tercapai!');
@@ -753,18 +819,22 @@ async function reprintLastReceipt() {
 async function openCashDropModal() {
   const nom = prompt('CASH DROP BRANKAS\nMasukkan nominal uang tunai yang disetor ke brankas (Rp):');
   if (!nom) return;
+  showKasirLoading('Mencatat setoran Cash Drop...');
   try {
     const res = await ApiClient.call('finance/cash-flow', { jenis: 'CASH_DROP', nominal: Number(nom), keterangan: 'Cash drop shift kasir' });
     alert(res.message);
   } catch (e) {
     alert(e.message);
+  } finally {
+    hideKasirLoading();
+    focusScanner();
   }
-  focusScanner();
 }
 
 async function manualKickDrawer() {
   const pin = prompt('BUKA LACI MANUAL\nMasukkan PIN Kepala Toko / Supervisor:');
   if (!pin) return;
+  showKasirLoading('Memverifikasi PIN buka laci...');
   try {
     const auth = await ApiClient.call('auth/verify-pin', { pin });
     await ApiClient.call('security/audit-log', {
@@ -772,9 +842,11 @@ async function manualKickDrawer() {
       actionType: 'MANUAL_OPEN_DRAWER',
       detail: 'Pembukaan laci uang manual'
     });
+    hideKasirLoading();
     document.getElementById('thermalReceiptArea').innerHTML = '<div class="receipt">&nbsp;</div>';
     window.print();
   } catch (e) {
+    hideKasirLoading();
     alert('Gagal membuka laci: ' + e.message);
   }
   focusScanner();
@@ -859,49 +931,56 @@ async function submitCashOutTransaction() {
     return alert('Nominal tarik tunai dan nomor referensi transfer/QRIS wajib diisi.');
   }
 
-  const totalNonTunaiMasuk = amount + fee;
-  const trxId = `CO-${SESSION.store.kodeToko}-${Date.now()}`;
-  const shiftId = ACTIVE_SHIFT ? ACTIVE_SHIFT.shiftId : 'SHF-OFFLINE';
-  const itemsList = [{
-    sku_code: 'CASH-OUT',
-    name: `Tarik Tunai Rp ${amount.toLocaleString('id-ID')} (Ref: ${ref})`,
-    unit: 'TRX',
-    qty: 1,
-    price: fee,
-    discount: 0,
-    cash_out_principal: amount
-  }];
-  const itemsJson = JSON.stringify(itemsList);
-  const checksum = await SecurityModule.sha256(`${trxId}|${shiftId}|${totalNonTunaiMasuk}|${itemsJson}`);
+  showKasirLoading('Memproses transaksi tarik tunai...');
+  try {
+    const totalNonTunaiMasuk = amount + fee;
+    const trxId = `CO-${SESSION.store.kodeToko}-${Date.now()}`;
+    const shiftId = ACTIVE_SHIFT ? ACTIVE_SHIFT.shiftId : 'SHF-OFFLINE';
+    const itemsList = [{
+      sku_code: 'CASH-OUT',
+      name: `Tarik Tunai Rp ${amount.toLocaleString('id-ID')} (Ref: ${ref})`,
+      unit: 'TRX',
+      qty: 1,
+      price: fee,
+      discount: 0,
+      cash_out_principal: amount
+    }];
+    const itemsJson = JSON.stringify(itemsList);
+    const checksum = await SecurityModule.sha256(`${trxId}|${shiftId}|${totalNonTunaiMasuk}|${itemsJson}`);
 
-  const trxRecord = {
-    trx_id: trxId,
-    shift_id: shiftId,
-    timestamp: new Date().toISOString(),
-    cashier_id: SESSION.user.userId,
-    member_id: ACTIVE_MEMBER.member_id,
-    items_json: itemsJson,
-    promo_applied_json: '[]',
-    subtotal: totalNonTunaiMasuk,
-    discount_total: 0,
-    tax_amount: 0,
-    grand_total: totalNonTunaiMasuk,
-    payments_json: JSON.stringify([
-      { method: 'QRIS_IN', amount: totalNonTunaiMasuk },
-      { method: 'CASH_OUT_DRAWER', amount: -amount }
-    ]),
-    trx_type: 'CASH_OUT',
-    sync_status: 'PENDING',
-    checksum: checksum
-  };
+    const trxRecord = {
+      trx_id: trxId,
+      shift_id: shiftId,
+      timestamp: new Date().toISOString(),
+      cashier_id: SESSION.user.userId,
+      member_id: ACTIVE_MEMBER.member_id,
+      items_json: itemsJson,
+      promo_applied_json: '[]',
+      subtotal: totalNonTunaiMasuk,
+      discount_total: 0,
+      tax_amount: 0,
+      grand_total: totalNonTunaiMasuk,
+      payments_json: JSON.stringify([
+        { method: 'QRIS_IN', amount: totalNonTunaiMasuk },
+        { method: 'CASH_OUT_DRAWER', amount: -amount }
+      ]),
+      trx_type: 'CASH_OUT',
+      sync_status: 'PENDING',
+      checksum: checksum
+    };
 
-  await LocalDB.saveTransaction(trxRecord);
-  printThermalReceipt(trxRecord, itemsList, { ppnAmount: 0, cash: 0, qris: totalNonTunaiMasuk, edc: 0, tempo: 0, change: 0 }, false);
+    await LocalDB.saveTransaction(trxRecord);
+    hideKasirLoading();
+    printThermalReceipt(trxRecord, itemsList, { ppnAmount: 0, cash: 0, qris: totalNonTunaiMasuk, edc: 0, tempo: 0, change: 0 }, false);
 
-  document.getElementById('cashout-amount').value = '';
-  document.getElementById('cashout-ref').value = '';
-  closeModals();
-  ApiClient.syncQueue();
+    document.getElementById('cashout-amount').value = '';
+    document.getElementById('cashout-ref').value = '';
+    closeModals();
+    ApiClient.syncQueue();
+  } catch (e) {
+    hideKasirLoading();
+    alert('Gagal memproses tarik tunai: ' + e.message);
+  }
 }
 
 // === RETUR PENJUALAN BERBASIS NOMOR STRUK ===
@@ -919,6 +998,7 @@ function openReturnModal() {
 async function searchTrxForReturn() {
   const trxId = document.getElementById('returnSearchTrxId').value.trim();
   if (!trxId) return;
+  showKasirLoading('Mencari data struk transaksi...');
   try {
     const trx = await ApiClient.call('pos/find-trx', { trxId });
     RETURN_TARGET_TRX = trx;
@@ -937,6 +1017,8 @@ async function searchTrxForReturn() {
     `).join('');
   } catch (e) {
     alert(e.message);
+  } finally {
+    hideKasirLoading();
   }
 }
 
@@ -957,6 +1039,7 @@ async function submitSalesReturn() {
 
   if (returnItems.length === 0) return alert('Isi minimal 1 barang yang diretur.');
 
+  showKasirLoading('Memproses retur penjualan...');
   try {
     const res = await ApiClient.call('pos/return-trx', {
       originalTrxId: RETURN_TARGET_TRX.trx_id,
@@ -967,31 +1050,34 @@ async function submitSalesReturn() {
       reason: reason
     });
 
+    hideKasirLoading();
     const paperChoice = KASIR_DESIGN_CFG.strukPaperSize || SESSION.store.ukuranKertas || '58mm';
     const paperClass = paperChoice === '58mm' ? 'paper-58' : 'paper-80';
+    const lineDivider = paperChoice === '58mm' ? '--------------------------------' : '------------------------------------------';
     document.getElementById('thermalReceiptArea').innerHTML = `
       <div class="receipt ${paperClass}">
         <div style="text-align:center;">
           <strong>${SESSION.store.namaToko}</strong><br>
           <strong>*** BUKTI RETUR PENJUALAN ***</strong>
         </div>
-        <hr>
-        <small>No. Retur: ${res.returnTrxId}<br>Ref. Struk: ${res.originalTrxId}<br>Kasir: ${SESSION.user.nama} | SPV: ${res.supervisor}</small>
-        <hr>
+        <div>${lineDivider}</div>
+        <div><small>No. Retur: ${res.returnTrxId}<br>Ref. Struk: ${res.originalTrxId}<br>Kasir: ${SESSION.user.nama} | SPV: ${res.supervisor}</small></div>
+        <div>${lineDivider}</div>
         ${res.items.map(i => `
           <div>${i.name}</div>
           <div style="display:flex;justify-content:space-between;">
             <span>${i.qty} x ${Number(i.price).toLocaleString('id-ID')}</span>
-            <span>${(Number(i.price) * i.qty).toLocaleString('id-ID')}</span>
+            <span> = ${(Number(i.price) * i.qty).toLocaleString('id-ID')}</span>
           </div>
         `).join('')}
-        <hr>
+        <div>${lineDivider}</div>
         <div style="display:flex;justify-content:space-between;font-weight:bold;">
-          <span>TOTAL REFUND TUNAI</span>
+          <span>TOTAL REFUND : </span>
           <span>Rp ${res.totalRefund.toLocaleString('id-ID')}</span>
         </div>
-        <hr>
+        <div>${lineDivider}</div>
         <div style="text-align:center;"><small>Alasan: ${reason || '-'}</small></div>
+        <br><br>
       </div>
     `;
     window.print();
@@ -999,6 +1085,7 @@ async function submitSalesReturn() {
     alert(`Retur berhasil (${res.returnTrxId}). Total uang dikembalikan: Rp ${res.totalRefund.toLocaleString('id-ID')}`);
     closeModals();
   } catch (e) {
+    hideKasirLoading();
     alert('Gagal memproses retur: ' + e.message);
   }
 }
@@ -1025,6 +1112,7 @@ async function submitCloseShift() {
   }
   if (!confirm('Yakin ingin menutup shift kasir sekarang?')) return;
 
+  showKasirLoading('Menyinkronkan transaksi & menutup shift...');
   try {
     await ApiClient.syncQueue();
     const rep = await ApiClient.call('pos/clerek-shift', {
@@ -1033,29 +1121,32 @@ async function submitCloseShift() {
       supervisorPin: supervisorPin
     });
 
+    hideKasirLoading();
     const paperChoice = KASIR_DESIGN_CFG.strukPaperSize || SESSION.store.ukuranKertas || '58mm';
     const paperClass = paperChoice === '58mm' ? 'paper-58' : 'paper-80';
+    const lineDivider = paperChoice === '58mm' ? '--------------------------------' : '------------------------------------------';
     document.getElementById('thermalReceiptArea').innerHTML = `
       <div class="receipt ${paperClass}">
         <div style="text-align:center;">
           <strong>${SESSION.store.namaToko}</strong><br>
           <strong>=== LAPORAN CLEREK SHIFT (Z-REPORT) ===</strong>
         </div>
-        <hr>
-        <small>ID Shift: ${rep.shiftId}<br>Kasir: ${SESSION.user.nama}<br>Supervisor: ${rep.supervisor}<br>Tutup: ${rep.waktuTutup}</small>
-        <hr>
-        <div style="display:flex;justify-content:space-between;"><span>Jumlah Struk</span><span>${rep.jumlahTrx}</span></div>
-        <div style="display:flex;justify-content:space-between;"><span>Modal Awal Laci</span><span>${rep.modalAwal.toLocaleString('id-ID')}</span></div>
-        <div style="display:flex;justify-content:space-between;"><span>Penjualan Tunai</span><span>${rep.totalTunaiSistem.toLocaleString('id-ID')}</span></div>
-        <div style="display:flex;justify-content:space-between;"><span>Penjualan Non-Tunai</span><span>${rep.totalNonTunai.toLocaleString('id-ID')}</span></div>
-        <div style="display:flex;justify-content:space-between;"><span>Tarik Tunai Keluar</span><span>-${rep.totalCashOutLaci.toLocaleString('id-ID')}</span></div>
-        <div style="display:flex;justify-content:space-between;"><span>Cash Drop Brankas</span><span>-${rep.totalCashDrop.toLocaleString('id-ID')}</span></div>
-        <hr>
-        <div style="display:flex;justify-content:space-between;font-weight:bold;"><span>Target Uang Laci</span><span>Rp ${rep.targetUangLaci.toLocaleString('id-ID')}</span></div>
-        <div style="display:flex;justify-content:space-between;font-weight:bold;"><span>Setoran Fisik Laci</span><span>Rp ${rep.setoranFisik.toLocaleString('id-ID')}</span></div>
-        <div style="display:flex;justify-content:space-between;font-weight:bold;"><span>Selisih (Variance)</span><span>Rp ${rep.selisih.toLocaleString('id-ID')}</span></div>
-        <hr>
+        <div>${lineDivider}</div>
+        <div><small>ID Shift: ${rep.shiftId}<br>Kasir: ${SESSION.user.nama}<br>Supervisor: ${rep.supervisor}<br>Tutup: ${rep.waktuTutup}</small></div>
+        <div>${lineDivider}</div>
+        <div style="display:flex;justify-content:space-between;"><span>Jumlah Struk   : </span><span>${rep.jumlahTrx}</span></div>
+        <div style="display:flex;justify-content:space-between;"><span>Modal Awal     : </span><span>${rep.modalAwal.toLocaleString('id-ID')}</span></div>
+        <div style="display:flex;justify-content:space-between;"><span>Jual Tunai     : </span><span>${rep.totalTunaiSistem.toLocaleString('id-ID')}</span></div>
+        <div style="display:flex;justify-content:space-between;"><span>Jual Non-Tunai : </span><span>${rep.totalNonTunai.toLocaleString('id-ID')}</span></div>
+        <div style="display:flex;justify-content:space-between;"><span>Tarik Tunai    : </span><span>-${rep.totalCashOutLaci.toLocaleString('id-ID')}</span></div>
+        <div style="display:flex;justify-content:space-between;"><span>Cash Drop      : </span><span>-${rep.totalCashDrop.toLocaleString('id-ID')}</span></div>
+        <div>${lineDivider}</div>
+        <div style="display:flex;justify-content:space-between;font-weight:bold;"><span>Target Laci    : </span><span>Rp ${rep.targetUangLaci.toLocaleString('id-ID')}</span></div>
+        <div style="display:flex;justify-content:space-between;font-weight:bold;"><span>Setoran Fisik  : </span><span>Rp ${rep.setoranFisik.toLocaleString('id-ID')}</span></div>
+        <div style="display:flex;justify-content:space-between;font-weight:bold;"><span>Selisih        : </span><span>Rp ${rep.selisih.toLocaleString('id-ID')}</span></div>
+        <div>${lineDivider}</div>
         <div style="text-align:center;"><small>Tanda Tangan Kasir & Kepala Toko</small><br><br><br>(______________) (______________)</div>
+        <br><br>
       </div>
     `;
     window.print();
@@ -1065,6 +1156,7 @@ async function submitCloseShift() {
     alert(`Shift ${rep.shiftId} berhasil ditutup.\nSelisih Kas: Rp ${rep.selisih.toLocaleString('id-ID')}`);
     window.location.href = 'admin.html';
   } catch (e) {
+    hideKasirLoading();
     alert('Gagal menutup shift: ' + e.message);
   }
 }
@@ -1102,7 +1194,6 @@ async function initKasirDesignConfig() {
 async function applyKasirDesignToDOM() {
   const cfg = KASIR_DESIGN_CFG;
 
-  // 1. Warna Title Bar & Ukuran Angka Sub Total
   const titleBar = document.getElementById('reneTitleBar');
   if (titleBar && cfg.accentColor) {
     titleBar.style.background = cfg.accentColor;
@@ -1112,7 +1203,6 @@ async function applyKasirDesignToDOM() {
     grandTotalEl.style.fontSize = cfg.totalSize;
   }
 
-  // 2. Tampilkan / Sembunyikan 9 Komponen Studio Desain
   const scanInp = document.getElementById('barcodeInput');
   if (scanInp) scanInp.style.display = cfg.compScan !== false ? 'block' : 'none';
 
@@ -1150,7 +1240,6 @@ async function applyKasirDesignToDOM() {
   const lblModelSel = document.getElementById('kasirLabelModelSelect');
   if (lblModelSel && cfg.labelModel) lblModelSel.value = cfg.labelModel;
 
-  // 3. Menu Kategori Barang (Chip Warna-Warni)
   const catBar = document.getElementById('kasirCategoryQuickBar');
   const catColors = [
     { bg: '#DCFCE7', color: '#15803D', border: '#86EFAC' },
@@ -1344,12 +1433,10 @@ let QRIS_POLL_TIMER = null;
 
 function convertStaticQrisToDynamic(staticQris, amount) {
   if (!staticQris || staticQris.length < 20) return '';
-  // Hapus 4 digit CRC lama di akhir & ubah tag 010211 (statis) -> 010212 (dinamis)
   let base = staticQris.trim().slice(0, -4).replace('010211', '010212');
   const amtStr = String(Math.round(amount));
   const tag54 = '54' + String(amtStr.length).padStart(2, '0') + amtStr;
 
-  // Sisipkan Tag 54 (Nominal) tepat sebelum Tag 5802ID (Kode Negara)
   const idx58 = base.indexOf('5802ID');
   if (idx58 !== -1) {
     base = base.slice(0, idx58) + tag54 + base.slice(idx58);
@@ -1380,7 +1467,6 @@ async function triggerHybridQrisDisplay(amount) {
   try {
     const res = await ApiClient.call('pos/qris-create', { kodeToko: storeCode, orderId, amount });
     if (!res.fallbackOffline && (res.qrString || res.qrImageUrl)) {
-      // Mode 2: QRIS API Gateway (Midtrans / Xendit) -> Auto-Lunas saat pembeli selesai scan
       customerChannel.postMessage({
         type: 'SHOW_QRIS',
         mode: 'API_GATEWAY',
@@ -1394,14 +1480,13 @@ async function triggerHybridQrisDisplay(amount) {
           const st = await ApiClient.call('pos/qris-status', { kodeToko: storeCode, orderId });
           if (st.status === 'PAID') {
             clearInterval(QRIS_POLL_TIMER);
-            processFinalPayment(); // Otomatis cetak struk begitu terbayar!
+            processFinalPayment();
           }
         } catch (e) {}
       }, 3000);
       return;
     }
 
-    // Mode 1: QRIS Dinamis Offline EMVCo (Tanpa Token API)
     const dynString = convertStaticQrisToDynamic(res.staticPayload, amount);
     customerChannel.postMessage({
       type: 'SHOW_QRIS',
