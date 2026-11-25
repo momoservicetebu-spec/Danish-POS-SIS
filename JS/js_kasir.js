@@ -11,7 +11,7 @@
 // =========================================================================
 // 1. STATE & KONFIGURASI GLOBAL
 // =========================================================================
-let SESSION = null;
+window.SESSION = window.SESSION || null;
 let ACTIVE_SHIFT = null;
 let PRODUCTS = [];
 let PROMOTIONS = [];
@@ -99,7 +99,11 @@ document.addEventListener('DOMContentLoaded', async () => {
 });
 
 function checkSessionSecurity() {
-  const raw = localStorage.getItem('DANISH_POS_SESSION') || sessionStorage.getItem('DANISH_POS_SESSION');
+  const raw =
+    localStorage.getItem('DANISH_POS_SESSION') ||
+    localStorage.getItem('POS_SESSION') ||
+    sessionStorage.getItem('DANISH_POS_SESSION') ||
+    sessionStorage.getItem('POS_SESSION');
   if (!raw) {
     window.location.href = 'index.html';
     return;
@@ -120,7 +124,6 @@ function checkSessionSecurity() {
     window.location.href = 'index.html';
   }
 }
-
 function getStoreCode() {
   return SESSION?.store?.kodeToko || SESSION?.storeCode || 'TK-001';
 }

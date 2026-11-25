@@ -349,8 +349,7 @@
         <!-- BARIS 2: INPUT KODE / SCAN BARANG + NO MEJA + KASIR & JAM -->
         <div class="rene-input-strip">
           <input type="text" id="barcodeInput" class="rene-scan-box" placeholder="< Kode/Cari Barang >  (Scan Barcode atau ketik 3*barcode lalu Enter)" autofocus autocomplete="off">
-          <input type="text" id="kasirTableNumberInput" class="rene-table-box" placeholder="No# Pesan / Meja">
-          <div class="rene-cashier-stamp">
+          <input type="text" id="kasirTableNumberInput" class="rene-table-box" placeholder="No# Pesan / Meja" autocomplete="off" readonly onfocus="this.removeAttribute('readonly')">          <div class="rene-cashier-stamp">
             <strong id="hdrCashierInfo">[Nama Kasir]</strong> &nbsp;<span id="hdrClock">00:00:00</span>
           </div>
         </div>
