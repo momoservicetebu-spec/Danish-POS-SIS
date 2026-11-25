@@ -1,11 +1,10 @@
 /**
- * DANISH POS - KASIR TERMINAL ENGINE (V3.4 - COMPLETE MERGED EDITION)
- * Menggabungkan seluruh fitur V3.2 + UI kasir_2.html:
- * - Auto-Sync Logo Base64/URL + Fallback Brand Vector
- * - Etalase Cepat PROMO SPESIAL & FAST FOOD
- * - Modal Pembayaran 6 Kanal Berwarna + QRIS Dinamis EMVCo (CRC16) & Gateway
- * - Multi-Currency (IDR, USD, SGD, MYR, EUR, JPY)
- * - Engine Promo Otomatis, Stok Lokal, Poin Member, Riwayat Transaksi, Retur, Cash Drop & Tutup Shift
+ * DANISH POS - KASIR TERMINAL ENGINE (V3.2 - FULL BACKEND SYNC EDITION)
+ * Terintegrasi 100% dengan:
+ * - Router.gs, AdminController.gs, PosController.gs, QrisGateway.gs
+ * - SHA-256 Checksum Transaction Signing (Anti-Fraud Server Validation)
+ * - Auto-Sync Logo Base64, Preferensi Struk, Pajak, Pembulatan & Poin Member
+ * - Multi-Satuan (conversion_qty), Promo Engine, Shift Clerek & QRIS Hybrid
  */
 
 // =========================================================================
@@ -20,10 +19,8 @@ let CART = [];
 let PARKED_CARTS = [];
 let SELECTED_CUSTOMER = null;
 let CURRENT_CATEGORY = 'SEMUA';
-let SHOWCASE_TAB = 'PROMO'; // 'PROMO' | 'FASTFOOD'
+let SEARCH_QUERY = '';
 let SELECTED_CART_INDEX = -1;
-let LAST_RECEIPT_OBJ = null;
-let RETURN_LOADED_TRX = null;
 
 // Multi-Currency State
 let CURRENCY_CONFIG = {
@@ -40,16 +37,37 @@ let CURRENCY_CONFIG = {
   }
 };
 
-// Desain Kustomisasi dari Admin
+// Desain Kustomisasi dari Admin (Default Fallback)
 let KASIR_DESIGN_CFG = {
-  primaryColor: '#1E3A8A',
-  topbarGrad1: '#1E3A8A',
-  topbarGrad2: '#2563EB',
-  accentColor: '#10B981',
+  themePreset: 'blue',
+  primaryColor: '#1a56db',
+  topbarGrad1: '#2b579a',
+  topbarGrad2: '#1e3f73',
+  accentColor: '#059669',
   fontFamily: 'Inter',
+  gridCols: '4',
+  gridDensity: 'normal',
+  cardRadius: '10',
   compLogo: true,
   compPromo: true,
-  compCategory: true
+  compSearch: true,
+  compCategory: true,
+  compQuickAction: true,
+  compNumpad: true,
+  compCustomer: true,
+  compTaxToggle: true,
+  compForex: true,
+  compHoldRecall: true,
+  compCustomAmount: true,
+  compDrawer: true,
+  compSyncBadge: true,
+  showProductImg: true,
+  showProductStock: true,
+  showProductSku: true,
+  promoText: 'PROMO SPESIAL HARI INI! Cek penawaran terbaik di kasir.',
+  promoBg: '#fef3c7',
+  promoColor: '#92400e',
+  promoSpeed: 22
 };
 
 // Preferensi Perusahaan & Struk dari Admin
@@ -71,37 +89,38 @@ let KASIR_COMPANY_PREFS = {
   prefixStruk: 'TRX-'
 };
 
-// QRIS Hybrid State
-let QRIS_STATE = {
-  mode: 'OFFLINE_EMVCO',
-  staticString: '',
-  dynamicPayload: ''
+// Payment & Checkout State
+let CHECKOUT_STATE = {
+  globalDiscType: 'NOMINAL',
+  globalDiscVal: 0,
+  taxRate: 0.11,
+  useTax: false,
+  autoRound: true,
+  redeemPoints: 0,
+  payments: [],
+  activePayMethod: 'CASH',
+  qrisMode: 'OFFLINE_EMVCO',
+  qrisStaticString: '',
+  qrisDynamicPayload: ''
 };
 
 // =========================================================================
-// 2. INISIALISASI HALAMAN & KEAMANAN SESI (TAHAN ERROR)
+// 2. INISIALISASI HALAMAN & KEAMANAN SESI
 // =========================================================================
 document.addEventListener('DOMContentLoaded', async () => {
-  // Pasang shortcut PALING PERTAMA agar tidak pernah gagal aktif
+  checkSessionSecurity();
+  loadShiftState();
+  updateClockDisplay();
+  setInterval(updateClockDisplay, 1000);
+
+  loadCurrencyState();
+  await initKasirDesignConfig();
+  await loadInitialPosData();
+
   bindGlobalShortcuts();
-  bindBarcodeScannerInput();
-
-  try {
-    checkSessionSecurity();
-    loadShiftState();
-    loadCurrencyState();
-    updateClockDisplay();
-    setInterval(updateClockDisplay, 1000);
-
-    renderLogoToBox();
-    await initKasirDesignConfig();
-    await loadInitialPosData();
-
-    updateSyncStatusBadge();
-    setInterval(syncOfflineTransactions, 30000);
-  } catch (err) {
-    console.warn('Init warning:', err);
-  }
+  bindModalEnterKeys();
+  updateSyncStatusBadge();
+  setInterval(syncOfflineTransactions, 30000);
 });
 
 function checkSessionSecurity() {
@@ -112,15 +131,16 @@ function checkSessionSecurity() {
   }
   try {
     SESSION = JSON.parse(raw);
-    if (!SESSION || !SESSION.user) throw new Error('Sesi tidak valid');
+    if (!SESSION || !SESSION.user || !SESSION.store) {
+      throw new Error('Sesi tidak valid');
+    }
+    const storeNameEl = document.getElementById('posStoreName');
+    const cashierNameEl = document.getElementById('posCashierName');
+    const cashierRoleEl = document.getElementById('posCashierRole');
 
-    const storeCode = getStoreCode();
-    const storeName = SESSION.store?.namaToko || 'Minimarket Pusat 01';
-    const hdrStore = document.getElementById('hdrStoreName');
-    const hdrCashier = document.getElementById('hdrCashierInfo');
-
-    if (hdrStore) hdrStore.textContent = `${storeName} (${storeCode})`;
-    if (hdrCashier) hdrCashier.textContent = `[${SESSION.user.nama || SESSION.user.username}]`;
+    if (storeNameEl) storeNameEl.textContent = SESSION.store.namaToko || SESSION.store.kodeToko;
+    if (cashierNameEl) cashierNameEl.textContent = SESSION.user.nama || SESSION.user.username;
+    if (cashierRoleEl) cashierRoleEl.textContent = (SESSION.user.role || 'KASIR').toUpperCase();
   } catch (e) {
     localStorage.removeItem('DANISH_POS_SESSION');
     window.location.href = 'index.html';
@@ -128,7 +148,7 @@ function checkSessionSecurity() {
 }
 
 function getStoreCode() {
-  return SESSION?.store?.kodeToko || SESSION?.storeCode || 'TK-001';
+  return SESSION?.store?.kodeToko || SESSION?.storeCode || 'GLOBAL';
 }
 
 function loadShiftState() {
@@ -136,117 +156,47 @@ function loadShiftState() {
     const raw = localStorage.getItem('DANISH_ACTIVE_SHIFT_' + getStoreCode());
     if (raw) ACTIVE_SHIFT = JSON.parse(raw);
   } catch (e) {}
-  const shiftEl = document.getElementById('hdrShiftId');
-  if (shiftEl) {
-    shiftEl.textContent = `Shift: ${ACTIVE_SHIFT?.shiftId || 'SHF-' + getStoreCode() + '-ACTIVE'}`;
-  }
 }
 
 function updateClockDisplay() {
   const now = new Date();
-  const dateStr = now.toLocaleDateString('id-ID', { day: '2-digit', month: 'short', year: 'numeric' });
-  const timeStr = now.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' }).replace('.', ':');
-  const el = document.getElementById('hdrClock');
-  if (el) el.textContent = `${dateStr} ${timeStr}`;
+  const dateStr = now.toLocaleDateString('id-ID', { weekday: 'short', day: '2-digit', month: 'short', year: 'numeric' });
+  const timeStr = now.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+  const el = document.getElementById('posDateTime');
+  if (el) el.textContent = `${dateStr} • ${timeStr}`;
 }
 
-function togglePosFullscreen() {
-  if (!document.fullscreenElement) {
-    document.documentElement.requestFullscreen?.().catch(() => {});
-  } else {
-    document.exitFullscreen?.().catch(() => {});
+function logoutKasir() {
+  if (CART.length > 0) {
+    if (!confirm('Masih ada item di keranjang aktif. Yakin ingin keluar dari kasir?')) return;
   }
-}
-
-function exitPosScreen() {
-  if (CART.length > 0 && !confirm('Masih ada item di keranjang aktif. Yakin ingin keluar dari kasir?')) return;
   localStorage.removeItem('DANISH_POS_SESSION');
   sessionStorage.removeItem('DANISH_POS_SESSION');
   window.location.href = 'index.html';
 }
 
 // =========================================================================
-// 3. SINKRONISASI DESAIN & LOGO PERUSAHAAN DARI ADMIN
+// 3. SINKRONISASI DESAIN, LOGO & PREFERENSI PERUSAHAAN DARI ADMIN
 // =========================================================================
-function normalizeLogoDataUrl(rawLogo) {
-  if (!rawLogo || typeof rawLogo !== 'string') return '';
-  const trimmed = rawLogo.trim();
-  if (!trimmed) return '';
-  if (trimmed.startsWith('data:image/') || trimmed.startsWith('http://') || trimmed.startsWith('https://')) {
-    return trimmed;
-  }
-  if (/^[A-Za-z0-9+/=]{80,}$/.test(trimmed)) {
-    return 'data:image/png;base64,' + trimmed;
-  }
-  return '';
-}
-
-function getDefaultBrandLogoSvg() {
-  const brandTitle = (KASIR_COMPANY_PREFS.companyName || SESSION?.store?.namaToko || 'DANISH').toUpperCase();
-  const shortTitle = brandTitle.length > 14 ? 'DANISH' : brandTitle;
-  return `
-    <div style="display:flex; flex-direction:column; align-items:center; justify-content:center; width:100%; height:100%;">
-      <svg width="118" height="52" viewBox="0 0 140 60" xmlns="http://www.w3.org/2000/svg">
-        <defs>
-          <linearGradient id="cartGrad" x1="0" y1="0" x2="1" y2="1">
-            <stop offset="0%" stop-color="#2563EB"/>
-            <stop offset="100%" stop-color="#10B981"/>
-          </linearGradient>
-        </defs>
-        <rect x="14" y="14" width="38" height="24" rx="5" fill="url(#cartGrad)"/>
-        <path d="M8 10 H15 L21 38 H50" stroke="#1E293B" stroke-width="3.2" fill="none" stroke-linecap="round"/>
-        <circle cx="24" cy="45" r="4" fill="#DC2626"/>
-        <circle cx="46" cy="45" r="4" fill="#D97706"/>
-        <g transform="translate(76, 8)">
-          <path d="M12 18 H38 V28 C38 36 31 41 25 41 C19 41 12 36 12 28 Z" fill="#92400E"/>
-          <path d="M38 20 H43 C46 20 46 28 43 28 H38" stroke="#92400E" stroke-width="3" fill="none"/>
-          <ellipse cx="25" cy="43" rx="18" ry="3.5" fill="#D97706"/>
-          <path d="M19 13 Q17 8 20 4 M25 13 Q23 8 26 4 M31 13 Q29 8 32 4" stroke="#D97706" stroke-width="2" fill="none" stroke-linecap="round"/>
-        </g>
-      </svg>
-      <div style="font-size:12px; font-weight:900; color:#1E293B; letter-spacing:0.6px; line-height:1.1;">${escapeHtml(shortTitle)}</div>
-      <div style="font-size:9px; font-weight:700; color:#D97706; letter-spacing:0.8px;">MART &amp; CAFE</div>
-    </div>`;
-}
-
-function renderLogoToBox() {
-  const logoBox = document.getElementById('reneLogoBox');
-  if (!logoBox) return;
-
-  if (KASIR_DESIGN_CFG.compLogo === false) {
-    logoBox.style.display = 'none';
-    return;
-  }
-  logoBox.style.display = 'flex';
-
-  const prefs = KASIR_COMPANY_PREFS;
-  const candidate = prefs.logoBase64 || prefs.logo_base64 || prefs.logoUrl || prefs.logo_url || prefs.logo || '';
-  const validSrc = normalizeLogoDataUrl(candidate);
-
-  if (validSrc) {
-    logoBox.innerHTML = `<img src="${validSrc}" alt="LOGO" onerror="this.parentElement.innerHTML = getDefaultBrandLogoSvg();">`;
-  } else {
-    logoBox.innerHTML = getDefaultBrandLogoSvg();
-  }
-}
-
 async function initKasirDesignConfig() {
   const storeCode = getStoreCode();
   const designCacheKey = 'DANISH_DESIGN_CONFIG_' + storeCode;
 
+  // 1. Muat Cache Lokal terlebih dahulu
   try {
     const cachedDesign = localStorage.getItem(designCacheKey);
     if (cachedDesign) KASIR_DESIGN_CFG = { ...KASIR_DESIGN_CFG, ...JSON.parse(cachedDesign) };
 
     const cachedPrefs =
       localStorage.getItem('DANISH_POS_COMPANY_PREFS') ||
-      localStorage.getItem('DANISH_COMPANY_PREFS_' + storeCode) ||
-      localStorage.getItem('DANISH_COMPANY_PREFS_GLOBAL');
+      localStorage.getItem('DANISH_COMPANY_PREFS_' + storeCode);
     if (cachedPrefs) KASIR_COMPANY_PREFS = { ...KASIR_COMPANY_PREFS, ...JSON.parse(cachedPrefs) };
 
-    applyKasirDesignToDOM();
+    applyCompanyPrefsDefaults();
+    await applyKasirDesignToDOM();
   } catch (e) {}
 
+  // 2. Tarik Data Terbaru dari Cloud (admin/get-design & admin/get-preferences)
   try {
     const [cloudCfg, cloudPrefs] = await Promise.all([
       ApiClient.call('admin/get-design', { kodeToko: storeCode }).catch(() => null),
@@ -263,65 +213,276 @@ async function initKasirDesignConfig() {
       localStorage.setItem('DANISH_POS_COMPANY_PREFS', JSON.stringify(KASIR_COMPANY_PREFS));
     }
 
-    applyKasirDesignToDOM();
+    applyCompanyPrefsDefaults();
+    await applyKasirDesignToDOM();
   } catch (e) {
-    applyKasirDesignToDOM();
+    applyCompanyPrefsDefaults();
+    await applyKasirDesignToDOM();
   }
 }
 
-function applyKasirDesignToDOM() {
+function applyCompanyPrefsDefaults() {
+  const prefs = KASIR_COMPANY_PREFS;
+  const storeNameEl = document.getElementById('posStoreName');
+  if (storeNameEl && prefs.companyName) {
+    storeNameEl.textContent = prefs.companyName;
+  }
+
+  if (typeof prefs.taxPct === 'number' && !isNaN(prefs.taxPct)) {
+    CHECKOUT_STATE.taxRate = prefs.taxPct / 100;
+  }
+  if (typeof prefs.taxEnabled === 'boolean') {
+    CHECKOUT_STATE.useTax = prefs.taxEnabled;
+    const taxToggleEl = document.getElementById('toggleTaxInput');
+    if (taxToggleEl) taxToggleEl.checked = prefs.taxEnabled;
+  }
+  if (typeof prefs.roundEnabled === 'boolean') {
+    CHECKOUT_STATE.autoRound = prefs.roundEnabled;
+  }
+}
+
+async function applyKasirDesignToDOM() {
   const cfg = KASIR_DESIGN_CFG;
   const prefs = KASIR_COMPANY_PREFS;
+  const root = document.documentElement;
 
-  const titleBar = document.getElementById('reneTitleBar');
-  if (titleBar && (cfg.topbarGrad1 || cfg.primaryColor)) {
-    const g1 = cfg.topbarGrad1 || cfg.primaryColor || '#1E3A8A';
-    const g2 = cfg.topbarGrad2 || cfg.primaryColor || '#2563EB';
-    titleBar.style.background = `linear-gradient(90deg, ${g1} 0%, ${g2} 100%)`;
-  }
+  root.style.setProperty('--primary', cfg.primaryColor || '#1a56db');
+  root.style.setProperty('--topbar-grad-1', cfg.topbarGrad1 || '#2b579a');
+  root.style.setProperty('--topbar-grad-2', cfg.topbarGrad2 || '#1e3f73');
+  root.style.setProperty('--accent', cfg.accentColor || '#059669');
+  root.style.setProperty('--card-radius', (cfg.cardRadius || '10') + 'px');
 
   if (cfg.fontFamily) {
-    document.body.style.fontFamily = `'${cfg.fontFamily}', system-ui, -apple-system, sans-serif`;
+    document.body.style.fontFamily = `'${cfg.fontFamily}', -apple-system, BlinkMacSystemFont, sans-serif`;
   }
 
-  const hdrStore = document.getElementById('hdrStoreName');
-  if (hdrStore && prefs.companyName) {
-    hdrStore.textContent = `${prefs.companyName} (${getStoreCode()})`;
+  // Logo Box (Render dari logoBase64 / logoUrl Admin)
+  const logoBox = document.getElementById('reneLogoBox');
+  if (logoBox) {
+    logoBox.style.display = cfg.compLogo !== false ? 'flex' : 'none';
+    const logoSrc = prefs.logoBase64 || prefs.logoUrl || '';
+    if (logoSrc) {
+      logoBox.innerHTML = `<img src="${logoSrc}" alt="LOGO" style="max-width:100%; max-height:76px; object-fit:contain;">`;
+    } else {
+      logoBox.textContent = 'LOGO';
+    }
   }
 
-  const ppnChk = document.getElementById('payIncludePpn');
-  if (ppnChk && typeof prefs.taxEnabled === 'boolean') {
-    ppnChk.checked = prefs.taxEnabled;
-  }
-  const roundChk = document.getElementById('payAutoRound');
-  if (roundChk && typeof prefs.roundEnabled === 'boolean') {
-    roundChk.checked = prefs.roundEnabled;
+  // Promo Ticker
+  const promoWrap = document.getElementById('posPromoTickerWrap');
+  const promoTextEl = document.getElementById('posPromoTickerText');
+  if (promoWrap && promoTextEl) {
+    promoWrap.style.display = cfg.compPromo !== false ? 'flex' : 'none';
+    promoWrap.style.background = cfg.promoBg || '#fef3c7';
+    promoWrap.style.color = cfg.promoColor || '#92400e';
+    promoTextEl.textContent = cfg.promoText || 'PROMO SPESIAL HARI INI!';
+    const speed = parseInt(cfg.promoSpeed, 10) || 22;
+    promoTextEl.style.animationDuration = `${speed}s`;
   }
 
-  renderLogoToBox();
+  toggleElementDisplay('posSearchWrap', cfg.compSearch !== false);
+  toggleElementDisplay('posCategoryBar', cfg.compCategory !== false);
+  toggleElementDisplay('posQuickActionBar', cfg.compQuickAction !== false);
+  toggleElementDisplay('posNumpadSection', cfg.compNumpad !== false);
+  toggleElementDisplay('posCustomerBox', cfg.compCustomer !== false);
+  toggleElementDisplay('posTaxToggleWrap', cfg.compTaxToggle !== false);
+  toggleElementDisplay('posForexBadgeWrap', cfg.compForex !== false);
+  toggleElementDisplay('btnHoldOrder', cfg.compHoldRecall !== false);
+  toggleElementDisplay('btnRecallOrder', cfg.compHoldRecall !== false);
+  toggleElementDisplay('btnCustomAmount', cfg.compCustomAmount !== false);
+  toggleElementDisplay('btnOpenDrawer', cfg.compDrawer !== false);
+  toggleElementDisplay('posSyncBadge', cfg.compSyncBadge !== false);
+
+  const grid = document.getElementById('posProductGrid');
+  if (grid) {
+    const cols = parseInt(cfg.gridCols, 10) || 4;
+    grid.style.gridTemplateColumns = `repeat(${cols}, minmax(0, 1fr))`;
+    grid.classList.remove('density-compact', 'density-normal', 'density-spacious');
+    grid.classList.add('density-' + (cfg.gridDensity || 'normal'));
+  }
+
+  if (PRODUCTS.length > 0) renderProductGrid();
+}
+
+function toggleElementDisplay(id, show) {
+  const el = document.getElementById(id);
+  if (!el) return;
+  el.style.display = show ? '' : 'none';
 }
 
 // =========================================================================
-// 4. MULTI-MATA UANG (DUAL CURRENCY / FOREX ENGINE)
+// 4. SINKRONISASI MASTER DATA POS (pos/sync-master & admin/get-qris)
+// =========================================================================
+function normalizeBackendProduct(raw) {
+  return {
+    id: `${raw.sku_code || raw.sku || ''}_${raw.barcode || ''}_${raw.unit || 'PCS'}`,
+    sku: raw.sku_code || raw.sku || '',
+    barcode: raw.barcode || raw.sku_code || '',
+    nama: raw.name || raw.nama || 'Produk',
+    kategori: raw.category || raw.kategori || 'Umum',
+    satuan: raw.unit || raw.satuan || 'PCS',
+    conversionQty: Number(raw.conversion_qty) || 1,
+    hargaJual: Number(raw.price ?? raw.hargaJual ?? 0),
+    stok: Number(raw.stock ?? raw.stok ?? 0),
+    baseStock: Number(raw.base_stock ?? raw.stock ?? 0),
+    trackStock: raw.trackStock !== false,
+    aktif: raw.is_active !== false,
+    gambar: raw.imageUrl || raw.gambar || ''
+  };
+}
+
+function normalizeBackendMember(raw) {
+  return {
+    id: raw.member_id || raw.id || raw.card_code,
+    kode: raw.card_code || raw.member_id || '',
+    nama: raw.name || raw.nama || 'Member',
+    hp: raw.phone || raw.hp || '',
+    priceLevel: raw.price_level || 'Reguler',
+    discountPct: Number(raw.member_discount_pct) || 0,
+    poin: Number(raw.points ?? raw.poin ?? 0),
+    creditLimit: Number(raw.credit_limit) || 0,
+    currentDebt: Number(raw.current_debt) || 0
+  };
+}
+
+async function loadInitialPosData() {
+  const storeCode = getStoreCode();
+  showToast('Sinkronisasi master data POS...', 'info');
+
+  // 1. Load Cache Lokal terlebih dahulu
+  try {
+    const cachedProducts = localStorage.getItem('DANISH_PRODUCTS_' + storeCode);
+    const cachedCustomers = localStorage.getItem('DANISH_CUSTOMERS_' + storeCode);
+    const cachedPromos = localStorage.getItem('DANISH_PROMOS_' + storeCode);
+    const cachedQris = localStorage.getItem('DANISH_STATIC_QRIS_' + storeCode);
+
+    if (cachedProducts) {
+      PRODUCTS = JSON.parse(cachedProducts);
+      renderCategoryPills();
+      renderProductGrid();
+    }
+    if (cachedCustomers) CUSTOMERS = JSON.parse(cachedCustomers);
+    if (cachedPromos) PROMOTIONS = JSON.parse(cachedPromos);
+    if (cachedQris) CHECKOUT_STATE.qrisStaticString = cachedQris;
+  } catch (e) {}
+
+  // 2. Tarik Data Terbaru dari Backend (pos/sync-master & admin/get-qris)
+  try {
+    const [masterRes, qrisRes] = await Promise.all([
+      ApiClient.call('pos/sync-master', { kodeToko: storeCode }).catch(() => null),
+      ApiClient.call('admin/get-qris', { kodeToko: storeCode }).catch(() => null)
+    ]);
+
+    if (masterRes && Array.isArray(masterRes.products)) {
+      PRODUCTS = masterRes.products.map(normalizeBackendProduct);
+      localStorage.setItem('DANISH_PRODUCTS_' + storeCode, JSON.stringify(PRODUCTS));
+      renderCategoryPills();
+      renderProductGrid();
+    }
+
+    if (masterRes && Array.isArray(masterRes.members)) {
+      CUSTOMERS = masterRes.members.map(normalizeBackendMember);
+      localStorage.setItem('DANISH_CUSTOMERS_' + storeCode, JSON.stringify(CUSTOMERS));
+    }
+
+    if (masterRes && Array.isArray(masterRes.promotions)) {
+      PROMOTIONS = masterRes.promotions;
+      localStorage.setItem('DANISH_PROMOS_' + storeCode, JSON.stringify(PROMOTIONS));
+    }
+
+    if (qrisRes) {
+      CHECKOUT_STATE.qrisMode = qrisRes.mode || 'OFFLINE_EMVCO';
+      if (qrisRes.staticPayload) {
+        CHECKOUT_STATE.qrisStaticString = qrisRes.staticPayload;
+        localStorage.setItem('DANISH_STATIC_QRIS_' + storeCode, qrisRes.staticPayload);
+      }
+    }
+
+    showToast(`POS Siap (${PRODUCTS.length} item tersinkron)`, 'success');
+  } catch (err) {
+    console.warn('Mode Offline aktif:', err);
+    showToast('Menggunakan database cache lokal (Offline)', 'warning');
+  }
+
+  // Restore Parked Carts
+  try {
+    const savedParked = localStorage.getItem('DANISH_PARKED_CARTS_' + storeCode);
+    if (savedParked) PARKED_CARTS = JSON.parse(savedParked);
+    updateParkedBadge();
+  } catch (e) {}
+
+  renderCart();
+}
+
+// =========================================================================
+// 5. DUAL CURRENCY / MULTI-MATA UANG ENGINE
 // =========================================================================
 function loadCurrencyState() {
   try {
     const saved = localStorage.getItem('DANISH_POS_CURRENCY');
     if (saved) CURRENCY_CONFIG = { ...CURRENCY_CONFIG, ...JSON.parse(saved) };
   } catch (e) {}
+  updateCurrencyBadgeUI();
 }
 
-function setPosCurrency(code, customRate = null) {
-  const info = CURRENCY_CONFIG.rates[code] || { symbol: code, rate: 1 };
-  const rate = code === 'IDR' ? 1 : (customRate || info.rate || 1);
+function saveCurrencyState() {
+  try {
+    localStorage.setItem('DANISH_POS_CURRENCY', JSON.stringify(CURRENCY_CONFIG));
+  } catch (e) {}
+  updateCurrencyBadgeUI();
+}
+
+function updateCurrencyBadgeUI() {
+  const codeEl = document.getElementById('activeCurrencyCode');
+  const rateEl = document.getElementById('activeCurrencyRate');
+  if (codeEl) codeEl.textContent = CURRENCY_CONFIG.activeCurrency;
+  if (rateEl) {
+    rateEl.textContent =
+      CURRENCY_CONFIG.activeCurrency === 'IDR'
+        ? '1 IDR'
+        : `1 ${CURRENCY_CONFIG.activeCurrency} = Rp ${formatNumber(CURRENCY_CONFIG.rateToIdr)}`;
+  }
+}
+
+function openCurrencyModal() {
+  const modal = document.getElementById('modalCurrency');
+  if (!modal) return;
+  const select = document.getElementById('currencySelect');
+  const rateInput = document.getElementById('currencyRateInput');
+  if (select) select.value = CURRENCY_CONFIG.activeCurrency;
+  if (rateInput) rateInput.value = CURRENCY_CONFIG.rateToIdr;
+  modal.classList.add('active');
+}
+
+function onCurrencySelectChange() {
+  const select = document.getElementById('currencySelect');
+  const rateInput = document.getElementById('currencyRateInput');
+  if (!select || !rateInput) return;
+  const code = select.value;
+  const info = CURRENCY_CONFIG.rates[code] || { rate: 1 };
+  rateInput.value = info.rate;
+  rateInput.disabled = code === 'IDR';
+}
+
+function applyCurrencySetting() {
+  const select = document.getElementById('currencySelect');
+  const rateInput = document.getElementById('currencyRateInput');
+  if (!select || !rateInput) return;
+
+  const code = select.value;
+  let rate = parseFloat(rateInput.value) || 1;
+  if (code === 'IDR') rate = 1;
+
+  const info = CURRENCY_CONFIG.rates[code] || { symbol: code, rate };
   CURRENCY_CONFIG.activeCurrency = code;
   CURRENCY_CONFIG.symbol = info.symbol;
   CURRENCY_CONFIG.rateToIdr = rate;
   if (CURRENCY_CONFIG.rates[code]) CURRENCY_CONFIG.rates[code].rate = rate;
-  try {
-    localStorage.setItem('DANISH_POS_CURRENCY', JSON.stringify(CURRENCY_CONFIG));
-  } catch (e) {}
-  renderCartTable();
+
+  saveCurrencyState();
+  closeModal('modalCurrency');
+  renderProductGrid();
+  renderCart();
   showToast(`Mata uang aktif: ${code} (Kurs: Rp ${formatNumber(rate)})`, 'success');
 }
 
@@ -337,270 +498,146 @@ function formatMoney(amountIdr, forceIdr = false) {
   })}`;
 }
 
+function formatNumber(num) {
+  return Math.round(Number(num) || 0).toLocaleString('id-ID');
+}
+
 // =========================================================================
-// 5. SINKRONISASI MASTER DATA POS & QRIS GATEWAY
+// 6. KATALOG PRODUK, PENCARIAN & BARCODE SCANNER
 // =========================================================================
-function normalizeBackendProduct(raw) {
-  return {
-    id: `${raw.sku_code || raw.sku || ''}_${raw.barcode || ''}_${raw.unit || 'PCS'}`,
-    sku: raw.sku_code || raw.sku || '',
-    barcode: raw.barcode || raw.sku_code || '',
-    nama: raw.name || raw.nama || 'Produk',
-    kategori: raw.category || raw.kategori || 'Umum',
-    satuan: raw.unit || raw.satuan || 'PCS',
-    conversionQty: Number(raw.conversion_qty) || 1,
-    hargaJual: Number(raw.price ?? raw.hargaJual ?? 0),
-    stok: Number(raw.stock ?? raw.stok ?? 99),
-    trackStock: raw.trackStock !== false,
-    aktif: raw.is_active !== false,
-    gambar: raw.imageUrl || raw.gambar || '',
-    isPromo: Boolean(raw.is_promo || raw.isPromo)
-  };
-}
-
-function normalizeBackendMember(raw) {
-  return {
-    id: raw.member_id || raw.id || raw.card_code,
-    kode: raw.card_code || raw.member_id || '',
-    nama: raw.name || raw.nama || 'Member',
-    hp: raw.phone || raw.hp || '',
-    level: raw.price_level || 'UMUM',
-    discountPct: Number(raw.member_discount_pct) || 0,
-    poin: Number(raw.points ?? raw.poin ?? 0),
-    creditLimit: Number(raw.credit_limit) || 0,
-    currentDebt: Number(raw.current_debt) || 0
-  };
-}
-
-async function syncMasterNow() {
-  showToast('Menyinkronkan master data, promo & logo...', 'info');
-  await initKasirDesignConfig();
-  await loadInitialPosData();
-}
-
-async function loadInitialPosData() {
-  const storeCode = getStoreCode();
-
-  try {
-    const cachedProducts = localStorage.getItem('DANISH_PRODUCTS_' + storeCode);
-    const cachedCustomers = localStorage.getItem('DANISH_CUSTOMERS_' + storeCode);
-    const cachedPromos = localStorage.getItem('DANISH_PROMOS_' + storeCode);
-    const cachedQris = localStorage.getItem('DANISH_STATIC_QRIS_' + storeCode);
-    const savedParked = localStorage.getItem('DANISH_PARKED_CARTS_' + storeCode);
-
-    if (cachedProducts) PRODUCTS = JSON.parse(cachedProducts);
-    if (cachedCustomers) CUSTOMERS = JSON.parse(cachedCustomers);
-    if (cachedPromos) PROMOTIONS = JSON.parse(cachedPromos);
-    if (cachedQris) QRIS_STATE.staticString = cachedQris;
-    if (savedParked) PARKED_CARTS = JSON.parse(savedParked);
-  } catch (e) {}
-
-  renderCategoryQuickBar();
-  renderShowcaseItems();
-  renderCartTable();
-
-  try {
-    const [masterRes, qrisRes] = await Promise.all([
-      ApiClient.call('pos/sync-master', { kodeToko: storeCode }).catch(() => null),
-      ApiClient.call('admin/get-qris', { kodeToko: storeCode }).catch(() => null)
-    ]);
-
-    if (masterRes && Array.isArray(masterRes.products)) {
-      PRODUCTS = masterRes.products.map(normalizeBackendProduct);
-      localStorage.setItem('DANISH_PRODUCTS_' + storeCode, JSON.stringify(PRODUCTS));
-    }
-    if (masterRes && Array.isArray(masterRes.members)) {
-      CUSTOMERS = masterRes.members.map(normalizeBackendMember);
-      localStorage.setItem('DANISH_CUSTOMERS_' + storeCode, JSON.stringify(CUSTOMERS));
-    }
-    if (masterRes && Array.isArray(masterRes.promotions)) {
-      PROMOTIONS = masterRes.promotions;
-      localStorage.setItem('DANISH_PROMOS_' + storeCode, JSON.stringify(PROMOTIONS));
-    }
-    if (qrisRes) {
-      QRIS_STATE.mode = qrisRes.mode || 'OFFLINE_EMVCO';
-      if (qrisRes.staticPayload) {
-        QRIS_STATE.staticString = qrisRes.staticPayload;
-        localStorage.setItem('DANISH_STATIC_QRIS_' + storeCode, qrisRes.staticPayload);
-      }
-    }
-
-    renderCategoryQuickBar();
-    renderShowcaseItems();
-    showToast(`Data siap (${PRODUCTS.length} produk aktif)`, 'success');
-  } catch (err) {
-    console.warn('Mode Offline:', err);
-  }
-}
-
-function renderCategoryQuickBar() {
-  const bar = document.getElementById('kasirCategoryQuickBar');
-  if (!bar) return;
+function renderCategoryPills() {
+  const container = document.getElementById('posCategoryBar');
+  if (!container) return;
 
   const cats = new Set(['SEMUA']);
   PRODUCTS.forEach((p) => {
     if (p.kategori && String(p.kategori).trim() !== '') {
-      cats.add(String(p.kategori).trim());
+      cats.add(String(p.kategori).trim().toUpperCase());
     }
   });
 
-  if (cats.size === 1) {
-    cats.add('Minuman');
-    cats.add('Makanan');
-    cats.add('Fast Food');
-    cats.add('Umum');
-  }
-
   let html = '';
   cats.forEach((cat) => {
-    const isActive = CURRENT_CATEGORY.toUpperCase() === cat.toUpperCase();
-    html += `<button type="button" class="rene-cat-pill ${isActive ? 'active' : ''}" onclick="filterByQuickCategory('${escapeHtml(cat)}')">${escapeHtml(cat)}</button>`;
+    const isActive = CURRENT_CATEGORY === cat;
+    html += `<button class="cat-pill ${isActive ? 'active' : ''}" onclick="selectCategory('${escapeHtml(cat)}')">${escapeHtml(cat)}</button>`;
   });
-  bar.innerHTML = html;
+  container.innerHTML = html;
 }
 
-function filterByQuickCategory(cat) {
+function selectCategory(cat) {
   CURRENT_CATEGORY = cat;
-  renderCategoryQuickBar();
-  if (cat.toLowerCase().includes('food') || cat.toLowerCase().includes('makan')) {
-    switchShowcaseTab('FASTFOOD');
+  renderCategoryPills();
+  renderProductGrid();
+}
+
+function handleSearchInput(val) {
+  SEARCH_QUERY = String(val || '').trim().toLowerCase();
+  renderProductGrid();
+}
+
+function handleSearchEnter(e) {
+  if (e.key !== 'Enter') return;
+  const q = SEARCH_QUERY;
+  if (!q) return;
+
+  const exact = PRODUCTS.find(
+    (p) =>
+      String(p.barcode || '').toLowerCase() === q ||
+      String(p.sku || '').toLowerCase() === q
+  );
+
+  if (exact) {
+    addToCart(exact);
+    const input = document.getElementById('posSearchInput');
+    if (input) {
+      input.value = '';
+      SEARCH_QUERY = '';
+      renderProductGrid();
+    }
+    playBeepSound();
   }
-  openSearchModal(cat === 'SEMUA' ? '' : cat);
 }
 
-// =========================================================================
-// 6. PANEL KIRI KERANJANG: ETALASE "PROMO SPESIAL" & "FAST FOOD"
-// =========================================================================
-function switchShowcaseTab(tab) {
-  SHOWCASE_TAB = tab;
-  document.getElementById('btnTabPromoSpesial')?.classList.toggle('active', tab === 'PROMO');
-  document.getElementById('btnTabFastFood')?.classList.toggle('active', tab === 'FASTFOOD');
-  renderShowcaseItems();
-}
-
-function getShowcaseItemsList() {
-  if (SHOWCASE_TAB === 'FASTFOOD') {
-    const ffFromMaster = PRODUCTS.filter((p) => {
-      const text = `${p.kategori} ${p.nama}`.toLowerCase();
-      return (
-        text.includes('fast') ||
-        text.includes('food') ||
-        text.includes('makan') ||
-        text.includes('ayam') ||
-        text.includes('burger') ||
-        text.includes('kopi') ||
-        text.includes('mie')
-      );
-    });
-    if (ffFromMaster.length > 0) return ffFromMaster.slice(0, 8);
-
-    return [
-      { id: 'FF-01', sku: 'FF-01', barcode: 'FF001', nama: 'Ayam Goreng Krispi + Nasi', kategori: 'Fast Food', satuan: 'Porsi', hargaJual: 18500, emoji: '🍗', badge: 'HOT', trackStock: false },
-      { id: 'FF-02', sku: 'FF-02', barcode: 'FF002', nama: 'Paket Hemat Burger + Es Teh', kategori: 'Fast Food', satuan: 'Paket', hargaJual: 22000, emoji: '🍔', badge: 'PAKET', trackStock: false },
-      { id: 'FF-03', sku: 'FF-03', barcode: 'FF003', nama: 'Kentang Goreng (French Fries)', kategori: 'Fast Food', satuan: 'Porsi', hargaJual: 12000, emoji: '🍟', badge: 'BEST', trackStock: false },
-      { id: 'FF-04', sku: 'FF-04', barcode: 'FF004', nama: 'Kopi Susu Gula Aren Dingin', kategori: 'Fast Food', satuan: 'Cup', hargaJual: 15000, emoji: '🧋', badge: 'CAFE', trackStock: false }
-    ];
-  }
-
-  const promoBarcodes = new Set((PROMOTIONS || []).map((pr) => String(pr.target_barcode || '')));
-  const promoFromMaster = PRODUCTS.filter((p) => p.isPromo || promoBarcodes.has(String(p.barcode)));
-  if (promoFromMaster.length > 0) return promoFromMaster.slice(0, 8);
-
-  if (PRODUCTS.length > 0) return PRODUCTS.slice(0, 6);
-
-  return [
-    { id: 'PRM-01', sku: 'SKU-1001', barcode: '899999900101', nama: 'Air Mineral 600ml', kategori: 'Minuman', satuan: 'Pcs', hargaJual: 3500, emoji: '💧', badge: 'PROMO', trackStock: false },
-    { id: 'PRM-02', sku: 'SKU-1002', barcode: '899999900102', nama: 'Mie Instan Goreng', kategori: 'Makanan', satuan: 'Pcs', hargaJual: 3200, emoji: '🍜', badge: 'HEMAT', trackStock: false },
-    { id: 'PRM-03', sku: 'SKU-1003', barcode: '899999900103', nama: 'Susu UHT Full Cream 1L', kategori: 'Minuman', satuan: 'Pcs', hargaJual: 19500, emoji: '🥛', badge: '15% OFF', trackStock: false },
-    { id: 'PRM-04', sku: 'PRM-04', barcode: 'PRM004', nama: 'Roti Coklat Lumer + Kopi', kategori: 'Promo', satuan: 'Paket', hargaJual: 14000, emoji: '🥐', badge: 'BUNDLING', trackStock: false }
-  ];
-}
-
-function renderShowcaseItems() {
-  const grid = document.getElementById('showcaseCardsGrid');
+function renderProductGrid() {
+  const grid = document.getElementById('posProductGrid');
   if (!grid) return;
 
-  const items = getShowcaseItemsList();
-  const isFF = SHOWCASE_TAB === 'FASTFOOD';
+  const cfg = KASIR_DESIGN_CFG;
+  const filtered = PRODUCTS.filter((p) => {
+    if (p.aktif === false) return false;
+    const catMatch =
+      CURRENT_CATEGORY === 'SEMUA' ||
+      String(p.kategori || '').trim().toUpperCase() === CURRENT_CATEGORY;
+    if (!catMatch) return false;
+
+    if (!SEARCH_QUERY) return true;
+    const hay = `${p.nama || ''} ${p.sku || ''} ${p.barcode || ''} ${p.kategori || ''} ${p.satuan || ''}`.toLowerCase();
+    return hay.includes(SEARCH_QUERY);
+  });
+
+  if (filtered.length === 0) {
+    grid.innerHTML = `
+      <div style="grid-column: 1 / -1; text-align:center; padding: 48px 16px; color:#64748b;">
+        <div style="font-size:36px; margin-bottom:8px;">📦</div>
+        <div style="font-weight:600; font-size:15px;">Produk tidak ditemukan</div>
+        <div style="font-size:13px; margin-top:4px;">Coba kata kunci lain atau pilih kategori SEMUA.</div>
+      </div>`;
+    return;
+  }
 
   let html = '';
-  items.forEach((item, idx) => {
-    const badgeLabel = item.badge || (isFF ? 'FAST FOOD' : 'PROMO');
-    const fallbackEmoji = item.emoji || (isFF ? '🍔' : '🏷️');
+  filtered.forEach((p) => {
+    const stok = Number(p.stok ?? 0);
+    const isOut = p.trackStock !== false && stok <= 0;
+    const price = Number(p.hargaJual || 0);
+    const imgUrl = p.gambar || '';
+    const unitBadge = p.satuan && p.satuan !== 'PCS' ? ` (${p.satuan})` : '';
+
     html += `
-      <div class="promo-quick-card" onclick="addShowcaseItemToCart(${idx})" title="Klik untuk tambah ${escapeHtml(item.nama)}">
-        <span class="promo-quick-badge ${isFF ? 'ff' : ''}">${escapeHtml(badgeLabel)}</span>
-        <div class="promo-quick-thumb">
-          ${
-            item.gambar
-              ? `<img src="${escapeHtml(item.gambar)}" alt="${escapeHtml(item.nama)}" onerror="this.outerHTML='<span>${fallbackEmoji}</span>'">`
-              : `<span>${fallbackEmoji}</span>`
-          }
+      <div class="product-card ${isOut ? 'out-of-stock' : ''}" onclick="${isOut ? `showToast('Stok produk habis!', 'error')` : `addToCartById('${escapeHtml(String(p.id))}')`}">
+        ${
+          cfg.showProductImg !== false
+            ? `<div class="product-img-wrap">
+                ${
+                  imgUrl
+                    ? `<img src="${escapeHtml(imgUrl)}" alt="${escapeHtml(p.nama)}" loading="lazy" onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';">
+                       <div class="product-img-placeholder" style="display:none;">🛍️</div>`
+                    : `<div class="product-img-placeholder">🛍️</div>`
+                }
+                ${
+                  cfg.showProductStock !== false && p.trackStock !== false
+                    ? `<span class="stock-badge ${stok <= 5 ? 'low' : ''}">Stok: ${stok}</span>`
+                    : ''
+                }
+              </div>`
+            : ''
+        }
+        <div class="product-info">
+          ${cfg.showProductSku !== false ? `<div class="product-sku">${escapeHtml(p.sku)}${escapeHtml(unitBadge)}</div>` : ''}
+          <div class="product-name" title="${escapeHtml(p.nama)}">${escapeHtml(p.nama)}</div>
+          <div class="product-price">${formatMoney(price)}</div>
         </div>
-        <div class="promo-quick-title">${escapeHtml(item.nama)}</div>
-        <div class="promo-quick-price">Rp ${formatNumber(item.hargaJual)}</div>
       </div>`;
   });
 
   grid.innerHTML = html;
 }
 
-function addShowcaseItemToCart(idx) {
-  const items = getShowcaseItemsList();
-  const selected = items[idx];
-  if (!selected) return;
-  addProductToCart(selected, 1);
-  playBeepSound();
+// =========================================================================
+// 7. KERANJANG BELANJA (CART), PROMO OTOMATIS & NUMPAD ENGINE
+// =========================================================================
+function addToCartById(id) {
+  const prod = PRODUCTS.find((p) => String(p.id) === String(id));
+  if (prod) addToCart(prod);
 }
 
-// =========================================================================
-// 7. INPUT SCAN BARCODE, KERANJANG, PROMO OTOMATIS & KALKULASI
-// =========================================================================
-function bindBarcodeScannerInput() {
-  const input = document.getElementById('barcodeInput');
-  if (!input) return;
-
-  input.addEventListener('keydown', (e) => {
-    if (e.key !== 'Enter') return;
-    e.preventDefault();
-    const raw = input.value.trim();
-    if (!raw) return;
-
-    let qty = 1;
-    let query = raw;
-    if (raw.includes('*')) {
-      const parts = raw.split('*');
-      const parsedQty = parseInt(parts[0], 10);
-      if (!isNaN(parsedQty) && parsedQty > 0) {
-        qty = parsedQty;
-        query = parts.slice(1).join('*').trim();
-      }
-    }
-
-    const qLower = query.toLowerCase();
-    const exact = PRODUCTS.find(
-      (p) =>
-        String(p.barcode || '').toLowerCase() === qLower ||
-        String(p.sku || '').toLowerCase() === qLower
-    );
-
-    if (exact) {
-      addProductToCart(exact, qty);
-      input.value = '';
-      playBeepSound();
-    } else {
-      openSearchModal(query);
-    }
-  });
-}
-
-function addProductToCart(prod, qty = 1) {
+function addToCart(prod, customQty = 1) {
   const maxStock = prod.trackStock !== false ? Number(prod.stok ?? 999999) : 999999;
   const unitPrice = Number(prod.hargaJual || 0);
-  const existingIdx = CART.findIndex((it) => String(it.id) === String(prod.id) && !it.isCustom);
 
+  const existingIdx = CART.findIndex((item) => String(item.id) === String(prod.id) && !item.isCustom);
   if (existingIdx > -1) {
-    const nextQty = CART[existingIdx].qty + qty;
+    const nextQty = CART[existingIdx].qty + customQty;
     if (nextQty > maxStock) {
       showToast(`Stok tidak mencukupi (Maks: ${maxStock})`, 'warning');
       return;
@@ -608,47 +645,35 @@ function addProductToCart(prod, qty = 1) {
     CART[existingIdx].qty = nextQty;
     SELECTED_CART_INDEX = existingIdx;
   } else {
-    if (qty > maxStock) {
+    if (customQty > maxStock) {
       showToast(`Stok tidak mencukupi (Maks: ${maxStock})`, 'warning');
       return;
     }
     CART.push({
       id: prod.id,
-      sku: prod.sku || prod.id,
-      barcode: prod.barcode || prod.sku || prod.id,
+      sku: prod.sku,
+      barcode: prod.barcode || prod.sku,
       nama: prod.nama,
       satuan: prod.satuan || 'PCS',
       conversionQty: Number(prod.conversionQty) || 1,
       harga: unitPrice,
-      qty: qty,
+      qty: customQty,
       discNominal: 0,
       trackStock: prod.trackStock !== false,
       maxStock: maxStock,
-      isCustom: Boolean(prod.isCustom)
+      isCustom: false
     });
     SELECTED_CART_INDEX = CART.length - 1;
   }
 
   applyAutomaticPromotions();
-
-  const activeNameEl = document.getElementById('lblActiveItemName');
-  const activePriceEl = document.getElementById('lblActiveItemPrice');
-  if (activeNameEl) activeNameEl.textContent = `${prod.nama} (${qty}x)`;
-  if (activePriceEl) activePriceEl.textContent = formatNumber(unitPrice * qty);
-
-  renderCartTable();
+  renderCart();
   syncCustomerDisplay();
 }
 
 function applyAutomaticPromotions() {
-  const pwpBox = document.getElementById('pwpAlertBox');
-  if (!Array.isArray(PROMOTIONS) || PROMOTIONS.length === 0) {
-    if (pwpBox) pwpBox.textContent = '';
-    return;
-  }
-
+  if (!Array.isArray(PROMOTIONS) || PROMOTIONS.length === 0) return;
   const today = new Date().toISOString().slice(0, 10);
-  let appliedMessages = [];
 
   CART.forEach((item) => {
     if (item.isCustom || item.manualDisc) return;
@@ -663,512 +688,709 @@ function applyAutomaticPromotions() {
     if (promo) {
       if (promo.promo_type === 'DISCOUNT') {
         item.discNominal = Math.round((item.harga * item.qty * Number(promo.promo_price)) / 100);
-        appliedMessages.push(`Promo ${item.nama}: Diskon ${promo.promo_price}%`);
       } else if (promo.promo_type === 'TIERED') {
         const diff = Math.max(0, item.harga - Number(promo.promo_price));
         item.discNominal = diff * item.qty;
-        appliedMessages.push(`Harga Grosir/Promo ${item.nama} aktif!`);
       }
     }
   });
-
-  if (pwpBox) {
-    pwpBox.textContent = appliedMessages.length > 0 ? '🎉 ' + appliedMessages.join(' | ') : '';
-  }
 }
 
-function selectCartRow(idx) {
-  SELECTED_CART_INDEX = idx;
-  renderCartTable();
+function openCustomAmountModal() {
+  const modal = document.getElementById('modalCustomAmount');
+  if (!modal) return;
+  document.getElementById('customItemName').value = 'Item Manual / Jasa';
+  document.getElementById('customItemPrice').value = '';
+  document.getElementById('customItemQty').value = '1';
+  modal.classList.add('active');
+  setTimeout(() => document.getElementById('customItemPrice')?.focus(), 100);
 }
 
-function adjustCartRowQty(idx, delta) {
-  if (!CART[idx]) return;
-  const next = CART[idx].qty + delta;
-  if (next <= 0) {
-    CART.splice(idx, 1);
-    if (SELECTED_CART_INDEX >= CART.length) SELECTED_CART_INDEX = CART.length - 1;
-  } else {
-    if (CART[idx].trackStock && next > CART[idx].maxStock) {
-      showToast(`Batas stok maksimal (${CART[idx].maxStock})`, 'warning');
-      return;
-    }
-    CART[idx].qty = next;
-    SELECTED_CART_INDEX = idx;
-    applyAutomaticPromotions();
-  }
-  renderCartTable();
-  syncCustomerDisplay();
-}
+function addCustomAmountItem() {
+  const name = document.getElementById('customItemName').value.trim() || 'Item Manual';
+  const rawPrice = parseFloat(document.getElementById('customItemPrice').value) || 0;
+  const qty = parseInt(document.getElementById('customItemQty').value, 10) || 1;
 
-function voidSelectedItem() {
-  if (SELECTED_CART_INDEX < 0 || !CART[SELECTED_CART_INDEX]) {
-    showToast('Pilih baris barang yang akan dihapus terlebih dahulu', 'warning');
+  if (rawPrice <= 0) {
+    showToast('Masukkan nominal harga yang valid', 'error');
     return;
   }
-  CART.splice(SELECTED_CART_INDEX, 1);
-  if (SELECTED_CART_INDEX >= CART.length) SELECTED_CART_INDEX = CART.length - 1;
-  renderCartTable();
+
+  const priceIdr =
+    CURRENCY_CONFIG.activeCurrency === 'IDR'
+      ? rawPrice
+      : Math.round(rawPrice * CURRENCY_CONFIG.rateToIdr);
+
+  CART.push({
+    id: 'CUSTOM-' + Date.now(),
+    sku: 'MANUAL',
+    barcode: 'MANUAL',
+    nama: name,
+    satuan: 'PCS',
+    conversionQty: 1,
+    harga: priceIdr,
+    qty: qty,
+    discNominal: 0,
+    trackStock: false,
+    maxStock: 999999,
+    isCustom: true
+  });
+
+  SELECTED_CART_INDEX = CART.length - 1;
+  closeModal('modalCustomAmount');
+  renderCart();
   syncCustomerDisplay();
 }
 
-function clearCartWithPin() {
+function selectCartRow(index) {
+  SELECTED_CART_INDEX = index;
+  renderCart();
+}
+
+function changeCartQty(index, delta) {
+  if (!CART[index]) return;
+  const next = CART[index].qty + delta;
+  if (next <= 0) {
+    removeCartItem(index);
+    return;
+  }
+  if (CART[index].trackStock && next > CART[index].maxStock) {
+    showToast(`Batas stok maksimal tercapai (${CART[index].maxStock})`, 'warning');
+    return;
+  }
+  CART[index].qty = next;
+  SELECTED_CART_INDEX = index;
+  applyAutomaticPromotions();
+  renderCart();
+  syncCustomerDisplay();
+}
+
+function removeCartItem(index) {
+  CART.splice(index, 1);
+  if (SELECTED_CART_INDEX >= CART.length) SELECTED_CART_INDEX = CART.length - 1;
+  renderCart();
+  syncCustomerDisplay();
+}
+
+function clearCart() {
   if (CART.length === 0) return;
-  if (!confirm('Kosongkan seluruh keranjang belanja saat ini?')) return;
+  if (!confirm('Kosongkan seluruh item di keranjang saat ini?')) return;
   CART = [];
   SELECTED_CART_INDEX = -1;
-  const activeNameEl = document.getElementById('lblActiveItemName');
-  const activePriceEl = document.getElementById('lblActiveItemPrice');
-  const pwpBox = document.getElementById('pwpAlertBox');
-  if (activeNameEl) activeNameEl.textContent = '[Siap Scan Barang]';
-  if (activePriceEl) activePriceEl.textContent = '0';
-  if (pwpBox) pwpBox.textContent = '';
-  renderCartTable();
+  CHECKOUT_STATE.globalDiscVal = 0;
+  CHECKOUT_STATE.redeemPoints = 0;
+  SELECTED_CUSTOMER = null;
+  updateCustomerBoxUI();
+  renderCart();
   syncCustomerDisplay();
 }
 
-function getCartTotals() {
+// Numpad Cepat
+let NUMPAD_BUFFER = '';
+let NUMPAD_MODE = 'QTY';
+
+function setNumpadMode(mode) {
+  NUMPAD_MODE = mode;
+  NUMPAD_BUFFER = '';
+  document.querySelectorAll('.numpad-mode-btn').forEach((btn) => {
+    btn.classList.toggle('active', btn.dataset.mode === mode);
+  });
+  showToast(`Mode Numpad: ${mode === 'QTY' ? 'Ubah Jumlah' : mode === 'DISC' ? 'Diskon Item (Rp)' : 'Ubah Harga Satuan'}`, 'info');
+}
+
+function pressNumpad(key) {
+  if (SELECTED_CART_INDEX < 0 || !CART[SELECTED_CART_INDEX]) {
+    showToast('Pilih item di keranjang terlebih dahulu', 'warning');
+    return;
+  }
+
+  if (key === 'C') NUMPAD_BUFFER = '';
+  else if (key === 'BACK') NUMPAD_BUFFER = NUMPAD_BUFFER.slice(0, -1);
+  else NUMPAD_BUFFER += String(key);
+
+  const val = parseInt(NUMPAD_BUFFER, 10) || 0;
+  const item = CART[SELECTED_CART_INDEX];
+
+  if (NUMPAD_MODE === 'QTY') {
+    if (val <= 0) return;
+    if (item.trackStock && val > item.maxStock) {
+      showToast(`Stok maksimal ${item.maxStock}`, 'warning');
+      NUMPAD_BUFFER = String(item.maxStock);
+      item.qty = item.maxStock;
+    } else {
+      item.qty = val;
+    }
+    applyAutomaticPromotions();
+  } else if (NUMPAD_MODE === 'DISC') {
+    const maxDisc = item.harga * item.qty;
+    item.discNominal = Math.min(val, maxDisc);
+    item.manualDisc = true;
+  } else if (NUMPAD_MODE === 'PRICE') {
+    item.harga = val;
+  }
+
+  renderCart();
+  syncCustomerDisplay();
+}
+
+function renderCart() {
+  const tbody = document.getElementById('posCartBody');
+  const emptyState = document.getElementById('posCartEmpty');
+  const countBadge = document.getElementById('posCartItemCount');
+
+  if (!tbody) return;
+
+  const totalItems = CART.reduce((acc, it) => acc + it.qty, 0);
+  if (countBadge) countBadge.textContent = `${totalItems} Item`;
+
+  if (CART.length === 0) {
+    tbody.innerHTML = '';
+    if (emptyState) emptyState.style.display = 'flex';
+    updateCartSummaryUI();
+    return;
+  }
+
+  if (emptyState) emptyState.style.display = 'none';
+
+  let html = '';
+  CART.forEach((item, idx) => {
+    const lineSub = item.harga * item.qty - (item.discNominal || 0);
+    const isSelected = idx === SELECTED_CART_INDEX;
+    html += `
+      <tr class="cart-row ${isSelected ? 'selected' : ''}" onclick="selectCartRow(${idx})">
+        <td>
+          <div class="cart-item-title">${escapeHtml(item.nama)}</div>
+          <div class="cart-item-meta">
+            ${formatMoney(item.harga)} / ${escapeHtml(item.satuan)}
+            ${item.discNominal > 0 ? `<span class="cart-disc-tag">-Diskon ${formatMoney(item.discNominal)}</span>` : ''}
+          </div>
+        </td>
+        <td class="text-center">
+          <div class="qty-stepper" onclick="event.stopPropagation()">
+            <button onclick="changeCartQty(${idx}, -1)">-</button>
+            <span>${item.qty}</span>
+            <button onclick="changeCartQty(${idx}, 1)">+</button>
+          </div>
+        </td>
+        <td class="text-right font-bold">${formatMoney(lineSub)}</td>
+        <td class="text-center" onclick="event.stopPropagation()">
+          <button class="btn-del-item" onclick="removeCartItem(${idx})" title="Hapus">✕</button>
+        </td>
+      </tr>`;
+  });
+
+  tbody.innerHTML = html;
+  updateCartSummaryUI();
+}
+
+// =========================================================================
+// 8. KALKULASI TOTAL, DISKON, PAJAK, POIN & PEMBULATAN (TERINTEGRASI ADMIN)
+// =========================================================================
+function getCheckoutComputation() {
+  const prefs = KASIR_COMPANY_PREFS;
   let subtotal = 0;
-  let itemDisc = 0;
+  let itemDiscountTotal = 0;
+
   CART.forEach((it) => {
     subtotal += it.harga * it.qty;
-    itemDisc += it.discNominal || 0;
+    itemDiscountTotal += it.discNominal || 0;
   });
-  const grandTotal = Math.max(0, subtotal - itemDisc);
-  return { subtotal, itemDisc, grandTotal };
+
+  const afterItemDisc = Math.max(0, subtotal - itemDiscountTotal);
+
+  let globalDisc = 0;
+  if (CHECKOUT_STATE.globalDiscType === 'PERCENT') {
+    globalDisc = Math.round((afterItemDisc * CHECKOUT_STATE.globalDiscVal) / 100);
+  } else {
+    globalDisc = Math.min(afterItemDisc, CHECKOUT_STATE.globalDiscVal);
+  }
+
+  const afterAllDisc = Math.max(0, afterItemDisc - globalDisc);
+
+  const redeemValPerPt = Number(prefs.pointRedeemVal) || 100;
+  const maxRedeemPts = SELECTED_CUSTOMER ? Number(SELECTED_CUSTOMER.poin || 0) : 0;
+  const redeemPts = Math.min(CHECKOUT_STATE.redeemPoints || 0, maxRedeemPts);
+  const redeemValue = Math.min(afterAllDisc, redeemPts * redeemValPerPt);
+
+  const taxableBase = Math.max(0, afterAllDisc - redeemValue);
+
+  const taxToggleEl = document.getElementById('toggleTaxInput');
+  const useTax = taxToggleEl ? taxToggleEl.checked : CHECKOUT_STATE.useTax;
+  CHECKOUT_STATE.useTax = useTax;
+
+  let taxAmount = 0;
+  let netBeforeRound = taxableBase;
+
+  if (useTax && taxableBase > 0) {
+    if (prefs.taxInclusive) {
+      taxAmount = Math.round(taxableBase - taxableBase / (1 + CHECKOUT_STATE.taxRate));
+      netBeforeRound = taxableBase;
+    } else {
+      taxAmount = Math.round(taxableBase * CHECKOUT_STATE.taxRate);
+      netBeforeRound = taxableBase + taxAmount;
+    }
+  }
+
+  let netDue = netBeforeRound;
+  let roundingDiff = 0;
+  const roundStep = Number(prefs.roundStep) || 100;
+
+  if (CHECKOUT_STATE.autoRound && netDue > 0 && roundStep > 0) {
+    if (prefs.roundMode === 'UP') {
+      netDue = Math.ceil(netDue / roundStep) * roundStep;
+    } else {
+      netDue = Math.floor(netDue / roundStep) * roundStep;
+    }
+    roundingDiff = netDue - netBeforeRound;
+  }
+
+  return {
+    subtotal,
+    itemDiscountTotal,
+    globalDisc,
+    redeemPts,
+    redeemValue,
+    taxAmount,
+    roundingDiff,
+    netDue
+  };
 }
 
-function renderCartTable() {
-  const tbody = document.getElementById('cartTableBody');
-  if (!tbody) return;
+function updateCartSummaryUI() {
+  const comp = getCheckoutComputation();
 
-  let html = '';
-  CART.forEach((it, idx) => {
-    const lineTotal = it.harga * it.qty - (it.discNominal || 0);
-    const isSel = idx === SELECTED_CART_INDEX;
-    html += `
-      <tr class="${isSel ? 'selected' : ''}" onclick="selectCartRow(${idx})">
-        <td><strong>${it.qty}</strong> <small style="color:#64748B;">${escapeHtml(it.satuan)}</small></td>
-        <td><strong>${escapeHtml(it.nama)}</strong><br><small style="color:#64748B;">${escapeHtml(it.barcode)}</small></td>
-        <td class="num">${formatNumber(it.harga)}</td>
-        <td class="num" style="color:#DC2626;">${it.discNominal > 0 ? '-' + formatNumber(it.discNominal) : '0'}</td>
-        <td class="num"><strong>${formatNumber(lineTotal)}</strong></td>
-      </tr>`;
-  });
-  tbody.innerHTML = html;
+  const subEl = document.getElementById('sumSubtotal');
+  const discEl = document.getElementById('sumDiscount');
+  const taxEl = document.getElementById('sumTax');
+  const grandEl = document.getElementById('sumGrandTotal');
+  const grandForeignEl = document.getElementById('sumGrandTotalForeign');
 
-  const totals = getCartTotals();
-  const grandEl = document.getElementById('lblGrandTotal');
-  const subInfoEl = document.getElementById('lblSubItemInfo');
-  if (grandEl) grandEl.textContent = formatNumber(totals.grandTotal);
-  if (subInfoEl) {
-    const foreignNote = CURRENCY_CONFIG.activeCurrency !== 'IDR' ? ` | ≈ ${formatMoney(totals.grandTotal, false)}` : '';
-    subInfoEl.textContent = `(Subtotal: Rp ${formatNumber(totals.subtotal)} | Hemat: Rp ${formatNumber(totals.itemDisc)}${foreignNote})`;
+  if (subEl) subEl.textContent = formatMoney(comp.subtotal, true);
+  if (discEl) discEl.textContent = '- ' + formatMoney(comp.itemDiscountTotal + comp.globalDisc + comp.redeemValue, true);
+  if (taxEl) taxEl.textContent = formatMoney(comp.taxAmount, true);
+  if (grandEl) grandEl.textContent = formatMoney(comp.netDue, true);
+
+  if (grandForeignEl) {
+    if (CURRENCY_CONFIG.activeCurrency !== 'IDR') {
+      grandForeignEl.style.display = 'block';
+      grandForeignEl.textContent = `≈ ${formatMoney(comp.netDue, false)}`;
+    } else {
+      grandForeignEl.style.display = 'none';
+    }
   }
 }
 
-// =========================================================================
-// 8. MODAL EDIT BARIS [F7], KATALOG [F2], MEMBER [F4], HOLD [F5/F3]
-// =========================================================================
-function openEditItemModal() {
-  if (SELECTED_CART_INDEX < 0 || !CART[SELECTED_CART_INDEX]) {
-    showToast('Pilih item di tabel belanja terlebih dahulu', 'warning');
+function openGlobalDiscountModal() {
+  if (CART.length === 0) {
+    showToast('Keranjang masih kosong', 'warning');
     return;
   }
-  const item = CART[SELECTED_CART_INDEX];
-  document.getElementById('editItemTitle').textContent = item.nama;
-  document.getElementById('editItemQty').value = item.qty;
-  document.getElementById('editItemDiscPct').value = 0;
-  document.getElementById('editItemDiscRp').value = item.discNominal || 0;
-  document.getElementById('editItemPin').value = '';
-  document.getElementById('editItemModal').classList.add('active');
+  const modal = document.getElementById('modalGlobalDisc');
+  if (!modal) return;
+  document.getElementById('globalDiscType').value = CHECKOUT_STATE.globalDiscType;
+  document.getElementById('globalDiscValue').value = CHECKOUT_STATE.globalDiscVal || '';
+  modal.classList.add('active');
 }
 
-function applyEditItem() {
-  if (SELECTED_CART_INDEX < 0 || !CART[SELECTED_CART_INDEX]) return;
-  const item = CART[SELECTED_CART_INDEX];
-  const qty = Math.max(1, parseInt(document.getElementById('editItemQty').value, 10) || 1);
-  const discPct = parseFloat(document.getElementById('editItemDiscPct').value) || 0;
-  const discRp = parseFloat(document.getElementById('editItemDiscRp').value) || 0;
+function applyGlobalDiscount() {
+  const type = document.getElementById('globalDiscType').value;
+  const val = parseFloat(document.getElementById('globalDiscValue').value) || 0;
 
-  let finalDisc = discRp;
-  if (discPct > 0) {
-    finalDisc = Math.round((item.harga * qty * discPct) / 100);
+  if (type === 'PERCENT' && (val < 0 || val > 100)) {
+    showToast('Persentase diskon harus 0 - 100%', 'error');
+    return;
   }
-  item.qty = qty;
-  item.discNominal = Math.min(item.harga * qty, finalDisc);
-  if (finalDisc > 0) item.manualDisc = true;
 
-  closeModals();
-  renderCartTable();
+  CHECKOUT_STATE.globalDiscType = type;
+  CHECKOUT_STATE.globalDiscVal = Math.max(0, val);
+  closeModal('modalGlobalDisc');
+  updateCartSummaryUI();
   syncCustomerDisplay();
 }
 
-function openSearchModal(initialQuery = '') {
-  const modal = document.getElementById('searchModal');
-  const input = document.getElementById('localSearchInput');
-  if (!modal || !input) return;
-  input.value = initialQuery;
-  runLocalSearch();
-  modal.classList.add('active');
-  setTimeout(() => input.focus(), 80);
-}
-
-function runLocalSearch() {
-  const q = (document.getElementById('localSearchInput')?.value || '').trim().toLowerCase();
-  const tbody = document.getElementById('searchResultBody');
-  if (!tbody) return;
-
-  const list = PRODUCTS.filter((p) => {
-    if (!q) return true;
-    return `${p.nama} ${p.barcode} ${p.sku} ${p.kategori}`.toLowerCase().includes(q);
-  }).slice(0, 50);
-
-  if (list.length === 0) {
-    tbody.innerHTML = '<tr><td colspan="3" style="text-align:center; padding:16px; color:#64748B;">Barang tidak ditemukan.</td></tr>';
+// =========================================================================
+// 9. PARK / HOLD & RECALL ORDER
+// =========================================================================
+function holdCurrentOrder() {
+  if (CART.length === 0) {
+    showToast('Tidak ada item di keranjang untuk ditahan', 'warning');
     return;
   }
 
-  let html = '';
-  list.forEach((p) => {
-    html += `
-      <tr style="cursor:pointer;" onclick="selectProductFromSearch('${escapeHtml(String(p.id))}')">
-        <td>${escapeHtml(p.barcode)}</td>
-        <td><strong>${escapeHtml(p.nama)}</strong> <small style="color:#64748B;">(${escapeHtml(p.kategori)} • Stok: ${p.stok})</small></td>
-        <td class="num"><strong>Rp ${formatNumber(p.hargaJual)}</strong></td>
-      </tr>`;
+  const label = prompt('Masukkan catatan / nama meja untuk pesanan yang ditahan:', SELECTED_CUSTOMER?.nama || `Order #${PARKED_CARTS.length + 1}`);
+  if (label === null) return;
+
+  PARKED_CARTS.push({
+    id: 'HOLD-' + Date.now(),
+    label: label.trim() || `Order #${PARKED_CARTS.length + 1}`,
+    time: new Date().toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' }),
+    cart: JSON.parse(JSON.stringify(CART)),
+    customer: SELECTED_CUSTOMER ? JSON.parse(JSON.stringify(SELECTED_CUSTOMER)) : null,
+    globalDiscType: CHECKOUT_STATE.globalDiscType,
+    globalDiscVal: CHECKOUT_STATE.globalDiscVal
   });
-  tbody.innerHTML = html;
+
+  localStorage.setItem('DANISH_PARKED_CARTS_' + getStoreCode(), JSON.stringify(PARKED_CARTS));
+
+  CART = [];
+  SELECTED_CART_INDEX = -1;
+  SELECTED_CUSTOMER = null;
+  CHECKOUT_STATE.globalDiscVal = 0;
+  CHECKOUT_STATE.redeemPoints = 0;
+
+  updateCustomerBoxUI();
+  updateParkedBadge();
+  renderCart();
+  syncCustomerDisplay();
+  showToast('Pesanan berhasil ditahan (Hold)', 'success');
 }
 
-function selectProductFromSearch(id) {
-  const prod = PRODUCTS.find((p) => String(p.id) === String(id));
-  if (prod) {
-    addProductToCart(prod, 1);
-    playBeepSound();
+function openRecallOrderModal() {
+  const modal = document.getElementById('modalRecallOrder');
+  const listEl = document.getElementById('parkedOrdersList');
+  if (!modal || !listEl) return;
+
+  if (PARKED_CARTS.length === 0) {
+    listEl.innerHTML = '<div style="text-align:center; padding:24px; color:#64748b;">Tidak ada pesanan yang sedang ditahan.</div>';
+  } else {
+    let html = '';
+    PARKED_CARTS.forEach((p, idx) => {
+      const total = p.cart.reduce((s, i) => s + i.harga * i.qty - (i.discNominal || 0), 0);
+      html += `
+        <div class="parked-order-card">
+          <div>
+            <div style="font-weight:700; color:#1e293b;">${escapeHtml(p.label)}</div>
+            <div style="font-size:12px; color:#64748b;">Jam ${p.time} • ${p.cart.length} item • Total: <b>${formatMoney(total, true)}</b></div>
+          </div>
+          <div style="display:flex; gap:6px;">
+            <button class="btn-primary-sm" onclick="restoreParkedOrder(${idx})">Panggil</button>
+            <button class="btn-danger-sm" onclick="deleteParkedOrder(${idx})">Hapus</button>
+          </div>
+        </div>`;
+    });
+    listEl.innerHTML = html;
   }
-  closeModals();
-}
-
-function openMemberModal() {
-  const modal = document.getElementById('memberModal');
-  if (!modal) return;
-  runMemberSearch();
   modal.classList.add('active');
 }
 
-function runMemberSearch() {
-  const q = (document.getElementById('memberSearchInput')?.value || '').trim().toLowerCase();
-  const tbody = document.getElementById('memberResultBody');
-  if (!tbody) return;
+function restoreParkedOrder(index) {
+  const parked = PARKED_CARTS[index];
+  if (!parked) return;
+  if (CART.length > 0 && !confirm('Keranjang aktif akan digantikan dengan pesanan yang dipanggil. Lanjutkan?')) return;
 
+  CART = parked.cart;
+  SELECTED_CUSTOMER = parked.customer;
+  CHECKOUT_STATE.globalDiscType = parked.globalDiscType || 'NOMINAL';
+  CHECKOUT_STATE.globalDiscVal = parked.globalDiscVal || 0;
+  SELECTED_CART_INDEX = CART.length > 0 ? 0 : -1;
+
+  PARKED_CARTS.splice(index, 1);
+  localStorage.setItem('DANISH_PARKED_CARTS_' + getStoreCode(), JSON.stringify(PARKED_CARTS));
+
+  updateCustomerBoxUI();
+  updateParkedBadge();
+  renderCart();
+  syncCustomerDisplay();
+  closeModal('modalRecallOrder');
+  showToast(`Pesanan "${parked.label}" dipanggil kembali`, 'success');
+}
+
+function deleteParkedOrder(index) {
+  PARKED_CARTS.splice(index, 1);
+  localStorage.setItem('DANISH_PARKED_CARTS_' + getStoreCode(), JSON.stringify(PARKED_CARTS));
+  updateParkedBadge();
+  openRecallOrderModal();
+}
+
+function updateParkedBadge() {
+  const badge = document.getElementById('parkedCountBadge');
+  if (!badge) return;
+  badge.textContent = PARKED_CARTS.length;
+  badge.style.display = PARKED_CARTS.length > 0 ? 'inline-flex' : 'none';
+}
+
+// =========================================================================
+// 10. PELANGGAN / MEMBER & PENUKARAN POIN (TERINTEGRASI MemberController.gs)
+// =========================================================================
+function openCustomerModal() {
+  const modal = document.getElementById('modalCustomer');
+  if (!modal) return;
+  renderCustomerList('');
+  modal.classList.add('active');
+}
+
+function renderCustomerList(query) {
+  const container = document.getElementById('customerSearchList');
+  if (!container) return;
+
+  const q = String(query || '').trim().toLowerCase();
   const list = CUSTOMERS.filter((c) => {
     if (!q) return true;
-    return `${c.nama} ${c.hp} ${c.kode}`.toLowerCase().includes(q);
+    return `${c.nama || ''} ${c.hp || ''} ${c.kode || ''}`.toLowerCase().includes(q);
   }).slice(0, 30);
 
   if (list.length === 0) {
-    tbody.innerHTML = '<tr><td colspan="4" style="text-align:center; padding:14px; color:#64748B;">Member tidak ditemukan.</td></tr>';
+    container.innerHTML = '<div style="padding:16px; text-align:center; color:#64748b;">Member tidak ditemukan.</div>';
     return;
   }
 
   let html = '';
   list.forEach((c) => {
     html += `
-      <tr style="cursor:pointer;" onclick="selectMemberById('${escapeHtml(String(c.id))}')">
-        <td>${escapeHtml(c.kode)}</td>
-        <td><strong>${escapeHtml(c.nama)}</strong><br><small>${escapeHtml(c.hp || '-')}</small></td>
-        <td>${escapeHtml(c.level || 'UMUM')}</td>
-        <td class="num"><strong>${formatNumber(c.poin || 0)}</strong></td>
-      </tr>`;
+      <div class="customer-list-item" onclick="selectCustomerById('${escapeHtml(String(c.id))}')">
+        <div>
+          <div style="font-weight:700;">${escapeHtml(c.nama)}</div>
+          <div style="font-size:12px; color:#64748b;">${escapeHtml(c.hp || '-')} (${escapeHtml(c.kode)})</div>
+        </div>
+        <div class="member-pts-badge">⭐ ${formatNumber(c.poin || 0)} Poin</div>
+      </div>`;
   });
-  tbody.innerHTML = html;
+  container.innerHTML = html;
 }
 
-function selectMemberById(id) {
+function selectCustomerById(id) {
   const cust = CUSTOMERS.find((c) => String(c.id) === String(id));
   if (!cust) return;
   SELECTED_CUSTOMER = cust;
-  updateActiveMemberUI();
-  closeModals();
+  CHECKOUT_STATE.redeemPoints = 0;
+  updateCustomerBoxUI();
+  updateCartSummaryUI();
+  closeModal('modalCustomer');
   showToast(`Member dipilih: ${cust.nama}`, 'success');
 }
 
-function resetActiveMember() {
+function clearSelectedCustomer() {
   SELECTED_CUSTOMER = null;
-  updateActiveMemberUI();
+  CHECKOUT_STATE.redeemPoints = 0;
+  updateCustomerBoxUI();
+  updateCartSummaryUI();
 }
 
-function updateActiveMemberUI() {
-  const nameEl = document.getElementById('lblActiveMemberName');
-  const badgeEl = document.getElementById('lblActiveMemberBadge');
-  const resetBtn = document.getElementById('btnResetMember');
+function updateCustomerBoxUI() {
+  const nameEl = document.getElementById('selectedCustomerName');
+  const ptsEl = document.getElementById('selectedCustomerPts');
+  const clearBtn = document.getElementById('btnClearCustomer');
 
+  if (!nameEl) return;
   if (SELECTED_CUSTOMER) {
-    if (nameEl) nameEl.textContent = `${SELECTED_CUSTOMER.nama} (${SELECTED_CUSTOMER.level || 'MEMBER'})`;
-    if (badgeEl) badgeEl.textContent = `${formatNumber(SELECTED_CUSTOMER.poin || 0)} Poin`;
-    if (resetBtn) resetBtn.style.display = 'inline-block';
+    nameEl.textContent = SELECTED_CUSTOMER.nama;
+    if (ptsEl) ptsEl.textContent = `⭐ ${formatNumber(SELECTED_CUSTOMER.poin || 0)} Poin`;
+    if (clearBtn) clearBtn.style.display = 'inline-block';
   } else {
-    if (nameEl) nameEl.textContent = 'Pelanggan Umum (UMUM)';
-    if (badgeEl) badgeEl.textContent = '0 Poin';
-    if (resetBtn) resetBtn.style.display = 'none';
+    nameEl.textContent = 'Pelanggan Umum (Walk-in)';
+    if (ptsEl) ptsEl.textContent = '';
+    if (clearBtn) clearBtn.style.display = 'none';
   }
 }
 
 async function quickRegisterMember() {
-  const name = document.getElementById('newMbrName')?.value.trim();
-  const phone = document.getElementById('newMbrPhone')?.value.trim();
-  const level = document.getElementById('newMbrLevel')?.value || 'SILVER';
-  if (!name || !phone) {
+  const nama = document.getElementById('newMemberName')?.value.trim();
+  const hp = document.getElementById('newMemberPhone')?.value.trim();
+  if (!nama || !hp) {
     showToast('Nama dan No. HP member wajib diisi', 'error');
     return;
   }
 
   const newCust = {
     id: 'MBR-' + Date.now().toString().slice(-6),
-    kode: phone,
-    nama: name,
-    hp: phone,
-    level: level,
-    poin: 0,
-    creditLimit: 0,
-    currentDebt: 0
+    kode: 'MBR-' + Math.floor(1000 + Math.random() * 9000),
+    nama,
+    hp,
+    poin: 0
   };
+
   CUSTOMERS.unshift(newCust);
   SELECTED_CUSTOMER = newCust;
-  updateActiveMemberUI();
-  closeModals();
-  showToast('Member baru berhasil didaftarkan', 'success');
+  updateCustomerBoxUI();
+  closeModal('modalCustomer');
+  showToast('Member baru terdaftar & dipilih', 'success');
 
   try {
     await ApiClient.call('member/save', {
       member_id: newCust.id,
       card_code: newCust.kode,
-      name: name,
-      phone: phone,
-      price_level: level
+      name: nama,
+      phone: hp
     });
-  } catch (e) {}
-}
-
-function handleHoldRecall(mode = 'HOLD') {
-  if (mode === 'HOLD' && CART.length > 0) {
-    const note = prompt('Masukkan catatan pembeli / nomor meja:', document.getElementById('kasirTableNumberInput')?.value || `Antrean #${PARKED_CARTS.length + 1}`);
-    if (note === null) return;
-    const totals = getCartTotals();
-    PARKED_CARTS.push({
-      id: 'HOLD-' + Date.now(),
-      note: note.trim() || `Antrean #${PARKED_CARTS.length + 1}`,
-      time: new Date().toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' }),
-      items: JSON.parse(JSON.stringify(CART)),
-      customer: SELECTED_CUSTOMER,
-      total: totals.grandTotal
-    });
-    localStorage.setItem('DANISH_PARKED_CARTS_' + getStoreCode(), JSON.stringify(PARKED_CARTS));
-    CART = [];
-    SELECTED_CART_INDEX = -1;
-    renderCartTable();
-    showToast('Transaksi berhasil ditunda (Hold)', 'success');
-    return;
+  } catch (e) {
+    console.warn('Member baru disimpan lokal');
   }
-
-  const tbody = document.getElementById('holdQueueBody');
-  if (tbody) {
-    if (PARKED_CARTS.length === 0) {
-      tbody.innerHTML = '<tr><td colspan="5" style="text-align:center; padding:16px; color:#64748B;">Belum ada antrean yang ditunda.</td></tr>';
-    } else {
-      let html = '';
-      PARKED_CARTS.forEach((p, idx) => {
-        html += `
-          <tr>
-            <td><strong>${escapeHtml(p.note)}</strong></td>
-            <td>${escapeHtml(p.time)}</td>
-            <td class="num">${p.items.length}</td>
-            <td class="num"><strong>Rp ${formatNumber(p.total)}</strong></td>
-            <td>
-              <button onclick="recallParkedCart(${idx})" style="padding:4px 8px; border-radius:6px; border:none; background:#2563EB; color:#fff; font-weight:700; cursor:pointer;">Panggil</button>
-              <button onclick="deleteParkedCart(${idx})" style="padding:4px 7px; border-radius:6px; border:none; background:#DC2626; color:#fff; font-weight:700; cursor:pointer;">Hapus</button>
-            </td>
-          </tr>`;
-      });
-      tbody.innerHTML = html;
-    }
-  }
-  document.getElementById('holdQueueModal')?.classList.add('active');
-}
-
-function recallParkedCart(idx) {
-  const item = PARKED_CARTS[idx];
-  if (!item) return;
-  CART = item.items;
-  SELECTED_CUSTOMER = item.customer || null;
-  SELECTED_CART_INDEX = CART.length > 0 ? 0 : -1;
-  PARKED_CARTS.splice(idx, 1);
-  localStorage.setItem('DANISH_PARKED_CARTS_' + getStoreCode(), JSON.stringify(PARKED_CARTS));
-  updateActiveMemberUI();
-  renderCartTable();
-  closeModals();
-  showToast(`Antrean "${item.note}" dipanggil`, 'success');
-}
-
-function deleteParkedCart(idx) {
-  PARKED_CARTS.splice(idx, 1);
-  localStorage.setItem('DANISH_PARKED_CARTS_' + getStoreCode(), JSON.stringify(PARKED_CARTS));
-  handleHoldRecall('RECALL');
 }
 
 // =========================================================================
-// 9. MODAL PEMBAYARAN MULTI-CHANNEL (KOTAK 1-6) + QRIS DINAMIS EMVCo
+// 11. CHECKOUT, SPLIT PAYMENT & QRIS HYBRID ENGINE (TERINTEGRASI QrisGateway.gs)
 // =========================================================================
-function openCheckoutModal(defaultChannel = 'CASH') {
+function openCheckoutModal() {
   if (CART.length === 0) {
     showToast('Keranjang belanja masih kosong!', 'warning');
     return;
   }
 
-  const modal = document.getElementById('checkoutModal');
+  const modal = document.getElementById('modalCheckout');
   if (!modal) return;
 
-  document.getElementById('payInvoiceDiscount').value = 0;
-  document.getElementById('payCashInput').value = 0;
-  document.getElementById('payQrisInput').value = 0;
-  document.getElementById('payTransferInput').value = 0;
-  document.getElementById('payTransferRef').value = '';
-  document.getElementById('payEdcInput').value = 0;
-  document.getElementById('payEdcRef').value = '';
-  const tempoInput = document.getElementById('payTempoInput');
-  if (tempoInput) tempoInput.value = 0;
+  CHECKOUT_STATE.payments = [];
+  CHECKOUT_STATE.activePayMethod = 'CASH';
+  CHECKOUT_STATE.redeemPoints = 0;
 
-  const tagEl = document.getElementById('checkoutMemberTag');
-  const redeemInput = document.getElementById('payRedeemPoints');
-  const availPtsEl = document.getElementById('availPointsLbl');
-  const tempoRow = document.getElementById('tempoPaymentRow');
-  const availCreditEl = document.getElementById('availCreditLbl');
-
-  if (SELECTED_CUSTOMER) {
-    if (tagEl) tagEl.textContent = `${SELECTED_CUSTOMER.nama} (${formatNumber(SELECTED_CUSTOMER.poin || 0)} Poin)`;
-    if (availPtsEl) availPtsEl.textContent = formatNumber(SELECTED_CUSTOMER.poin || 0);
-    if (redeemInput) {
-      redeemInput.disabled = (SELECTED_CUSTOMER.poin || 0) <= 0;
+  const redeemWrap = document.getElementById('checkoutRedeemWrap');
+  const redeemInput = document.getElementById('checkoutRedeemPtsInput');
+  const redeemAvail = document.getElementById('checkoutAvailPts');
+  if (redeemWrap && redeemInput && redeemAvail) {
+    if (SELECTED_CUSTOMER && Number(SELECTED_CUSTOMER.poin) > 0) {
+      redeemWrap.style.display = 'flex';
+      redeemAvail.textContent = formatNumber(SELECTED_CUSTOMER.poin);
+      redeemInput.max = SELECTED_CUSTOMER.poin;
       redeemInput.value = 0;
+    } else {
+      redeemWrap.style.display = 'none';
     }
-    const availCredit = Math.max(0, (SELECTED_CUSTOMER.creditLimit || 0) - (SELECTED_CUSTOMER.currentDebt || 0));
-    if (tempoRow) tempoRow.style.display = availCredit > 0 ? 'block' : 'none';
-    if (availCreditEl) availCreditEl.textContent = `Rp ${formatNumber(availCredit)}`;
-  } else {
-    if (tagEl) tagEl.textContent = 'Pelanggan Umum (0 Poin)';
-    if (availPtsEl) availPtsEl.textContent = '0';
-    if (redeemInput) {
-      redeemInput.disabled = true;
-      redeemInput.value = 0;
-    }
-    if (tempoRow) tempoRow.style.display = 'none';
   }
 
-  calcChange();
-  selectFullPaymentPreset(defaultChannel);
+  selectPaymentMethodTab('CASH');
+  refreshCheckoutModalUI();
   modal.classList.add('active');
+
+  setTimeout(() => {
+    const payInput = document.getElementById('checkoutPayAmountInput');
+    if (payInput) {
+      const comp = getCheckoutComputation();
+      payInput.value = comp.netDue;
+      payInput.select();
+    }
+  }, 100);
 }
 
-function getComputedCheckoutSummary() {
-  const prefs = KASIR_COMPANY_PREFS;
-  const totals = getCartTotals();
-
-  const invDisc = Math.max(0, parseFloat(document.getElementById('payInvoiceDiscount')?.value) || 0);
+function onRedeemPointsChange(val) {
   const maxPts = SELECTED_CUSTOMER ? Number(SELECTED_CUSTOMER.poin || 0) : 0;
-  const redeemPts = Math.min(maxPts, Math.max(0, parseInt(document.getElementById('payRedeemPoints')?.value, 10) || 0));
-  const redeemVal = redeemPts * (Number(prefs.pointRedeemVal) || 100);
-
-  let base = Math.max(0, totals.grandTotal - invDisc - redeemVal);
-  const includePpn = document.getElementById('payIncludePpn')?.checked || false;
-  const autoRound = document.getElementById('payAutoRound')?.checked !== false;
-
-  let taxAmount = 0;
-  if (includePpn && base > 0) {
-    const rate = (Number(prefs.taxPct) || 11) / 100;
-    taxAmount = Math.round(base * rate);
-    base += taxAmount;
-  }
-
-  let finalDue = base;
-  const step = Number(prefs.roundStep) || 100;
-  if (autoRound && finalDue > 0 && step > 0) {
-    finalDue = prefs.roundMode === 'UP'
-      ? Math.ceil(finalDue / step) * step
-      : Math.floor(finalDue / step) * step;
-  }
-
-  return {
-    subtotal: totals.subtotal,
-    itemDisc: totals.itemDisc,
-    invDisc,
-    redeemPts,
-    redeemVal,
-    taxAmount,
-    finalDue
-  };
+  let pts = parseInt(val, 10) || 0;
+  if (pts < 0) pts = 0;
+  if (pts > maxPts) pts = maxPts;
+  CHECKOUT_STATE.redeemPoints = pts;
+  refreshCheckoutModalUI();
 }
 
-function selectFullPaymentPreset(channel) {
-  const summary = getComputedCheckoutSummary();
-  document.getElementById('payCashInput').value = 0;
-  document.getElementById('payQrisInput').value = 0;
-  document.getElementById('payTransferInput').value = 0;
-  document.getElementById('payEdcInput').value = 0;
+function selectPaymentMethodTab(method) {
+  CHECKOUT_STATE.activePayMethod = method;
+  document.querySelectorAll('.pay-method-tab').forEach((btn) => {
+    btn.classList.toggle('active', btn.dataset.method === method);
+  });
 
-  if (channel === 'CASH') {
-    document.getElementById('payCashInput').value = summary.finalDue;
-  } else if (channel === 'QRIS' || channel === 'EWALLET') {
-    document.getElementById('payQrisInput').value = summary.finalDue;
-    if (channel === 'EWALLET') document.getElementById('payQrisProvider').value = 'DANA';
-    triggerHybridQrisDisplay(summary.finalDue);
-  } else if (channel === 'TRANSFER') {
-    document.getElementById('payTransferInput').value = summary.finalDue;
-  } else if (channel === 'EDC') {
-    document.getElementById('payEdcInput').value = summary.finalDue;
+  const refWrap = document.getElementById('checkoutRefWrap');
+  const qrisPanel = document.getElementById('checkoutQrisPanel');
+
+  if (refWrap) refWrap.style.display = method === 'CASH' ? 'none' : 'block';
+  if (qrisPanel) qrisPanel.style.display = method === 'QRIS' ? 'block' : 'none';
+
+  const comp = getCheckoutComputation();
+  const totalPaid = CHECKOUT_STATE.payments.reduce((s, p) => s + p.amountIdr, 0);
+  const remaining = Math.max(0, comp.netDue - totalPaid);
+
+  const payInput = document.getElementById('checkoutPayAmountInput');
+  if (payInput) payInput.value = remaining;
+
+  if (method === 'QRIS') {
+    triggerHybridQrisDisplay(remaining > 0 ? remaining : comp.netDue);
   }
-
-  calcChange();
 }
 
-function setQuickCash(addAmount) {
-  const cashInput = document.getElementById('payCashInput');
-  if (!cashInput) return;
-  const current = parseFloat(cashInput.value) || 0;
-  cashInput.value = current + addAmount;
-  calcChange();
+function selectFullPaymentPreset(mode) {
+  const comp = getCheckoutComputation();
+  const totalPaid = CHECKOUT_STATE.payments.reduce((s, p) => s + p.amountIdr, 0);
+  const remaining = Math.max(0, comp.netDue - totalPaid);
+  const payInput = document.getElementById('checkoutPayAmountInput');
+
+  if (mode === 'EXACT') {
+    if (payInput) payInput.value = remaining;
+  } else if (mode === 'QRIS') {
+    selectPaymentMethodTab('QRIS');
+    if (payInput) payInput.value = remaining;
+    triggerHybridQrisDisplay(remaining);
+  } else {
+    const nominal = parseInt(mode, 10) || 0;
+    if (payInput) payInput.value = nominal;
+  }
 }
 
-function calcChange() {
-  const summary = getComputedCheckoutSummary();
-  const dueEl = document.getElementById('modalTotalDue');
-  if (dueEl) dueEl.textContent = `Rp ${formatNumber(summary.finalDue)}`;
+function addSplitPaymentLine() {
+  const payInput = document.getElementById('checkoutPayAmountInput');
+  const refInput = document.getElementById('checkoutPayRefInput');
+  const rawAmount = parseFloat(payInput?.value) || 0;
 
-  const cash = parseFloat(document.getElementById('payCashInput')?.value) || 0;
-  const qris = parseFloat(document.getElementById('payQrisInput')?.value) || 0;
-  const transfer = parseFloat(document.getElementById('payTransferInput')?.value) || 0;
-  const edc = parseFloat(document.getElementById('payEdcInput')?.value) || 0;
-  const tempo = parseFloat(document.getElementById('payTempoInput')?.value) || 0;
-
-  if (qris > 0) {
-    triggerHybridQrisDisplay(qris);
+  if (rawAmount <= 0) {
+    showToast('Masukkan nominal pembayaran yang valid', 'warning');
+    return;
   }
 
-  const totalPaid = cash + qris + transfer + edc + tempo;
-  const change = Math.max(0, totalPaid - summary.finalDue);
+  const amountIdr =
+    CURRENCY_CONFIG.activeCurrency === 'IDR'
+      ? Math.round(rawAmount)
+      : Math.round(rawAmount * CURRENCY_CONFIG.rateToIdr);
 
-  const changeEl = document.getElementById('modalChangeVal');
-  if (changeEl) {
-    changeEl.textContent = `Rp ${formatNumber(change)}`;
-    changeEl.style.color = totalPaid < summary.finalDue ? '#DC2626' : '#059669';
+  CHECKOUT_STATE.payments.push({
+    method: CHECKOUT_STATE.activePayMethod,
+    amountIdr: amountIdr,
+    ref: refInput?.value.trim() || ''
+  });
+
+  if (refInput) refInput.value = '';
+  refreshCheckoutModalUI();
+
+  const comp = getCheckoutComputation();
+  const totalPaid = CHECKOUT_STATE.payments.reduce((s, p) => s + p.amountIdr, 0);
+  const remaining = Math.max(0, comp.netDue - totalPaid);
+  if (payInput) payInput.value = remaining;
+}
+
+function removeSplitPaymentLine(idx) {
+  CHECKOUT_STATE.payments.splice(idx, 1);
+  refreshCheckoutModalUI();
+}
+
+function refreshCheckoutModalUI() {
+  const comp = getCheckoutComputation();
+  const totalPaid = CHECKOUT_STATE.payments.reduce((s, p) => s + p.amountIdr, 0);
+  const remaining = Math.max(0, comp.netDue - totalPaid);
+  const change = Math.max(0, totalPaid - comp.netDue);
+
+  const dueEl = document.getElementById('checkoutNetDueDisplay');
+  const paidEl = document.getElementById('checkoutPaidDisplay');
+  const remEl = document.getElementById('checkoutRemainingDisplay');
+  const chgEl = document.getElementById('checkoutChangeDisplay');
+  const listEl = document.getElementById('checkoutSplitList');
+
+  if (dueEl) dueEl.textContent = formatMoney(comp.netDue, true);
+  if (paidEl) paidEl.textContent = formatMoney(totalPaid, true);
+  if (remEl) remEl.textContent = formatMoney(remaining, true);
+  if (chgEl) chgEl.textContent = formatMoney(change, true);
+
+  if (listEl) {
+    if (CHECKOUT_STATE.payments.length === 0) {
+      listEl.innerHTML = '<div style="font-size:12px; color:#94a3b8; text-align:center; padding:8px;">Belum ada rincian pembayaran ditambahkan (atau klik Selesaikan untuk bayar penuh).</div>';
+    } else {
+      let html = '';
+      CHECKOUT_STATE.payments.forEach((p, idx) => {
+        html += `
+          <div class="split-pay-row">
+            <span><b>${p.method}</b> ${p.ref ? `(${escapeHtml(p.ref)})` : ''}</span>
+            <span>
+              <b>${formatMoney(p.amountIdr, true)}</b>
+              <button onclick="removeSplitPaymentLine(${idx})" style="margin-left:8px; color:#ef4444; background:none; border:none; cursor:pointer;">✕</button>
+            </span>
+          </div>`;
+      });
+      listEl.innerHTML = html;
+    }
   }
 }
 
 async function triggerHybridQrisDisplay(amountIdr) {
+  const statusEl = document.getElementById('qrisHybridStatus');
   const roundedAmt = Math.round(amountIdr);
-  if (roundedAmt <= 0) return;
 
-  if (QRIS_STATE.mode === 'API_GATEWAY') {
+  // Jika mode API_GATEWAY (Midtrans/Xendit) aktif di QrisGateway.gs
+  if (CHECKOUT_STATE.qrisMode === 'API_GATEWAY') {
+    if (statusEl) statusEl.textContent = '⏳ Membuat kode QRIS dinamis via Payment Gateway...';
     try {
       const gwRes = await ApiClient.call('pos/qris-create', {
         kodeToko: getStoreCode(),
@@ -1176,17 +1398,32 @@ async function triggerHybridQrisDisplay(amountIdr) {
         amount: roundedAmt
       });
       if (gwRes && !gwRes.fallbackOffline && gwRes.qrString) {
-        QRIS_STATE.dynamicPayload = gwRes.qrString;
+        CHECKOUT_STATE.qrisDynamicPayload = gwRes.qrString;
+        if (statusEl) statusEl.textContent = `✅ QRIS Gateway siap (Rp ${formatNumber(roundedAmt)}) & dikirim ke Layar Pelanggan.`;
         syncCustomerDisplay(gwRes.qrString, roundedAmt);
         return;
       }
     } catch (e) {}
   }
 
-  if (QRIS_STATE.staticString) {
-    const dyn = buildDynamicQrisString(QRIS_STATE.staticString, roundedAmt);
-    QRIS_STATE.dynamicPayload = dyn;
-    syncCustomerDisplay(dyn, roundedAmt);
+  // Mode Offline EMVCo Dynamic QRIS dari staticPayload
+  if (!CHECKOUT_STATE.qrisStaticString) {
+    if (statusEl) {
+      statusEl.textContent = '⚠️ String QRIS Statis belum diatur di Admin. Pelanggan dapat scan QRIS fisik di meja.';
+    }
+    return;
+  }
+
+  try {
+    const dynamicQris = buildDynamicQrisString(CHECKOUT_STATE.qrisStaticString, roundedAmt);
+    CHECKOUT_STATE.qrisDynamicPayload = dynamicQris;
+
+    if (statusEl) {
+      statusEl.textContent = `✅ QRIS Dinamis siap (Rp ${formatNumber(roundedAmt)}) & dikirim ke Layar Pelanggan.`;
+    }
+    syncCustomerDisplay(dynamicQris, roundedAmt);
+  } catch (e) {
+    console.warn('Gagal generate QRIS dinamis:', e);
   }
 }
 
@@ -1213,6 +1450,9 @@ function computeCrc16Ccitt(str) {
   return (crc & 0xffff).toString(16).toUpperCase().padStart(4, '0');
 }
 
+// =========================================================================
+// 12. PROSES FINAL TRANSAKSI, SHA-256 CHECKSUM & SINKRONISASI PosController.gs
+// =========================================================================
 async function sha256Hex(message) {
   try {
     const msgBuffer = new TextEncoder().encode(message);
@@ -1227,42 +1467,48 @@ async function sha256Hex(message) {
 async function processFinalPayment() {
   if (CART.length === 0) return;
 
-  const summary = getComputedCheckoutSummary();
-  const cash = parseFloat(document.getElementById('payCashInput')?.value) || 0;
-  const qris = parseFloat(document.getElementById('payQrisInput')?.value) || 0;
-  const qrisProv = document.getElementById('payQrisProvider')?.value || 'QRIS';
-  const transfer = parseFloat(document.getElementById('payTransferInput')?.value) || 0;
-  const bankProv = document.getElementById('payBankProvider')?.value || 'BCA';
-  const transferRef = document.getElementById('payTransferRef')?.value.trim() || '';
-  const edc = parseFloat(document.getElementById('payEdcInput')?.value) || 0;
-  const edcType = document.getElementById('payEdcType')?.value || 'DEBIT';
-  const edcRef = document.getElementById('payEdcRef')?.value.trim() || '';
-  const tempo = parseFloat(document.getElementById('payTempoInput')?.value) || 0;
+  const comp = getCheckoutComputation();
+  const prefs = KASIR_COMPANY_PREFS;
+  const storeCode = getStoreCode();
 
-  const totalPaid = cash + qris + transfer + edc + tempo;
-  if (totalPaid < summary.finalDue) {
-    showToast(`Pembayaran kurang Rp ${formatNumber(summary.finalDue - totalPaid)}`, 'error');
+  if (CHECKOUT_STATE.payments.length === 0) {
+    const payInput = document.getElementById('checkoutPayAmountInput');
+    const refInput = document.getElementById('checkoutPayRefInput');
+    const rawAmount = parseFloat(payInput?.value) || 0;
+    const amountIdr =
+      CURRENCY_CONFIG.activeCurrency === 'IDR'
+        ? Math.round(rawAmount)
+        : Math.round(rawAmount * CURRENCY_CONFIG.rateToIdr);
+
+    if (amountIdr < comp.netDue) {
+      showToast(`Pembayaran kurang Rp ${formatNumber(comp.netDue - amountIdr)}`, 'error');
+      return;
+    }
+
+    CHECKOUT_STATE.payments.push({
+      method: CHECKOUT_STATE.activePayMethod,
+      amountIdr: amountIdr,
+      ref: refInput?.value.trim() || ''
+    });
+  }
+
+  const totalPaid = CHECKOUT_STATE.payments.reduce((s, p) => s + p.amountIdr, 0);
+  if (totalPaid < comp.netDue) {
+    showToast(`Total pembayaran masih kurang Rp ${formatNumber(comp.netDue - totalPaid)}`, 'error');
     return;
   }
 
-  const change = Math.max(0, totalPaid - summary.finalDue);
-  const storeCode = getStoreCode();
-  const prefix = KASIR_COMPANY_PREFS.prefixStruk || 'TRX-';
+  const changeAmount = totalPaid - comp.netDue;
+  const prefix = prefs.prefixStruk || 'TRX-';
   const trxId = `${prefix}${storeCode}-${Date.now()}`;
   const shiftId = ACTIVE_SHIFT?.shiftId || `SHF-${storeCode}-DEFAULT`;
   const cashierId = SESSION.user.idUser || SESSION.user.username;
   const timestamp = new Date().toISOString();
 
-  const earnStep = Number(KASIR_COMPANY_PREFS.pointEarnStep) || 10000;
-  const earnedPts = SELECTED_CUSTOMER && earnStep > 0 ? Math.floor(summary.finalDue / earnStep) : 0;
+  const earnStep = Number(prefs.pointEarnStep) || 10000;
+  const earnedPts = SELECTED_CUSTOMER && earnStep > 0 ? Math.floor(comp.netDue / earnStep) : 0;
 
-  const payments = [];
-  if (cash > 0) payments.push({ method: 'CASH', amount: cash, ref: '' });
-  if (qris > 0) payments.push({ method: qrisProv, amount: qris, ref: '' });
-  if (transfer > 0) payments.push({ method: `TRANSFER_${bankProv}`, amount: transfer, ref: transferRef });
-  if (edc > 0) payments.push({ method: `EDC_${edcType}`, amount: edc, ref: edcRef });
-  if (tempo > 0) payments.push({ method: 'TEMPO_MEMBER', amount: tempo, ref: SELECTED_CUSTOMER?.id || '' });
-
+  // Format item & payload sesuai kontrak PosController.gs -> syncTransactions
   const backendItems = CART.map((it) => ({
     barcode: it.barcode || it.sku,
     sku_code: it.sku,
@@ -1275,11 +1521,21 @@ async function processFinalPayment() {
     is_non_physical: Boolean(it.isCustom)
   }));
 
-  const itemsJsonStr = JSON.stringify(backendItems);
-  const paymentsJsonStr = JSON.stringify(payments);
-  const checksum = await sha256Hex(`${trxId}|${shiftId}|${summary.finalDue}|${itemsJsonStr}`);
+  const backendPayments = CHECKOUT_STATE.payments.map((p) => ({
+    method: p.method,
+    amount: p.amountIdr,
+    ref: p.ref || ''
+  }));
 
-  const serverTrx = {
+  const itemsJsonStr = JSON.stringify(backendItems);
+  const paymentsJsonStr = JSON.stringify(backendPayments);
+  const totalDiscountAll = comp.itemDiscountTotal + comp.globalDisc + comp.redeemValue;
+
+  // Checksum SHA-256 sesuai rumus PosController.gs: `${trx.trx_id}|${trx.shift_id}|${totalKasir}|${trx.items_json}`
+  const rawSignature = `${trxId}|${shiftId}|${comp.netDue}|${itemsJsonStr}`;
+  const checksum = await sha256Hex(rawSignature);
+
+  const serverTrxRecord = {
     trx_id: trxId,
     shift_id: shiftId,
     timestamp: timestamp,
@@ -1287,16 +1543,45 @@ async function processFinalPayment() {
     trx_type: 'SALE',
     items_json: itemsJsonStr,
     promo_applied_json: '[]',
-    discount_total: summary.itemDisc + summary.invDisc + summary.redeemVal,
-    tax_amount: summary.taxAmount,
-    grand_total: summary.finalDue,
+    discount_total: totalDiscountAll,
+    tax_amount: comp.taxAmount,
+    grand_total: comp.netDue,
     payments_json: paymentsJsonStr,
     checksum: checksum,
     member_id: SELECTED_CUSTOMER ? SELECTED_CUSTOMER.id : 'MBR-000',
-    points_redeemed: summary.redeemPts
+    points_redeemed: comp.redeemPts
   };
 
-  // Potong stok lokal
+  // Objek untuk cetak struk & riwayat lokal
+  const localReceiptObj = {
+    trxId,
+    tanggal: timestamp,
+    kodeToko: storeCode,
+    namaToko: prefs.companyName || SESSION.store.namaToko,
+    kasirNama: SESSION.user.nama || SESSION.user.username,
+    customer: SELECTED_CUSTOMER ? { id: SELECTED_CUSTOMER.id, nama: SELECTED_CUSTOMER.nama } : null,
+    items: CART.map((it) => ({
+      nama: it.nama,
+      satuan: it.satuan,
+      qty: it.qty,
+      harga: it.harga,
+      discNominal: it.discNominal || 0,
+      subtotal: it.harga * it.qty - (it.discNominal || 0)
+    })),
+    subtotal: comp.subtotal,
+    totalDiskon: comp.itemDiscountTotal + comp.globalDisc,
+    redeemPoints: comp.redeemPts,
+    redeemValue: comp.redeemValue,
+    earnedPoints: earnedPts,
+    pajak: comp.taxAmount,
+    pembulatan: comp.roundingDiff,
+    grandTotal: comp.netDue,
+    totalBayar: totalPaid,
+    kembalian: changeAmount,
+    payments: CHECKOUT_STATE.payments
+  };
+
+  // Update stok lokal
   CART.forEach((sold) => {
     const pIdx = PRODUCTS.findIndex((p) => String(p.id) === String(sold.id));
     if (pIdx > -1 && PRODUCTS[pIdx].trackStock !== false) {
@@ -1305,50 +1590,118 @@ async function processFinalPayment() {
   });
   localStorage.setItem('DANISH_PRODUCTS_' + storeCode, JSON.stringify(PRODUCTS));
 
-  // Update saldo poin & piutang member lokal
   if (SELECTED_CUSTOMER) {
-    SELECTED_CUSTOMER.poin = Math.max(0, Number(SELECTED_CUSTOMER.poin || 0) - summary.redeemPts + earnedPts);
-    if (tempo > 0) SELECTED_CUSTOMER.currentDebt = Number(SELECTED_CUSTOMER.currentDebt || 0) + tempo;
+    SELECTED_CUSTOMER.poin = Math.max(0, Number(SELECTED_CUSTOMER.poin || 0) - comp.redeemPts + earnedPts);
     const cIdx = CUSTOMERS.findIndex((c) => String(c.id) === String(SELECTED_CUSTOMER.id));
-    if (cIdx > -1) CUSTOMERS[cIdx] = { ...SELECTED_CUSTOMER };
+    if (cIdx > -1) CUSTOMERS[cIdx].poin = SELECTED_CUSTOMER.poin;
     localStorage.setItem('DANISH_CUSTOMERS_' + storeCode, JSON.stringify(CUSTOMERS));
   }
 
-  LAST_RECEIPT_OBJ = {
-    trxId,
-    tanggal: timestamp,
-    namaToko: KASIR_COMPANY_PREFS.companyName || SESSION.store?.namaToko || 'DANISH POS',
-    kasirNama: SESSION.user.nama || SESSION.user.username,
-    customerName: SELECTED_CUSTOMER ? SELECTED_CUSTOMER.nama : '',
-    earnedPts,
-    saldoPts: SELECTED_CUSTOMER ? SELECTED_CUSTOMER.poin : 0,
-    items: JSON.parse(JSON.stringify(CART)),
-    subtotal: summary.subtotal,
-    totalDiskon: summary.itemDisc + summary.invDisc + summary.redeemVal,
-    pajak: summary.taxAmount,
-    grandTotal: summary.finalDue,
-    totalBayar: totalPaid,
-    kembalian: change,
-    payments
-  };
-
-  saveTransactionToLocalHistory(LAST_RECEIPT_OBJ);
-  enqueueOfflineTransaction(serverTrx);
+  saveTransactionToLocalHistory(localReceiptObj);
+  enqueueOfflineTransaction(serverTrxRecord);
   syncOfflineTransactions();
-  printThermalReceipt(LAST_RECEIPT_OBJ);
 
-  closeModals();
+  printThermalReceipt(localReceiptObj);
+
+  closeModal('modalCheckout');
   CART = [];
   SELECTED_CART_INDEX = -1;
+  CHECKOUT_STATE.globalDiscVal = 0;
+  CHECKOUT_STATE.redeemPoints = 0;
+  CHECKOUT_STATE.payments = [];
+  CHECKOUT_STATE.qrisDynamicPayload = '';
   SELECTED_CUSTOMER = null;
-  QRIS_STATE.dynamicPayload = '';
-  updateActiveMemberUI();
-  renderCartTable();
+
+  updateCustomerBoxUI();
+  renderProductGrid();
+  renderCart();
   syncCustomerDisplay();
 
-  showToast(`Transaksi Sukses! Kembalian: Rp ${formatNumber(change)}`, 'success');
+  showToast(`Transaksi Berhasil! Kembalian: Rp ${formatNumber(changeAmount)}`, 'success');
 }
 
+function printThermalReceipt(trx) {
+  const prefs = KASIR_COMPANY_PREFS;
+  const storeDisplayName = prefs.companyName || trx.namaToko || SESSION.store.namaToko;
+  const storeDisplayAddr = prefs.companyAddress || SESSION.store.alamat || '';
+  const storeDisplayPhone = prefs.companyPhone ? `<br>Telp: ${escapeHtml(prefs.companyPhone)}` : '';
+  const footerText = prefs.receiptFooter || 'Terima Kasih Atas Kunjungan Anda';
+  const logoSrc = prefs.logoBase64 || prefs.logoUrl || '';
+
+  const printArea = document.getElementById('thermalPrintArea');
+  if (!printArea) return;
+
+  let itemsHtml = '';
+  trx.items.forEach((it) => {
+    itemsHtml += `
+      <div style="margin-bottom:4px;">
+        <div style="font-weight:bold;">${escapeHtml(it.nama)}</div>
+        <div style="display:flex; justify-content:space-between; font-size:11px;">
+          <span>${it.qty} ${escapeHtml(it.satuan || '')} x ${formatNumber(it.harga)}</span>
+          <span>${formatNumber(it.subtotal)}</span>
+        </div>
+        ${it.discNominal > 0 ? `<div style="font-size:10px; text-align:right;">(Diskon: -${formatNumber(it.discNominal)})</div>` : ''}
+      </div>`;
+  });
+
+  let paymentsHtml = '';
+  trx.payments.forEach((p) => {
+    paymentsHtml += `
+      <div style="display:flex; justify-content:space-between;">
+        <span>Bayar (${p.method})</span>
+        <span>${formatNumber(p.amountIdr)}</span>
+      </div>`;
+  });
+
+  printArea.innerHTML = `
+    <div style="width: 58mm; font-family: 'Courier New', monospace; font-size: 12px; color: #000; padding: 4px;">
+      <div style="text-align:center; border-bottom:1px dashed #000; padding-bottom:6px; margin-bottom:6px;">
+        ${logoSrc ? `<img src="${logoSrc}" style="max-width:42mm; max-height:18mm; object-fit:contain; margin-bottom:4px;"><br>` : ''}
+        <strong style="font-size:14px;">${escapeHtml(storeDisplayName)}</strong><br>
+        ${storeDisplayAddr ? `<span style="font-size:11px;">${escapeHtml(storeDisplayAddr)}</span>` : ''}
+        ${storeDisplayPhone ? `<span style="font-size:11px;">${storeDisplayPhone}</span>` : ''}
+      </div>
+      <div style="font-size:11px; border-bottom:1px dashed #000; padding-bottom:6px; margin-bottom:6px;">
+        <div>No   : ${escapeHtml(trx.trxId)}</div>
+        <div>Tgl  : ${new Date(trx.tanggal).toLocaleString('id-ID')}</div>
+        <div>Kasir: ${escapeHtml(trx.kasirNama)}</div>
+        ${trx.customer ? `<div>Member: ${escapeHtml(trx.customer.nama)}</div>` : ''}
+      </div>
+      <div style="border-bottom:1px dashed #000; padding-bottom:6px; margin-bottom:6px;">
+        ${itemsHtml}
+      </div>
+      <div style="font-size:11px; border-bottom:1px dashed #000; padding-bottom:6px; margin-bottom:6px;">
+        <div style="display:flex; justify-content:space-between;"><span>Subtotal</span><span>${formatNumber(trx.subtotal)}</span></div>
+        ${trx.totalDiskon > 0 ? `<div style="display:flex; justify-content:space-between;"><span>Diskon</span><span>-${formatNumber(trx.totalDiskon)}</span></div>` : ''}
+        ${trx.redeemValue > 0 ? `<div style="display:flex; justify-content:space-between;"><span>Tukar Poin (${trx.redeemPoints} pt)</span><span>-${formatNumber(trx.redeemValue)}</span></div>` : ''}
+        ${trx.pajak > 0 ? `<div style="display:flex; justify-content:space-between;"><span>PPN</span><span>${formatNumber(trx.pajak)}</span></div>` : ''}
+        ${trx.pembulatan !== 0 ? `<div style="display:flex; justify-content:space-between;"><span>Pembulatan</span><span>${formatNumber(trx.pembulatan)}</span></div>` : ''}
+        <div style="display:flex; justify-content:space-between; font-weight:bold; font-size:13px; margin-top:4px;">
+          <span>TOTAL</span><span>Rp ${formatNumber(trx.grandTotal)}</span>
+        </div>
+        ${paymentsHtml}
+        <div style="display:flex; justify-content:space-between; font-weight:bold;">
+          <span>KEMBALI</span><span>Rp ${formatNumber(trx.kembalian)}</span>
+        </div>
+      </div>
+      ${
+        trx.customer
+          ? `<div style="font-size:10px; text-align:center; margin-bottom:6px;">
+              Poin Didapat: +${trx.earnedPoints} | Saldo Poin: ${SELECTED_CUSTOMER?.poin || 0}
+             </div>`
+          : ''
+      }
+      <div style="text-align:center; font-size:11px; margin-top:6px;">
+        ${escapeHtml(footerText)}
+      </div>
+    </div>`;
+
+  window.print();
+}
+
+// =========================================================================
+// 13. OFFLINE QUEUE (pos/sync-trx), RIWAYAT & CUSTOMER DISPLAY SYNC
+// =========================================================================
 function saveTransactionToLocalHistory(trx) {
   const key = 'DANISH_TRX_HISTORY_' + getStoreCode();
   try {
@@ -1359,324 +1712,11 @@ function saveTransactionToLocalHistory(trx) {
   } catch (e) {}
 }
 
-function reprintLastReceipt() {
-  if (!LAST_RECEIPT_OBJ) {
-    const key = 'DANISH_TRX_HISTORY_' + getStoreCode();
-    const list = JSON.parse(localStorage.getItem(key) || '[]');
-    if (list.length > 0) LAST_RECEIPT_OBJ = list[0];
-  }
-  if (!LAST_RECEIPT_OBJ) {
-    showToast('Belum ada transaksi terakhir untuk dicetak ulang', 'warning');
-    return;
-  }
-  printThermalReceipt(LAST_RECEIPT_OBJ);
-}
-
-function printThermalReceipt(trx) {
-  const area = document.getElementById('thermalReceiptArea');
-  if (!area) return;
-  const prefs = KASIR_COMPANY_PREFS;
-  const logoSrc = normalizeLogoDataUrl(prefs.logoBase64 || prefs.logoUrl || '');
-
-  let rows = '';
-  trx.items.forEach((it) => {
-    const sub = it.harga * it.qty - (it.discNominal || 0);
-    rows += `
-      <div style="margin-bottom:4px;">
-        <div style="font-weight:bold;">${escapeHtml(it.nama)}</div>
-        <div style="display:flex; justify-content:space-between; font-size:11px;">
-          <span>${it.qty} x ${formatNumber(it.harga)}</span>
-          <span>${formatNumber(sub)}</span>
-        </div>
-      </div>`;
-  });
-
-  area.innerHTML = `
-    <div style="width:58mm; font-family:'Courier New',monospace; font-size:12px; color:#000; padding:4px;">
-      <div style="text-align:center; border-bottom:1px dashed #000; padding-bottom:6px; margin-bottom:6px;">
-        ${logoSrc ? `<img src="${logoSrc}" style="max-width:40mm; max-height:16mm; object-fit:contain;"><br>` : ''}
-        <strong>${escapeHtml(trx.namaToko)}</strong><br>
-        ${prefs.companyAddress ? `<span style="font-size:10px;">${escapeHtml(prefs.companyAddress)}</span>` : ''}
-      </div>
-      <div style="font-size:11px; border-bottom:1px dashed #000; padding-bottom:6px; margin-bottom:6px;">
-        <div>No   : ${escapeHtml(trx.trxId)}</div>
-        <div>Tgl  : ${new Date(trx.tanggal).toLocaleString('id-ID')}</div>
-        <div>Kasir: ${escapeHtml(trx.kasirNama)}</div>
-        ${trx.customerName ? `<div>Member: ${escapeHtml(trx.customerName)}</div>` : ''}
-      </div>
-      <div style="border-bottom:1px dashed #000; padding-bottom:6px; margin-bottom:6px;">${rows}</div>
-      <div style="font-size:12px;">
-        <div style="display:flex; justify-content:space-between; font-weight:bold;"><span>TOTAL</span><span>Rp ${formatNumber(trx.grandTotal)}</span></div>
-        <div style="display:flex; justify-content:space-between;"><span>BAYAR</span><span>Rp ${formatNumber(trx.totalBayar)}</span></div>
-        <div style="display:flex; justify-content:space-between; font-weight:bold;"><span>KEMBALI</span><span>Rp ${formatNumber(trx.kembalian)}</span></div>
-      </div>
-      ${
-        trx.customerName
-          ? `<div style="font-size:10px; text-align:center; margin-top:6px;">Poin +${trx.earnedPts || 0} | Saldo Poin: ${trx.saldoPts || 0}</div>`
-          : ''
-      }
-      <div style="text-align:center; font-size:11px; margin-top:8px;">${escapeHtml(prefs.receiptFooter || 'Terima Kasih')}</div>
-    </div>`;
-
-  window.print();
-}
-
-// =========================================================================
-// 10. PPOB, TARIK TUNAI, RETUR, CASH DROP, TUTUP SHIFT & CETAK LABEL
-// =========================================================================
-function openNonPhysicalModal() {
-  document.getElementById('modal-non-physical')?.classList.add('active');
-}
-
-function switchNonPhysicalTab(tab) {
-  const isPpob = tab === 'PPOB';
-  document.getElementById('form-ppob').style.display = isPpob ? 'block' : 'none';
-  document.getElementById('form-cashout').style.display = isPpob ? 'none' : 'block';
-}
-
-function addPpobToCart() {
-  const cat = document.getElementById('ppob-category')?.value || 'PPOB';
-  const target = document.getElementById('ppob-target')?.value.trim() || '-';
-  const price = parseFloat(document.getElementById('ppob-price')?.value) || 0;
-  if (price <= 0) {
-    showToast('Masukkan harga jual layanan PPOB', 'error');
-    return;
-  }
-  addProductToCart({
-    id: 'PPOB-' + Date.now(),
-    sku: 'PPOB-' + cat,
-    barcode: 'PPOB',
-    nama: `${cat} (${target})`,
-    satuan: 'TRX',
-    hargaJual: price,
-    trackStock: false,
-    isCustom: true
-  }, 1);
-  closeModals();
-}
-
-async function submitCashOutTransaction() {
-  const amount = parseFloat(document.getElementById('cashout-amount')?.value) || 0;
-  const fee = parseFloat(document.getElementById('cashout-fee')?.value) || 0;
-  const ref = document.getElementById('cashout-ref')?.value.trim() || '';
-  if (amount <= 0) {
-    showToast('Masukkan nominal tarik tunai', 'error');
-    return;
-  }
-  try {
-    await ApiClient.call('pos/cash-out', {
-      kodeToko: getStoreCode(),
-      shiftId: ACTIVE_SHIFT?.shiftId || '',
-      kasir: SESSION?.user?.username || '',
-      nominal: amount,
-      biayaAdmin: fee,
-      referensi: ref
-    });
-  } catch (e) {}
-  showToast(`Tarik Tunai Rp ${formatNumber(amount)} (Admin Rp ${formatNumber(fee)}) dicatat`, 'success');
-  closeModals();
-}
-
-function openReturnModal() {
-  RETURN_LOADED_TRX = null;
-  document.getElementById('returnTrxMeta').textContent = '';
-  document.getElementById('returnItemsBody').innerHTML = '';
-  document.getElementById('returnModal')?.classList.add('active');
-}
-
-function searchTrxForReturn() {
-  const trxId = (document.getElementById('returnSearchTrxId')?.value || '').trim();
-  if (!trxId) {
-    showToast('Masukkan nomor struk terlebih dahulu', 'warning');
-    return;
-  }
-  const key = 'DANISH_TRX_HISTORY_' + getStoreCode();
-  const list = JSON.parse(localStorage.getItem(key) || '[]');
-  const found = list.find((t) => String(t.trxId).toLowerCase() === trxId.toLowerCase());
-
-  if (!found) {
-    document.getElementById('returnTrxMeta').textContent = 'Struk tidak ditemukan di riwayat lokal perangkat ini.';
-    return;
-  }
-
-  RETURN_LOADED_TRX = found;
-  document.getElementById('returnTrxMeta').textContent = `Struk ${found.trxId} • Tgl: ${new Date(found.tanggal).toLocaleString('id-ID')} • Kasir: ${found.kasirNama}`;
-  document.getElementById('returnItemsBody').innerHTML = found.items.map((it, idx) => `
-    <tr>
-      <td>${escapeHtml(it.nama)}</td>
-      <td class="num">Rp ${formatNumber(it.harga)}</td>
-      <td class="num">${it.qty}</td>
-      <td class="num"><input type="number" id="retQty_${idx}" min="0" max="${it.qty}" value="0" style="width:65px; margin:0; padding:4px;"></td>
-    </tr>`).join('');
-}
-
-async function submitSalesReturn() {
-  if (!RETURN_LOADED_TRX) {
-    showToast('Cari dan muat nomor struk terlebih dahulu', 'warning');
-    return;
-  }
-  const reason = document.getElementById('returnReason')?.value.trim() || 'Retur Pelanggan';
-  const spvPin = document.getElementById('returnSpvPin')?.value.trim() || '';
-  if (!spvPin) {
-    showToast('PIN Supervisor wajib diisi untuk retur', 'error');
-    return;
-  }
-
-  const returnedItems = [];
-  RETURN_LOADED_TRX.items.forEach((it, idx) => {
-    const qtyRet = parseInt(document.getElementById(`retQty_${idx}`)?.value, 10) || 0;
-    if (qtyRet > 0) returnedItems.push({ ...it, qtyRetur: qtyRet });
-  });
-
-  if (returnedItems.length === 0) {
-    showToast('Masukkan minimal 1 Qty barang yang diretur', 'warning');
-    return;
-  }
-
-  try {
-    await ApiClient.call('pos/return', {
-      kodeToko: getStoreCode(),
-      trxAsal: RETURN_LOADED_TRX.trxId,
-      items: returnedItems,
-      alasan: reason,
-      spvPin: spvPin,
-      kasir: SESSION?.user?.username || ''
-    });
-  } catch (e) {}
-
-  showToast(`Retur ${returnedItems.length} item berhasil diproses`, 'success');
-  closeModals();
-}
-
-function openCashDropModal() {
-  document.getElementById('cashDropModal')?.classList.add('active');
-}
-
-async function submitCashDrop() {
-  const amt = parseFloat(document.getElementById('cashDropAmount')?.value) || 0;
-  const pin = document.getElementById('cashDropSpvPin')?.value.trim() || '';
-  if (amt <= 0 || !pin) {
-    showToast('Nominal Cash Drop dan PIN Supervisor wajib diisi', 'error');
-    return;
-  }
-  try {
-    await ApiClient.call('pos/cash-drop', {
-      kodeToko: getStoreCode(),
-      shiftId: ACTIVE_SHIFT?.shiftId || '',
-      nominal: amt,
-      spvPin: pin,
-      kasir: SESSION?.user?.username || ''
-    });
-  } catch (e) {}
-  showToast(`Cash Drop Rp ${formatNumber(amt)} dicatat ke brankas`, 'success');
-  closeModals();
-}
-
-function openCloseShiftModal() {
-  document.getElementById('closeShiftModal')?.classList.add('active');
-}
-
-async function submitCloseShift() {
-  const physicalCash = parseFloat(document.getElementById('closeShiftPhysicalCash')?.value) || 0;
-  const spvPin = document.getElementById('closeShiftSpvPin')?.value.trim() || '';
-  if (!spvPin) {
-    showToast('Masukkan PIN Supervisor untuk menutup shift', 'error');
-    return;
-  }
-  try {
-    await ApiClient.call('pos/close-shift', {
-      kodeToko: getStoreCode(),
-      shiftId: ACTIVE_SHIFT?.shiftId || '',
-      setoranFisik: physicalCash,
-      spvPin: spvPin,
-      kasir: SESSION?.user?.username || ''
-    });
-  } catch (e) {}
-  localStorage.removeItem('DANISH_ACTIVE_SHIFT_' + getStoreCode());
-  showToast('Shift ditutup & laporan Z-Report dicetak', 'success');
-  closeModals();
-}
-
-function openKasirLabelModal() {
-  searchKasirLabelProducts();
-  document.getElementById('kasirLabelModal')?.classList.add('active');
-}
-
-function searchKasirLabelProducts() {
-  const q = (document.getElementById('kasirLabelSearch')?.value || '').trim().toLowerCase();
-  const tbody = document.getElementById('kasirLabelTableBody');
-  if (!tbody) return;
-  const list = PRODUCTS.filter((p) => !q || `${p.nama} ${p.barcode}`.toLowerCase().includes(q)).slice(0, 25);
-  tbody.innerHTML = list.map((p, i) => `
-    <tr>
-      <td><input type="checkbox" id="lblChk_${i}" checked></td>
-      <td>${escapeHtml(p.nama)}<br><small style="color:#64748B;">${escapeHtml(p.barcode)}</small></td>
-      <td class="num">Rp ${formatNumber(p.hargaJual)}</td>
-      <td class="num"><input type="number" id="lblQty_${i}" value="1" min="1" style="width:60px; margin:0; padding:4px;"></td>
-    </tr>`).join('');
-}
-
-function printKasirSelectedLabels() {
-  const area = document.getElementById('thermalReceiptArea');
-  const q = (document.getElementById('kasirLabelSearch')?.value || '').trim().toLowerCase();
-  const list = PRODUCTS.filter((p) => !q || `${p.nama} ${p.barcode}`.toLowerCase().includes(q)).slice(0, 25);
-
-  let labelsHtml = '<div style="display:grid; grid-template-columns:repeat(2, 1fr); gap:6px; padding:4px;">';
-  list.forEach((p, i) => {
-    const chk = document.getElementById(`lblChk_${i}`);
-    const qty = parseInt(document.getElementById(`lblQty_${i}`)?.value, 10) || 1;
-    if (chk && chk.checked) {
-      for (let c = 0; c < qty; c++) {
-        labelsHtml += `
-          <div style="border:1.5px solid #000; padding:6px; border-radius:4px; font-family:sans-serif;">
-            <div style="font-size:11px; font-weight:bold;">${escapeHtml(p.nama)}</div>
-            <div style="font-size:16px; font-weight:900; margin-top:4px;">Rp ${formatNumber(p.hargaJual)}</div>
-            <div style="font-size:9px; color:#333;">${escapeHtml(p.barcode)}</div>
-          </div>`;
-      }
-    }
-  });
-  labelsHtml += '</div>';
-
-  if (area) {
-    area.innerHTML = labelsHtml;
-    window.print();
-  }
-  closeModals();
-}
-
-function manualKickDrawer() {
-  showToast('Perintah buka laci kasir (Cash Drawer) dikirim', 'info');
-}
-
-function openCustomerDisplay() {
-  syncCustomerDisplay();
-  window.open('display.html', 'DanishCustomerDisplay', 'width=1024,height=768');
-}
-
-function syncCustomerDisplay(qrisPayload = '', qrisAmount = 0) {
-  const totals = getCartTotals();
-  const payload = {
-    updatedAt: Date.now(),
-    storeName: KASIR_COMPANY_PREFS.companyName || SESSION?.store?.namaToko || 'DANISH POS',
-    logoSrc: normalizeLogoDataUrl(KASIR_COMPANY_PREFS.logoBase64 || KASIR_COMPANY_PREFS.logoUrl || ''),
-    items: CART,
-    subtotal: totals.subtotal,
-    discount: totals.itemDisc,
-    grandTotal: totals.grandTotal,
-    qrisDynamicPayload: qrisPayload || QRIS_STATE.dynamicPayload || '',
-    qrisAmount: qrisAmount || totals.grandTotal
-  };
-  try {
-    localStorage.setItem('DANISH_CUSTOMER_DISPLAY_STATE', JSON.stringify(payload));
-  } catch (e) {}
-}
-
-function enqueueOfflineTransaction(record) {
+function enqueueOfflineTransaction(serverTrxRecord) {
   const key = 'DANISH_OFFLINE_QUEUE_' + getStoreCode();
   try {
     const queue = JSON.parse(localStorage.getItem(key) || '[]');
-    queue.push(record);
+    queue.push(serverTrxRecord);
     localStorage.setItem(key, JSON.stringify(queue));
   } catch (e) {}
   updateSyncStatusBadge();
@@ -1688,6 +1728,7 @@ async function syncOfflineTransactions() {
   try {
     queue = JSON.parse(localStorage.getItem(key) || '[]');
   } catch (e) {}
+
   if (queue.length === 0) {
     updateSyncStatusBadge();
     return;
@@ -1698,168 +1739,133 @@ async function syncOfflineTransactions() {
       kodeToko: getStoreCode(),
       transactions: queue
     });
+
     const syncedSet = new Set((res && res.syncedIds) || []);
     const remaining = queue.filter((t) => !syncedSet.has(t.trx_id));
     localStorage.setItem(key, JSON.stringify(remaining));
-  } catch (e) {}
+  } catch (err) {
+    console.warn('Sinkronisasi transaksi tertunda (Offline):', err);
+  }
+
   updateSyncStatusBadge();
 }
 
 function updateSyncStatusBadge() {
-  const pill = document.getElementById('syncStatusPill');
-  if (!pill) return;
+  const badge = document.getElementById('posSyncBadge');
+  if (!badge) return;
   const key = 'DANISH_OFFLINE_QUEUE_' + getStoreCode();
-  let pending = 0;
+  let pendingCount = 0;
   try {
-    pending = JSON.parse(localStorage.getItem(key) || '[]').length;
+    pendingCount = JSON.parse(localStorage.getItem(key) || '[]').length;
   } catch (e) {}
 
   if (!navigator.onLine) {
-    pill.textContent = `● OFFLINE (${pending} ANTRE)`;
-    pill.style.background = '#DC2626';
-  } else if (pending > 0) {
-    pill.textContent = `● SINKRON (${pending})...`;
-    pill.style.background = '#D97706';
+    badge.className = 'sync-badge offline';
+    badge.textContent = `Offline (${pendingCount} antre)`;
+  } else if (pendingCount > 0) {
+    badge.className = 'sync-badge syncing';
+    badge.textContent = `Sinkronisasi (${pendingCount})...`;
   } else {
-    pill.textContent = '● ONLINE & SYNCED';
-    pill.style.background = '#10B981';
+    badge.className = 'sync-badge online';
+    badge.textContent = 'Cloud Terhubung';
+  }
+}
+
+function syncCustomerDisplay(qrisPayload = '', qrisAmount = 0) {
+  const comp = getCheckoutComputation();
+  const payload = {
+    updatedAt: Date.now(),
+    storeName: KASIR_COMPANY_PREFS.companyName || SESSION?.store?.namaToko || 'DANISH POS',
+    logoSrc: KASIR_COMPANY_PREFS.logoBase64 || KASIR_COMPANY_PREFS.logoUrl || '',
+    promoText: KASIR_DESIGN_CFG.promoText || '',
+    items: CART.map((it) => ({
+      nama: it.nama,
+      qty: it.qty,
+      harga: it.harga,
+      subtotal: it.harga * it.qty - (it.discNominal || 0)
+    })),
+    subtotal: comp.subtotal,
+    discount: comp.itemDiscountTotal + comp.globalDisc + comp.redeemValue,
+    tax: comp.taxAmount,
+    grandTotal: comp.netDue,
+    qrisDynamicPayload: qrisPayload || CHECKOUT_STATE.qrisDynamicPayload || '',
+    qrisAmount: qrisAmount || comp.netDue
+  };
+
+  try {
+    localStorage.setItem('DANISH_CUSTOMER_DISPLAY_STATE', JSON.stringify(payload));
+  } catch (e) {}
+}
+
+function openCustomerDisplayWindow() {
+  syncCustomerDisplay();
+  window.open('display.html', 'DanishCustomerDisplay', 'width=1024,height=768');
+}
+
+function openHistoryModal() {
+  const modal = document.getElementById('modalHistory');
+  const listEl = document.getElementById('trxHistoryList');
+  if (!modal || !listEl) return;
+
+  const key = 'DANISH_TRX_HISTORY_' + getStoreCode();
+  const list = JSON.parse(localStorage.getItem(key) || '[]');
+
+  if (list.length === 0) {
+    listEl.innerHTML = '<div style="text-align:center; padding:24px; color:#64748b;">Belum ada riwayat transaksi di perangkat ini.</div>';
+  } else {
+    let html = '';
+    list.slice(0, 30).forEach((trx, idx) => {
+      html += `
+        <div class="history-trx-card">
+          <div>
+            <div style="font-weight:700; color:#1e293b;">${escapeHtml(trx.trxId)}</div>
+            <div style="font-size:12px; color:#64748b;">${new Date(trx.tanggal).toLocaleString('id-ID')} • ${trx.items.length} item</div>
+          </div>
+          <div style="text-align:right;">
+            <div style="font-weight:700; color:#059669;">Rp ${formatNumber(trx.grandTotal)}</div>
+            <button class="btn-secondary-sm" style="margin-top:4px;" onclick="reprintHistoryTrx(${idx})">🖨️ Cetak Ulang</button>
+          </div>
+        </div>`;
+    });
+    listEl.innerHTML = html;
+  }
+
+  modal.classList.add('active');
+}
+
+function reprintHistoryTrx(index) {
+  const key = 'DANISH_TRX_HISTORY_' + getStoreCode();
+  const list = JSON.parse(localStorage.getItem(key) || '[]');
+  if (list[index]) printThermalReceipt(list[index]);
+}
+
+function triggerCashDrawer() {
+  showToast('Perintah buka laci kasir (Cash Drawer) dikirim', 'info');
+  const printArea = document.getElementById('thermalPrintArea');
+  if (printArea) {
+    printArea.innerHTML = '<div style="font-size:1px; color:#fff;">.</div>';
+    window.print();
   }
 }
 
 // =========================================================================
-// 11. KEYBOARD SHORTCUTS (CAPTURE PHASE - ANTI BLOKIR)
+// 14. KEYBOARD SHORTCUTS, MODAL & HELPER UTILITIES
 // =========================================================================
-let SHORTCUT_BOUND = false;
-
 function bindGlobalShortcuts() {
-  if (SHORTCUT_BOUND) return;
-  SHORTCUT_BOUND = true;
-
-  window.addEventListener('keydown', (e) => {
-    const key = e.key;
-    const code = e.code;
-
-    // F2 - Katalog Barang
-    if (key === 'F2' || code === 'F2') {
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'F2') {
       e.preventDefault();
-      e.stopImmediatePropagation();
-      openSearchModal();
-      return;
-    }
-    // F3 - Panggil Antrean (Recall)
-    if (key === 'F3' || code === 'F3') {
+      document.getElementById('posSearchInput')?.focus();
+    } else if (e.key === 'F4') {
       e.preventDefault();
-      e.stopImmediatePropagation();
-      handleHoldRecall('RECALL');
-      return;
-    }
-    // F4 - Cari / Pilih Pelanggan Member
-    if (key === 'F4' || code === 'F4') {
+      holdCurrentOrder();
+    } else if (e.key === 'F8') {
       e.preventDefault();
-      e.stopImmediatePropagation();
-      openMemberModal();
-      return;
+      openCheckoutModal();
+    } else if (e.key === 'Escape') {
+      document.querySelectorAll('.modal-overlay.active').forEach((m) => m.classList.remove('active'));
     }
-    // F5 - Tunda Transaksi (Hold) - cegah reload halaman
-    if (key === 'F5' || code === 'F5') {
-      e.preventDefault();
-      e.stopImmediatePropagation();
-      handleHoldRecall('HOLD');
-      return;
-    }
-    // F6 - Cetak Ulang Struk Terakhir
-    if (key === 'F6' || code === 'F6') {
-      e.preventDefault();
-      e.stopImmediatePropagation();
-      reprintLastReceipt();
-      return;
-    }
-    // F7 - Ubah Qty / Diskon Baris Terpilih
-    if (key === 'F7' || code === 'F7') {
-      e.preventDefault();
-      e.stopImmediatePropagation();
-      openEditItemModal();
-      return;
-    }
-    // F8 - Hapus Baris Terpilih
-    if (key === 'F8' || code === 'F8') {
-      e.preventDefault();
-      e.stopImmediatePropagation();
-      voidSelectedItem();
-      return;
-    }
-    // F9 - Bayar / Checkout
-    if (key === 'F9' || code === 'F9') {
-      e.preventDefault();
-      e.stopImmediatePropagation();
-      openCheckoutModal('CASH');
-      return;
-    }
-    // F11 - Cash Drop Brankas
-    if (key === 'F11' || code === 'F11') {
-      e.preventDefault();
-      e.stopImmediatePropagation();
-      openCashDropModal();
-      return;
-    }
-    // F12 - Clear Keranjang (cegah DevTools jika perlu)
-    if (key === 'F12' || code === 'F12') {
-      e.preventDefault();
-      e.stopImmediatePropagation();
-      clearCartWithPin();
-      return;
-    }
-    // ESC - Tutup Semua Modal & Fokus ke Scan Barcode
-    if (key === 'Escape' || code === 'Escape') {
-      e.preventDefault();
-      closeModals();
-      return;
-    }
-    // Alt + 1 : PPOB / Pulsa
-    if (e.altKey && (key === '1' || code === 'Digit1' || code === 'Numpad1')) {
-      e.preventDefault();
-      e.stopImmediatePropagation();
-      openNonPhysicalModal();
-      return;
-    }
-    // Alt + 2 : Retur Struk
-    if (e.altKey && (key === '2' || code === 'Digit2' || code === 'Numpad2')) {
-      e.preventDefault();
-      e.stopImmediatePropagation();
-      openReturnModal();
-      return;
-    }
-    // Alt + 3 : Buka Laci Kasir
-    if (e.altKey && (key === '3' || code === 'Digit3' || code === 'Numpad3')) {
-      e.preventDefault();
-      e.stopImmediatePropagation();
-      manualKickDrawer();
-      return;
-    }
-
-    // Navigasi Tabel Keranjang (Panah Atas/Bawah & +/- Qty)
-    const activeTag = document.activeElement?.tagName;
-    const isBarcodeBox = document.activeElement?.id === 'barcodeInput';
-    const isEmptyBarcode = isBarcodeBox && document.activeElement.value === '';
-
-    if (activeTag !== 'INPUT' || isEmptyBarcode) {
-      if (key === 'ArrowDown' && CART.length > 0) {
-        e.preventDefault();
-        SELECTED_CART_INDEX = Math.min(CART.length - 1, SELECTED_CART_INDEX + 1);
-        renderCartTable();
-      } else if (key === 'ArrowUp' && CART.length > 0) {
-        e.preventDefault();
-        SELECTED_CART_INDEX = Math.max(0, SELECTED_CART_INDEX - 1);
-        renderCartTable();
-      } else if ((key === '+' || key === '=') && SELECTED_CART_INDEX >= 0) {
-        e.preventDefault();
-        adjustCartRowQty(SELECTED_CART_INDEX, 1);
-      } else if ((key === '-' || key === '_') && SELECTED_CART_INDEX >= 0) {
-        e.preventDefault();
-        adjustCartRowQty(SELECTED_CART_INDEX, -1);
-      }
-    }
-  }, true); // <-- true (Capture Phase) berjalan SEBELUM js_security.js!
+  });
 
   window.addEventListener('online', () => {
     updateSyncStatusBadge();
@@ -1868,13 +1874,21 @@ function bindGlobalShortcuts() {
   window.addEventListener('offline', updateSyncStatusBadge);
 }
 
-function closeModals() {
-  document.querySelectorAll('.modal-backdrop.active').forEach((m) => m.classList.remove('active'));
-  document.getElementById('barcodeInput')?.focus();
+function bindModalEnterKeys() {
+  const payInput = document.getElementById('checkoutPayAmountInput');
+  if (payInput) {
+    payInput.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        processFinalPayment();
+      }
+    });
+  }
 }
 
-function formatNumber(num) {
-  return Math.round(Number(num) || 0).toLocaleString('id-ID');
+function closeModal(id) {
+  const el = document.getElementById(id);
+  if (el) el.classList.remove('active');
 }
 
 function escapeHtml(str) {
@@ -1894,12 +1908,17 @@ function showToast(msg, type = 'info') {
     container.style.cssText = 'position:fixed; bottom:20px; right:20px; z-index:9999; display:flex; flex-direction:column; gap:8px;';
     document.body.appendChild(container);
   }
-  const colors = { success: '#059669', error: '#DC2626', warning: '#D97706', info: '#1E3A8A' };
+
+  const colors = { success: '#059669', error: '#dc2626', warning: '#d97706', info: '#1a56db' };
   const toast = document.createElement('div');
-  toast.style.cssText = `background:${colors[type] || colors.info}; color:#fff; padding:10px 16px; border-radius:8px; font-size:13px; font-weight:600; box-shadow:0 4px 12px rgba(0,0,0,0.2);`;
+  toast.style.cssText = `background:${colors[type] || colors.info}; color:#fff; padding:10px 16px; border-radius:8px; font-size:13px; font-weight:600; box-shadow:0 4px 12px rgba(0,0,0,0.18); transition:opacity 0.3s;`;
   toast.textContent = msg;
   container.appendChild(toast);
-  setTimeout(() => toast.remove(), 2800);
+
+  setTimeout(() => {
+    toast.style.opacity = '0';
+    setTimeout(() => toast.remove(), 300);
+  }, 3000);
 }
 
 function playBeepSound() {
