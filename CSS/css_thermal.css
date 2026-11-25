@@ -4,46 +4,60 @@
 }
 
 @media print {
-  /* Sembunyikan seluruh UI Kasir / Admin saat proses cetak berlangsung */
-  body * {
-    visibility: hidden;
+  @page {
+    size: 58mm auto;
+    margin: 0;
   }
 
-  .thermal-only, .thermal-only * {
-    visibility: visible;
+  html, body {
+    width: 58mm !important;
+    height: auto !important;
+    min-height: 0 !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    overflow: visible !important;
+    background: #FFFFFF !important;
+    color: #000000 !important;
+  }
+
+  /* Matikan total layout layar kasir & modal agar tidak membuat halaman kosong (2 pages) */
+  .rene-shell,
+  .modal-backdrop {
+    display: none !important;
   }
 
   .thermal-only {
     display: block !important;
-    position: absolute;
-    left: 0;
-    top: 0;
-    margin: 0;
-    padding: 0;
-    background: #FFFFFF;
-    color: #000000;
-  }
-
-  @page {
-    margin: 0;
+    position: static !important;
+    width: 100% !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    background: #FFFFFF !important;
+    color: #000000 !important;
   }
 
   /* Ukuran Kertas Thermal 58mm */
   .receipt.paper-58 {
+    box-sizing: border-box;
     width: 58mm;
-    padding: 2mm 3mm;
+    max-width: 58mm;
+    padding: 2mm 2.5mm;
     font-family: 'Courier New', Courier, monospace;
     font-size: 11px;
     line-height: 1.3;
+    word-wrap: break-word;
   }
 
   /* Ukuran Kertas Thermal 80mm */
   .receipt.paper-80 {
+    box-sizing: border-box;
     width: 80mm;
+    max-width: 80mm;
     padding: 3mm 4mm;
     font-family: 'Courier New', Courier, monospace;
     font-size: 12px;
     line-height: 1.35;
+    word-wrap: break-word;
   }
 
   .receipt hr {
@@ -61,6 +75,7 @@
   }
 
   .price-tag-card {
+    box-sizing: border-box;
     width: 60mm;
     height: 32mm;
     border: 1.5px solid #000000;
