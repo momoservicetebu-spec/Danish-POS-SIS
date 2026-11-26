@@ -1467,13 +1467,36 @@ function applyDynamicPageSizeCss(paperMode) {
     document.head.appendChild(styleEl);
   }
 
-  if (paperMode === '80') {
-    styleEl.textContent = `@media print { @page { size: 80mm auto; margin: 0; } html, body, #thermalReceiptArea { width: 80mm !important; } }`;
-  } else if (paperMode === 'A4') {
-    styleEl.textContent = `@media print { @page { size: A4 portrait; margin: 10mm; } html, body, #thermalReceiptArea { width: 100% !important; } }`;
-  } else {
-    styleEl.textContent = `@media print { @page { size: 58mm auto; margin: 0; } html, body, #thermalReceiptArea { width: 58mm !important; } }`;
-  }
+  // Lebar area cetak efektif: 48mm untuk kertas 58mm, 72mm untuk kertas 80mm
+  const pageRule =
+    paperMode === '80'
+      ? '@page { size: 80mm auto; margin: 0mm; } #thermalReceiptArea, .receipt { width: 72mm !important; max-width: 72mm !important; padding: 2mm 1mm !important; }'
+      : paperMode === 'A4'
+      ? '@page { size: A4 portrait; margin: 10mm; } #thermalReceiptArea, .receipt { width: 100% !important; max-width: 190mm !important; padding: 4mm !important; }'
+      : '@page { size: 58mm auto; margin: 0mm; } #thermalReceiptArea, .receipt { width: 48mm !important; max-width: 48mm !important; padding: 1.5mm 1mm !important; }';
+
+  styleEl.textContent = `
+    @media print {
+      ${pageRule}
+      html, body {
+        margin: 0 !important;
+        padding: 0 !important;
+        background: #FFFFFF !important;
+        color: #000000 !important;
+      }
+      #thermalReceiptArea table {
+        width: 100% !important;
+        border-collapse: collapse !important;
+        table-layout: fixed !important;
+      }
+      #thermalReceiptArea td, #thermalReceiptArea th {
+        padding: 1.5px 0 !important;
+        vertical-align: top !important;
+        word-wrap: break-word !important;
+        overflow-wrap: break-word !important;
+      }
+    }
+  `;
 }
 
 function printThermalReceipt(trx) {
@@ -1503,10 +1526,12 @@ function printThermalReceipt(trx) {
     prefs.receiptFooter ||
     'TERIMA KASIH\n# Barang yang sudah dibeli tidak dapat ditukar/dikembalikan';
 
+  const baseFont = printCfg.paperMode === 'A4' ? '12.5px' : printCfg.paperMode === '80' ? '11px' : '10px';
+
   let rows = '';
   if (printCfg.paperMode === 'A4') {
     rows = `
-      <table style="width:100%; border-collapse:collapse; font-size:12px; margin:8px 0;">
+      <table style="width:100%; border-collapse:collapse; font-size:12px; margin:6px 0;">
         <thead>
           <tr style="border-top:1px solid #000; border-bottom:1px solid #000;">
             <th style="text-align:left; padding:4px 0;">Kts Nama Barang</th>
@@ -1530,97 +1555,129 @@ function printThermalReceipt(trx) {
       </table>`;
   } else {
     rows = `
-      <div style="display:flex; justify-content:space-between; font-weight:bold; font-size:11px; margin-bottom:4px;">
-        <span>Kts Nama Barang</span>
-        <span>Jumlah</span>
-      </div>`;
-    trx.items.forEach((it) => {
-      const sub = it.harga * it.qty - (it.discNominal || 0);
-      const taxMark = printCfg.showTax && trx.pajak > 0 ? ' *' : '';
-      rows += `
-        <div style="display:flex; justify-content:space-between; font-size:11px; margin-bottom:2px;">
-          <span style="padding-right:6px;">${it.qty} ${escapeHtml(it.nama)}</span>
-          <span style="white-space:nowrap;">${formatNumber(sub)}${taxMark}</span>
-        </div>`;
-    });
+      <table style="width:100%; border-collapse:collapse; font-size:${baseFont};">
+        <thead>
+          <tr>
+            <th style="text-align:left; font-weight:bold; padding-bottom:3px;">Kts Nama Barang</th>
+            <th style="text-align:right; font-weight:bold; width:34%; padding-bottom:3px;">Jumlah</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${trx.items.map((it) => {
+            const sub = it.harga * it.qty - (it.discNominal || 0);
+            const taxMark = printCfg.showTax && trx.pajak > 0 ? ' *' : '';
+            return `
+              <tr>
+                <td style="text-align:left; padding-right:4px;">${it.qty} ${escapeHtml(it.nama)}</td>
+                <td style="text-align:right; white-space:nowrap;">${formatNumber(sub)}${taxMark}</td>
+              </tr>`;
+          }).join('')}
+        </tbody>
+      </table>`;
   }
 
   let html = `
-    <div class="${paperClass}">
-      <div style="text-align:center; margin-bottom:6px;">
-        ${logoSrc ? `<img src="${logoSrc}" style="max-width:40mm; max-height:15mm; object-fit:contain; margin-bottom:2px;"><br>` : ''}
-        <strong style="font-size:${printCfg.paperMode === 'A4' ? '15px' : '12px'};">${escapeHtml(trx.namaToko)}</strong><br>
-        ${prefs.companyAddress ? `<span style="font-size:10px;">${escapeHtml(prefs.companyAddress)}</span><br>` : ''}
-        ${prefs.companyPhone ? `<span style="font-size:10px;">Telp. ${escapeHtml(prefs.companyPhone)}</span>` : ''}
+    <div class="${paperClass}" style="font-family:'Courier New', Courier, monospace; font-size:${baseFont}; line-height:1.3; color:#000;">
+      <div style="text-align:center; margin-bottom:5px;">
+        ${logoSrc ? `<img src="${logoSrc}" style="max-width:34mm; max-height:14mm; object-fit:contain; margin-bottom:2px;"><br>` : ''}
+        <strong style="font-size:${printCfg.paperMode === 'A4' ? '15px' : '11.5px'};">${escapeHtml(trx.namaToko)}</strong><br>
+        ${prefs.companyAddress ? `<span style="font-size:9.5px;">${escapeHtml(prefs.companyAddress)}</span><br>` : ''}
+        ${prefs.companyPhone ? `<span style="font-size:9.5px;">Telp. ${escapeHtml(prefs.companyPhone)}</span>` : ''}
       </div>
 
-      <div style="font-size:10.5px; border-top:1px dashed #000; border-bottom:1px dashed #000; padding:4px 0; margin-bottom:5px;">
+      <div style="font-size:9.5px; border-top:1px dashed #000; border-bottom:1px dashed #000; padding:4px 0; margin-bottom:4px;">
         <div>No# : ${escapeHtml(tableNo || trx.trxId)}</div>
         <div>Kasir : ${escapeHtml(trx.kasirNama)}</div>
-        <div>Tanggal : ${tglFormatted}</div>
+        <div>Tgl : ${tglFormatted}</div>
         ${trx.customerName ? `<div>Member : ${escapeHtml(trx.customerName)}</div>` : ''}
       </div>
 
-      <div style="border-bottom:1px dashed #000; padding-bottom:5px; margin-bottom:5px;">
+      <div style="border-bottom:1px dashed #000; padding-bottom:4px; margin-bottom:4px;">
         ${rows}
       </div>
 
-      <div style="font-size:11px;">
+      <div style="font-size:${baseFont};">
         <div style="margin-bottom:2px;">Total barang dibeli ${totalQty}</div>
-        <div style="display:flex; justify-content:space-between;"><span>SUBTOTAL</span><span>${formatNumber(trx.subtotal)}</span></div>
-        <div style="display:flex; justify-content:space-between;"><span>DISKON</span><span>${trx.totalDiskon > 0 ? '-' + formatNumber(trx.totalDiskon) : '0'}</span></div>
-        ${roundingDiff !== 0 ? `<div style="display:flex; justify-content:space-between;"><span>PEMBULATAN</span><span>${formatNumber(roundingDiff)}</span></div>` : ''}
-
-        <div style="display:flex; justify-content:space-between; font-weight:bold; font-size:12px; border-top:1px dashed #000; margin-top:4px; padding-top:4px;">
-          <span>TOTAL</span><span>${formatNumber(trx.grandTotal)}</span>
-        </div>
-        ${(trx.payments || []).map((p) => `
-          <div style="display:flex; justify-content:space-between;">
-            <span>${escapeHtml(p.method === 'CASH' ? 'TUNAI' : p.method)}</span>
-            <span>${formatNumber(p.amount)}</span>
-          </div>`).join('')}
-        <div style="display:flex; justify-content:space-between;"><span>KEMBALI</span><span>${formatNumber(trx.kembalian)}</span></div>
+        <table style="width:100%; border-collapse:collapse; font-size:${baseFont};">
+          <tr>
+            <td style="text-align:left;">SUBTOTAL</td>
+            <td style="text-align:right;">${formatNumber(trx.subtotal)}</td>
+          </tr>
+          <tr>
+            <td style="text-align:left;">DISKON</td>
+            <td style="text-align:right;">${trx.totalDiskon > 0 ? '-' + formatNumber(trx.totalDiskon) : '0'}</td>
+          </tr>
+          ${
+            roundingDiff !== 0
+              ? `<tr>
+                   <td style="text-align:left;">PEMBULATAN</td>
+                   <td style="text-align:right;">${formatNumber(roundingDiff)}</td>
+                 </tr>`
+              : ''
+          }
+          <tr>
+            <td style="text-align:left; font-weight:bold; border-top:1px dashed #000; padding-top:3px;">TOTAL</td>
+            <td style="text-align:right; font-weight:bold; border-top:1px dashed #000; padding-top:3px;">${formatNumber(trx.grandTotal)}</td>
+          </tr>
+          ${(trx.payments || []).map((p) => `
+            <tr>
+              <td style="text-align:left;">${escapeHtml(p.method === 'CASH' ? 'TUNAI' : p.method)}</td>
+              <td style="text-align:right;">${formatNumber(p.amount)}</td>
+            </tr>`).join('')}
+          <tr>
+            <td style="text-align:left;">KEMBALI</td>
+            <td style="text-align:right;">${formatNumber(trx.kembalian)}</td>
+          </tr>
+        </table>
       </div>
 
       ${
         printCfg.showTax && trx.pajak > 0
-          ? `<div style="font-size:10px; border-top:1px dashed #000; margin-top:5px; padding-top:4px;">
-               <div style="display:grid; grid-template-columns:22px 38px 1fr 1fr; font-weight:bold;">
-                 <span>PAJAK</span><span>TARIF</span><span style="text-align:right;">DPP</span><span style="text-align:right;">PPN</span>
-               </div>
-               <div style="display:grid; grid-template-columns:22px 38px 1fr 1fr;">
-                 <span>*</span><span>${taxPct}%</span><span style="text-align:right;">${formatNumber(dppVal)}</span><span style="text-align:right;">${formatNumber(trx.pajak)}</span>
-               </div>
+          ? `<div style="font-size:9.5px; border-top:1px dashed #000; margin-top:4px; padding-top:4px;">
+               <table style="width:100%; border-collapse:collapse; font-size:9.5px;">
+                 <tr>
+                   <th style="text-align:left; width:26%;">PAJAK</th>
+                   <th style="text-align:left; width:20%;">TARIF</th>
+                   <th style="text-align:right; width:27%;">DPP</th>
+                   <th style="text-align:right; width:27%;">PPN</th>
+                 </tr>
+                 <tr>
+                   <td style="text-align:left;">*</td>
+                   <td style="text-align:left;">${taxPct}%</td>
+                   <td style="text-align:right;">${formatNumber(dppVal)}</td>
+                   <td style="text-align:right;">${formatNumber(trx.pajak)}</td>
+                 </tr>
+               </table>
              </div>`
           : ''
       }
 
       ${
         printCfg.showPoints && trx.customerName
-          ? `<div style="font-size:10px; text-align:center; border-top:1px dashed #000; margin-top:5px; padding-top:4px;">
-               Poin Didapat: +${trx.earnedPts || 0} | Total Saldo Poin: ${trx.saldoPts || 0}
+          ? `<div style="font-size:9.5px; text-align:center; border-top:1px dashed #000; margin-top:4px; padding-top:4px;">
+               Poin Didapat: +${trx.earnedPts || 0} | Saldo Poin: ${trx.saldoPts || 0}
              </div>`
           : ''
       }
 
-      <div style="text-align:center; font-size:10.5px; border-top:1px dashed #000; margin-top:6px; padding-top:6px; white-space:pre-line;">
+      <div style="text-align:center; font-size:9.5px; border-top:1px dashed #000; margin-top:5px; padding-top:5px; white-space:pre-line;">
         ${escapeHtml(footerText)}
       </div>
 
-      <div style="text-align:center; font-size:9px; margin-top:12mm; padding-bottom:4mm; letter-spacing:2px;">
+      <div style="text-align:center; font-size:9px; margin-top:10mm; padding-bottom:4mm; letter-spacing:2px;">
         . . . . . . . . . .
       </div>
     </div>`;
 
   if (printCfg.showOrderSlip) {
     html += `
-      <div class="${paperClass}" style="page-break-before:always; border-top:2px dashed #000; padding-top:6px;">
+      <div class="${paperClass}" style="page-break-before:always; border-top:2px dashed #000; padding-top:6px; font-family:'Courier New', Courier, monospace; font-size:${baseFont};">
         <div style="text-align:center; font-weight:bold; border-bottom:1px dashed #000; padding-bottom:4px; margin-bottom:6px;">
           SLIP PESANAN / DELIVERY<br>
-          <span style="font-size:10px;">${escapeHtml(tableNo || trx.trxId)} • ${tglFormatted}</span>
+          <span style="font-size:9.5px;">${escapeHtml(tableNo || trx.trxId)} • ${tglFormatted}</span>
         </div>
-        ${trx.items.map((it) => `<div style="font-size:12px; margin-bottom:3px;"><strong>${it.qty}x</strong> ${escapeHtml(it.nama)}</div>`).join('')}
-        <div style="text-align:center; font-size:9px; margin-top:12mm; padding-bottom:4mm; letter-spacing:2px;">. . . . . . . . . .</div>
+        ${trx.items.map((it) => `<div style="font-size:11px; margin-bottom:3px;"><strong>${it.qty}x</strong> ${escapeHtml(it.nama)}</div>`).join('')}
+        <div style="text-align:center; font-size:9px; margin-top:10mm; padding-bottom:4mm; letter-spacing:2px;">. . . . . . . . . .</div>
       </div>`;
   }
 
