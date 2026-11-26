@@ -182,11 +182,24 @@ function renderDashboardData(data) {
     `).join('');
   }
 
-  PENDING_TAGS_CACHE = data.pendingPriceTags || [];
+ // Hapus duplikat berdasarkan SKU (ambil entri terbaru)
+  const rawTags = data.pendingPriceTags || [];
+  const uniqueTagMap = new Map();
+  rawTags.forEach(t => {
+    if (t && t.sku) uniqueTagMap.set(String(t.sku).trim(), t);
+  });
+  PENDING_TAGS_CACHE = Array.from(uniqueTagMap.values());
+
+  const tagBadge = document.getElementById('priceTagCountBadge');
+  if (tagBadge) tagBadge.textContent = PENDING_TAGS_CACHE.length + ' Item';
+
   const tagBody = document.getElementById('priceTagBody');
   if (tagBody) {
     tagBody.innerHTML = PENDING_TAGS_CACHE.map(t => `
-      <tr><td>${t.sku} - ${t.nama}</td><td><strong>Rp ${Number(t.hargaBaru).toLocaleString('id-ID')}</strong></td></tr>
+      <tr>
+        <td>${t.sku} - ${t.nama}</td>
+        <td><strong>Rp ${Number(t.hargaBaru).toLocaleString('id-ID')}</strong></td>
+      </tr>
     `).join('') || '<tr><td colspan="2">Semua label harga sudah terbaru.</td></tr>';
   }
 

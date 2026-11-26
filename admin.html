@@ -781,27 +781,31 @@
           </div>
         </div>
 
-        <div class="bento-main">
+        <div class="bento-main" style="align-items: start;">
           <div class="card">
             <h3 style="margin-top:0;">Log Keamanan & Audit Trail Terbaru</h3>
-            <table>
-              <thead>
-                <tr><th>Waktu</th><th>Toko</th><th>User</th><th>Aktivitas</th><th>Keterangan</th></tr>
-              </thead>
-              <tbody id="auditTableBody"></tbody>
-            </table>
+            <div class="table-responsive" style="max-height: 280px; overflow-y: auto;">
+              <table>
+                <thead>
+                  <tr><th>Waktu</th><th>Toko</th><th>User</th><th>Aktivitas</th><th>Keterangan</th></tr>
+                </thead>
+                <tbody id="auditTableBody"></tbody>
+              </table>
+            </div>
           </div>
           <div class="card">
-            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
-              <h3 style="margin:0;">Antrean Cetak Price Tag Rak</h3>
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px; gap:8px;">
+              <h3 style="margin:0;">Antrean Cetak Price Tag Rak <span id="priceTagCountBadge" class="badge badge-warn">0</span></h3>
               <button class="btn btn-amber btn-sm" onclick="printPendingPriceTags()">Cetak Label Rak</button>
             </div>
-            <table>
-              <thead>
-                <tr><th>SKU / Barang</th><th>Harga Baru</th></tr>
-              </thead>
-              <tbody id="priceTagBody"></tbody>
-            </table>
+            <div class="table-responsive" style="max-height: 280px; overflow-y: auto;">
+              <table>
+                <thead style="position: sticky; top: 0; z-index: 1;">
+                  <tr><th>SKU / Barang</th><th>Harga Baru</th></tr>
+                </thead>
+                <tbody id="priceTagBody"></tbody>
+              </table>
+            </div>
           </div>
         </div>
 
