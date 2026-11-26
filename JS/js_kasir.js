@@ -1618,10 +1618,10 @@ function applyDynamicPageSizeCss(paperMode) {
 
   const pageRule =
     paperMode === '80'
-      ? '@page { size: 80mm auto; margin: 0mm; } #thermalReceiptArea, .receipt { width: 70mm !important; max-width: 70mm !important; margin: 0 auto !important; padding: 0 1mm !important; box-sizing: border-box !important; }'
+      ? '@page { size: 80mm auto; margin: 0mm !important; } #thermalReceiptArea, .receipt { width: 72mm !important; max-width: 72mm !important; margin: 0 auto !important; padding: 0 1mm !important; box-sizing: border-box !important; }'
       : paperMode === 'A4'
       ? '@page { size: A4 portrait; margin: 10mm; } #thermalReceiptArea, .receipt { width: 100% !important; max-width: 190mm !important; }'
-      : '@page { size: 58mm auto; margin: 0mm; } #thermalReceiptArea, .receipt { width: 44mm !important; max-width: 44mm !important; margin: 0 auto !important; padding: 0 1mm !important; box-sizing: border-box !important; }';
+      : '@page { size: 58mm auto; margin: 0mm !important; } #thermalReceiptArea, .receipt { width: 46mm !important; max-width: 46mm !important; margin: 0 auto !important; padding: 0 1mm !important; box-sizing: border-box !important; }';
 
   styleEl.textContent = `
     @media print {
@@ -1631,6 +1631,11 @@ function applyDynamicPageSizeCss(paperMode) {
         padding: 0 !important;
         background: #FFFFFF !important;
         color: #000000 !important;
+        font-weight: 700 !important;
+      }
+      #thermalReceiptArea * {
+        color: #000000 !important;
+        font-weight: 700 !important;
       }
       #thermalReceiptArea table {
         width: 100% !important;
@@ -1646,7 +1651,6 @@ function applyDynamicPageSizeCss(paperMode) {
     }
   `;
 }
-
 function printThermalReceipt(trx) {
   const prefs = KASIR_COMPANY_PREFS;
   const printCfg = getReceiptPrintConfig();
@@ -1680,14 +1684,14 @@ function printThermalReceipt(trx) {
     prefs.receiptFooter ||
     'TERIMA KASIH\n# Barang yang sudah dibeli tidak dapat ditukar/dikembalikan';
 
-  const baseFont =
-    printCfg.paperMode === 'A4'
-      ? '12px'
-      : printCfg.paperMode === '80'
-      ? '10.5px'
-      : tpl === 'RENE_HEMAT_58'
-      ? '9px'
-      : '9.5px';
+const baseFont =
+  printCfg.paperMode === 'A4'
+    ? '12px'
+    : printCfg.paperMode === '80'
+    ? '11.5px'
+    : tpl === 'RENE_HEMAT_58'
+    ? '10px'
+    : '10.5px';
 
   // Render tabel item berdasarkan template yang dipilih
   let rows = '';
@@ -1779,8 +1783,7 @@ function printThermalReceipt(trx) {
   let html = `
     <div class="${paperClass}" style="font-family:'Courier New', Courier, monospace; font-size:${baseFont}; line-height:${tpl === 'RENE_HEMAT_58' ? '1.15' : '1.28'}; color:#000;">
       <div style="text-align:center; margin-bottom:4px;">
-        ${logoSrc ? `<img src="${logoSrc}" style="max-width:30mm; max-height:13mm; object-fit:contain; margin-bottom:2px;"><br>` : ''}
-        <strong style="font-size:${printCfg.paperMode === 'A4' ? '15px' : '11px'};">${escapeHtml(trx.namaToko)}</strong><br>
+        ${logoSrc ? `<img src="${logoSrc}" style="max-width:26mm; max-height:10mm; object-fit:contain; margin-bottom:2px; filter:contrast(180%) grayscale(100%);"><br>` : ''}        <strong style="font-size:${printCfg.paperMode === 'A4' ? '15px' : '11px'};">${escapeHtml(trx.namaToko)}</strong><br>
         ${prefs.companyAddress && tpl !== 'RENE_HEMAT_58' ? `<span style="font-size:9px;">${escapeHtml(prefs.companyAddress)}</span><br>` : ''}
         ${prefs.companyPhone ? `<span style="font-size:9px;">Telp. ${escapeHtml(prefs.companyPhone)}</span>` : ''}
       </div>
@@ -1877,9 +1880,9 @@ function printThermalReceipt(trx) {
       <div style="text-align:center; font-size:9px; border-top:1px dashed #000; margin-top:5px; padding-top:4px; white-space:pre-line;">
         ${escapeHtml(footerText)}
       </div>
-
-      <div style="text-align:center; font-size:9px; margin-top:8mm; padding-bottom:4mm; letter-spacing:2px;">
-        . . . . . . . . . .
+           <div style="text-align:center; font-size:10px; margin-top:2mm; padding-bottom:1mm;">
+          ================================
+        </div>
       </div>
     </div>`;
 
