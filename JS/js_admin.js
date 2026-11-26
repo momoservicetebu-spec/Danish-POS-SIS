@@ -3035,42 +3035,84 @@ function downloadCsvTemplate() {
   link.click();
 }
 
+async function sendProductWithRetry(payload, maxRetries = 3) {
+  for (let attempt = 1; attempt <= maxRetries; attempt++) {
+    try {
+      await ApiClient.call('admin/save-product', payload);
+      return true;
+    } catch (err) {
+      if (attempt === maxRetries) return false;
+      // Tunggu 1.5 detik sebelum mencoba ulang jika jaringan sempat terputus
+      await new Promise(r => setTimeout(r, 1500 * attempt));
+    }
+  }
+  return false;
+}
+
 function processCsvImport() {
   const fileInput = document.getElementById('importCsvFile');
   if (!fileInput.files || !fileInput.files[0]) return alert('Pilih file CSV terlebih dahulu.');
+
   const reader = new FileReader();
-  reader.onload = async function(e) {
-    const lines = e.target.result.replace(/^\uFEFF/, '').split(/\r?\n/).filter(Boolean);
+  reader.onload = async function (e) {
+    const lines = e.target.result.replace(/^\uFEFF/, '').split(/\r?\n/).filter(l => l.trim() !== '');
     if (lines.length < 2) return alert('File CSV kosong atau tidak memiliki baris data.');
 
-    // Deteksi otomatis pemisah titik koma (;) atau koma (,)
     const delimiter = lines[0].includes(';') ? ';' : ',';
-    let successCount = 0;
+    const items = [];
 
     for (let i = 1; i < lines.length; i++) {
       const cols = lines[i].split(delimiter);
-      if (cols.length < 3) continue;
-      try {
-        await ApiClient.call('admin/save-product', {
-          sku: cols[0].trim(),
-          barcode: cols[1].trim(),
-          nama: cols[2].trim(),
-          kategori: (cols[3] || 'Umum').trim(),
-          satuan: (cols[4] || 'PCS').trim(),
-          hargaModal: Number(cols[5]) || 0,
-          hargaJual: Number(cols[6]) || 0,
-          saldoAwal: Number(cols[7]) || 0
-        });
-        successCount++;
-      } catch (err) { /* lewati baris yang tidak valid */ }
+      if (cols.length < 3 || !cols[0].trim()) continue;
+      items.push({
+        sku: cols[0].trim(),
+        barcode: (cols[1] || '').trim(),
+        nama: (cols[2] || '').trim(),
+        kategori: (cols[3] || 'Umum').trim(),
+        satuan: (cols[4] || 'PCS').trim(),
+        hargaModal: Number(cols[5]) || 0,
+        hargaJual: Number(cols[6]) || 0,
+        saldoAwal: Number(cols[7]) || 0
+      });
     }
-    alert(`Impor selesai! ${successCount} barang berhasil ditambahkan/diperbarui.`);
+
+    if (!items.length) return alert('Tidak ada baris barang yang valid untuk diimpor.');
+
+    // Tampilkan indikator status pada tombol impor
+    const importBtn = document.querySelector('#importMasterModal .btn-green');
+    const origBtnText = importBtn ? importBtn.innerHTML : '';
+    if (importBtn) importBtn.disabled = true;
+
+    let successCount = 0;
+    let failCount = 0;
+
+    // Kirim per kelompok (5 paralel) agar cepat namun tidak membebani jaringan
+    const chunkSize = 5;
+    for (let i = 0; i < items.length; i += chunkSize) {
+      const chunk = items.slice(i, i + chunkSize);
+      if (importBtn) {
+        importBtn.innerHTML = `Mengimpor ${Math.min(i + chunkSize, items.length)} / ${items.length}...`;
+      }
+      const results = await Promise.all(chunk.map(item => sendProductWithRetry(item, 3)));
+      results.forEach(ok => (ok ? successCount++ : failCount++));
+    }
+
+    if (importBtn) {
+      importBtn.disabled = false;
+      importBtn.innerHTML = origBtnText;
+    }
+
+    alert(
+      `Impor selesai!\n` +
+      `Berhasil: ${successCount} barang\n` +
+      (failCount > 0 ? `Gagal (periksa koneksi): ${failCount} barang` : '')
+    );
+
     closeModal('importMasterModal');
     loadMasterCatalog();
   };
   reader.readAsText(fileInput.files[0]);
 }
-
 function openDatabaseBackupModal() {
   const fileInp = document.getElementById('restoreBackupFile');
   if (fileInp) fileInp.value = '';
