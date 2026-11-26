@@ -3023,8 +3023,12 @@ function openImportMasterModal() {
 }
 
 function downloadCsvTemplate() {
-  const csv = 'SKU,Barcode,NamaBarang,Kategori,Satuan,HPP,HargaJual,SaldoAwal\nSKU-2001,8991234567890,Contoh Produk Baru,Umum,PCS,8000,10000,25';
-  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+  const csvContent =
+    '\uFEFF' +
+    'SKU;Barcode;NamaBarang;Kategori;Satuan;HPP;HargaJual;SaldoAwal\r\n' +
+    'SKU-2001;8991234567890;Contoh Produk Baru;Umum;PCS;8000;10000;25';
+
+  const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
   const link = document.createElement('a');
   link.href = URL.createObjectURL(blob);
   link.download = 'Template_Impor_Master_Barang.csv';
@@ -3036,11 +3040,15 @@ function processCsvImport() {
   if (!fileInput.files || !fileInput.files[0]) return alert('Pilih file CSV terlebih dahulu.');
   const reader = new FileReader();
   reader.onload = async function(e) {
-    const lines = e.target.result.split(/\r?\n/).filter(Boolean);
+    const lines = e.target.result.replace(/^\uFEFF/, '').split(/\r?\n/).filter(Boolean);
     if (lines.length < 2) return alert('File CSV kosong atau tidak memiliki baris data.');
+
+    // Deteksi otomatis pemisah titik koma (;) atau koma (,)
+    const delimiter = lines[0].includes(';') ? ';' : ',';
     let successCount = 0;
+
     for (let i = 1; i < lines.length; i++) {
-      const cols = lines[i].split(',');
+      const cols = lines[i].split(delimiter);
       if (cols.length < 3) continue;
       try {
         await ApiClient.call('admin/save-product', {
@@ -3054,7 +3062,7 @@ function processCsvImport() {
           saldoAwal: Number(cols[7]) || 0
         });
         successCount++;
-      } catch (err) { /* skip invalid row */ }
+      } catch (err) { /* lewati baris yang tidak valid */ }
     }
     alert(`Impor selesai! ${successCount} barang berhasil ditambahkan/diperbarui.`);
     closeModal('importMasterModal');
