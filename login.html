@@ -3,56 +3,345 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Login - Enterprise Retail POS & SIS v3.1</title>
+  <title>Login - Enterprise Retail POS &amp; SIS v3.1</title>
   <style>
     :root {
-      --bg-canvas: #F4F6F9; --surface: #FFFFFF; --border: #E2E8F0;
-      --primary: #10B981; --primary-dark: #059669;
-      --text-main: #0F172A; --text-muted: #64748B; --danger: #DC2626;
+      --primary: #10B981;
+      --primary-dark: #059669;
+      --royal-blue: #2563EB;
+      --navy-dark: #0F172A;
+      --surface: rgba(255, 255, 255, 0.96);
+      --border: #E2E8F0;
+      --text-main: #0F172A;
+      --text-muted: #64748B;
+      --danger: #DC2626;
     }
-    * { box-sizing: border-box; font-family: 'Inter', system-ui, -apple-system, sans-serif; }
+
+    * {
+      box-sizing: border-box;
+      font-family: 'Inter', system-ui, -apple-system, sans-serif;
+    }
+
     body {
-      margin: 0; height: 100vh; display: flex; align-items: center; justify-content: center;
-      background-color: var(--bg-canvas); color: var(--text-main);
+      margin: 0;
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 16px;
+      background: linear-gradient(135deg, #0F172A 0%, #1E3A8A 52%, #0F172A 100%);
+      color: var(--text-main);
+      overflow: hidden;
+      position: relative;
     }
+
+    /* Pola Grid Halus Latar Belakang */
+    body::before {
+      content: "";
+      position: absolute;
+      inset: 0;
+      background-image:
+        linear-gradient(rgba(255, 255, 255, 0.04) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(255, 255, 255, 0.04) 1px, transparent 1px);
+      background-size: 36px 36px;
+      mask-image: radial-gradient(circle at center, black 45%, transparent 95%);
+      -webkit-mask-image: radial-gradient(circle at center, black 45%, transparent 95%);
+      pointer-events: none;
+    }
+
+    /* Ambient Cahaya Bergerak (Royal Blue & Emerald) */
+    .bg-orb {
+      position: absolute;
+      border-radius: 50%;
+      filter: blur(80px);
+      opacity: 0.45;
+      pointer-events: none;
+      z-index: 0;
+      animation: floatOrb 11s ease-in-out infinite alternate;
+    }
+    .orb-blue {
+      width: 360px;
+      height: 360px;
+      background: #2563EB;
+      top: -90px;
+      left: 12%;
+    }
+    .orb-emerald {
+      width: 340px;
+      height: 340px;
+      background: #10B981;
+      bottom: -90px;
+      right: 12%;
+      animation-delay: -5.5s;
+    }
+
+    @keyframes floatOrb {
+      0% { transform: translate(0, 0) scale(1); }
+      100% { transform: translate(35px, -28px) scale(1.12); }
+    }
+
+    /* Kartu Login Utama */
     .login-card {
-      width: 100%; max-width: 420px; background: var(--surface);
-      border-radius: 16px; border: 1px solid var(--border);
-      box-shadow: 0 4px 12px rgba(15, 23, 42, 0.04); padding: 32px;
+      position: relative;
+      z-index: 10;
+      width: 100%;
+      max-width: 420px;
+      background: var(--surface);
+      backdrop-filter: blur(16px);
+      border-radius: 20px;
+      border: 1px solid rgba(255, 255, 255, 0.45);
+      box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.48);
+      padding: 32px;
+      overflow: hidden;
+      animation: cardEnter 0.65s cubic-bezier(0.16, 1, 0.3, 1) forwards;
     }
-    .brand { display: flex; align-items: center; gap: 12px; margin-bottom: 24px; }
+
+    /* Garis Laser Barcode Scanner Melintas di Puncak Kartu */
+    .login-card::after {
+      content: "";
+      position: absolute;
+      top: 0;
+      left: -100%;
+      width: 100%;
+      height: 3.5px;
+      background: linear-gradient(90deg, transparent, #10B981, #3B82F6, transparent);
+      animation: scannerBeam 3.6s ease-in-out infinite;
+    }
+
+    @keyframes scannerBeam {
+      0% { left: -100%; }
+      50% { left: 100%; }
+      100% { left: 100%; }
+    }
+
+    @keyframes cardEnter {
+      0% {
+        opacity: 0;
+        transform: translateY(26px) scale(0.97);
+      }
+      100% {
+        opacity: 1;
+        transform: translateY(0) scale(1);
+      }
+    }
+
+    /* Animasi Getar (Shake) saat Login Gagal */
+    @keyframes shakeError {
+      0%, 100% { transform: translateX(0); }
+      20%, 60% { transform: translateX(-7px); }
+      40%, 80% { transform: translateX(7px); }
+    }
+    .shake-card {
+      animation: shakeError 0.42s ease-in-out !important;
+    }
+
+    /* Header Brand & Animasi Badge */
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 13px;
+      margin-bottom: 24px;
+    }
     .brand-badge {
-      background: var(--primary); color: #fff; font-weight: 800;
-      padding: 10px 14px; border-radius: 12px; font-size: 18px;
+      background: linear-gradient(135deg, #10B981 0%, #059669 100%);
+      color: #fff;
+      font-weight: 800;
+      padding: 11px 15px;
+      border-radius: 13px;
+      font-size: 18px;
+      letter-spacing: 0.5px;
+      box-shadow: 0 8px 18px -4px rgba(16, 185, 129, 0.45);
+      animation: badgeFloat 3.5s ease-in-out infinite;
+      transition: transform 0.25s ease;
     }
-    h1 { font-size: 20px; margin: 0; }
-    p.sub { margin: 4px 0 0; font-size: 13px; color: var(--text-muted); }
-    .form-group { margin-bottom: 16px; }
-    label { display: block; font-size: 13px; font-weight: 600; margin-bottom: 6px; }
+    .brand-badge:hover {
+      transform: scale(1.06) rotate(-3deg);
+    }
+
+    @keyframes badgeFloat {
+      0%, 100% { transform: translateY(0); }
+      50% { transform: translateY(-3px); }
+    }
+
+    h1 {
+      font-size: 20px;
+      font-weight: 800;
+      margin: 0;
+      letter-spacing: -0.3px;
+    }
+    p.sub {
+      margin: 3px 0 0;
+      font-size: 13px;
+      color: var(--text-muted);
+    }
+
+    /* Staggered Input Animation */
+    .form-group {
+      margin-bottom: 15px;
+      opacity: 0;
+      animation: fadeSlideUp 0.5s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+    }
+    .form-group:nth-child(1) { animation-delay: 0.08s; }
+    .form-group:nth-child(2) { animation-delay: 0.15s; }
+    .form-group:nth-child(3) { animation-delay: 0.22s; }
+    .form-group:nth-child(4) { animation-delay: 0.29s; }
+
+    @keyframes fadeSlideUp {
+      from { opacity: 0; transform: translateY(12px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    label {
+      display: block;
+      font-size: 12.5px;
+      font-weight: 700;
+      color: #334155;
+      margin-bottom: 6px;
+    }
+
     input, select {
-      width: 100%; padding: 12px 14px; border-radius: 10px;
-      border: 1px solid var(--border); font-size: 14px; outline: none;
+      width: 100%;
+      padding: 11px 14px;
+      border-radius: 10px;
+      border: 1.5px solid var(--border);
+      background: #F8FAFC;
+      font-size: 14px;
+      font-weight: 500;
+      color: var(--text-main);
+      outline: none;
+      transition: border-color 0.2s ease, box-shadow 0.2s ease, background 0.2s ease, transform 0.15s ease;
     }
-    input:focus, select:focus { border-color: var(--primary); }
+    input:focus, select:focus {
+      background: #FFFFFF;
+      border-color: var(--royal-blue);
+      box-shadow: 0 0 0 4px rgba(37, 99, 235, 0.14);
+      transform: translateY(-1px);
+    }
+
+    /* Tombol Login dengan Efek Kilau (Shimmer) & Spinner */
     .btn-login {
-      width: 100%; padding: 14px; background: var(--primary); color: #fff;
-      border: none; border-radius: 12px; font-size: 15px; font-weight: 700;
-      cursor: pointer; transition: 0.2s; margin-top: 8px;
+      position: relative;
+      overflow: hidden;
+      width: 100%;
+      padding: 14px;
+      background: linear-gradient(135deg, #10B981 0%, #059669 100%);
+      color: #fff;
+      border: none;
+      border-radius: 12px;
+      font-size: 15px;
+      font-weight: 700;
+      cursor: pointer;
+      margin-top: 8px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      box-shadow: 0 8px 20px -6px rgba(16, 185, 129, 0.5);
+      transition: transform 0.18s ease, box-shadow 0.2s ease;
+      opacity: 0;
+      animation: fadeSlideUp 0.5s cubic-bezier(0.16, 1, 0.3, 1) 0.35s forwards;
     }
-    .btn-login:hover { background: var(--primary-dark); }
-    .btn-login:disabled { opacity: 0.6; cursor: not-allowed; }
-    .device-info {
-      margin-top: 20px; padding-top: 16px; border-top: 1px solid var(--border);
-      font-size: 11px; color: var(--text-muted); display: flex; justify-content: space-between;
+    .btn-login:hover:not(:disabled) {
+      transform: translateY(-2px);
+      box-shadow: 0 12px 24px -6px rgba(16, 185, 129, 0.6);
     }
+    .btn-login:active:not(:disabled) {
+      transform: scale(0.98);
+    }
+    .btn-login:disabled {
+      opacity: 0.78;
+      cursor: not-allowed;
+    }
+
+    /* Efek Kilau Cahaya pada Tombol */
+    .btn-login::before {
+      content: "";
+      position: absolute;
+      top: 0;
+      left: -75%;
+      width: 50%;
+      height: 100%;
+      background: linear-gradient(
+        120deg,
+        rgba(255, 255, 255, 0) 0%,
+        rgba(255, 255, 255, 0.35) 50%,
+        rgba(255, 255, 255, 0) 100%
+      );
+      transform: skewX(-25deg);
+      animation: btnShimmer 4.2s infinite;
+    }
+
+    @keyframes btnShimmer {
+      0% { left: -75%; }
+      35% { left: 130%; }
+      100% { left: 130%; }
+    }
+
+    /* Spinner Animasi Saat Loading */
+    .spinner {
+      width: 17px;
+      height: 17px;
+      border: 2.5px solid rgba(255, 255, 255, 0.35);
+      border-top-color: #FFFFFF;
+      border-radius: 50%;
+      animation: spin 0.75s linear infinite;
+    }
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+
+    /* Kotak Error */
     .error-box {
-      display: none; background: #FEF2F2; color: var(--danger); border: 1px solid #FECACA;
-      padding: 10px 12px; border-radius: 10px; font-size: 13px; margin-bottom: 16px;
+      display: none;
+      background: #FEF2F2;
+      color: var(--danger);
+      border: 1px solid #FECACA;
+      padding: 10px 12px;
+      border-radius: 10px;
+      font-size: 13px;
+      font-weight: 600;
+      margin-bottom: 16px;
+      animation: fadeSlideUp 0.25s ease forwards;
+    }
+
+    /* Footer Device ID & Status Engine */
+    .device-info {
+      margin-top: 20px;
+      padding-top: 15px;
+      border-top: 1px solid var(--border);
+      font-size: 11px;
+      color: var(--text-muted);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .engine-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      font-weight: 600;
+      color: #059669;
+    }
+    .engine-dot {
+      width: 7px;
+      height: 7px;
+      border-radius: 50%;
+      background: #10B981;
+      animation: pulseDot 2s infinite;
+    }
+    @keyframes pulseDot {
+      0% { box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.6); }
+      70% { box-shadow: 0 0 0 6px rgba(16, 185, 129, 0); }
+      100% { box-shadow: 0 0 0 0 rgba(16, 185, 129, 0); }
     }
   </style>
 </head>
 <body>
-  <div class="login-card">
+  <!-- Ambient Orbs -->
+  <div class="bg-orb orb-blue"></div>
+  <div class="bg-orb orb-emerald"></div>
+
+  <div class="login-card" id="loginCard">
     <div class="brand">
       <div class="brand-badge">POS</div>
       <div>
@@ -88,7 +377,7 @@
 
     <div class="device-info">
       <span>Device ID: <strong id="deviceLabel">-</strong></span>
-      <span>Offline-Ready Engine</span>
+      <span class="engine-pill"><span class="engine-dot"></span>Offline-Ready Engine</span>
     </div>
   </div>
 
@@ -108,11 +397,14 @@
 
     document.getElementById('loginForm').addEventListener('submit', async function(e) {
       e.preventDefault();
+      const card = document.getElementById('loginCard');
       const btn = document.getElementById('btnSubmit');
       const errBox = document.getElementById('errorBox');
+
+      card.classList.remove('shake-card');
       errBox.style.display = 'none';
       btn.disabled = true;
-      btn.textContent = 'Memverifikasi Perangkat & Sesi...';
+      btn.innerHTML = '<span class="spinner"></span><span>Memverifikasi Perangkat &amp; Sesi...</span>';
 
       const storeCodeInput = document.getElementById('storeCode').value.trim().toUpperCase();
       const usernameInput = document.getElementById('username').value.trim();
@@ -143,13 +435,20 @@
         localStorage.setItem('POS_SESSION', JSON.stringify(normalizedSession));
         localStorage.setItem('DANISH_POS_SESSION', JSON.stringify(normalizedSession));
 
+        btn.innerHTML = '<span>✓ Berhasil! Mengalihkan...</span>';
         const mode = document.getElementById('targetTerminal').value;
-        window.location.href = `${mode}.html`;
+        setTimeout(() => {
+          window.location.href = `${mode}.html`;
+        }, 350);
       } catch (err) {
         btn.disabled = false;
         btn.textContent = 'Masuk ke Sistem';
         errBox.textContent = err.message || 'Gagal login ke server.';
         errBox.style.display = 'block';
+
+        // Picu animasi shake pada kartu saat gagal login
+        void card.offsetWidth;
+        card.classList.add('shake-card');
       }
     });
   </script>
