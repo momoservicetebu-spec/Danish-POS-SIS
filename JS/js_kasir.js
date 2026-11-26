@@ -1384,10 +1384,9 @@ async function processFinalPayment() {
     payments
   };
 
-  saveTransactionToLocalHistory(LAST_RECEIPT_OBJ);
+saveTransactionToLocalHistory(LAST_RECEIPT_OBJ);
   enqueueOfflineTransaction(serverTrx);
   syncOfflineTransactions();
-  printThermalReceipt(LAST_RECEIPT_OBJ);
 
   closeModals();
   CART = [];
@@ -1399,10 +1398,12 @@ async function processFinalPayment() {
   syncCustomerDisplay();
 
   showToast(`Transaksi Sukses! Kembalian: Rp ${formatNumber(change)}`, 'success');
+  printThermalReceipt(LAST_RECEIPT_OBJ);
 }
 
 function saveTransactionToLocalHistory(trx) {
   const key = 'DANISH_TRX_HISTORY_' + getStoreCode();
+
   try {
     const list = JSON.parse(localStorage.getItem(key) || '[]');
     list.unshift(trx);
@@ -1625,14 +1626,12 @@ function printThermalReceipt(trx) {
   // Isi thermalReceiptArea jika ada (untuk fallback), tapi JANGAN return jika null
   const area = document.getElementById('thermalReceiptArea');
   if (area) area.innerHTML = html;
-
-  // Buat iframe berukuran nyata di luar layar (off-screen) agar Chrome tidak memblokir print()
-  let printFrame = document.getElementById('hiddenThermalPrintFrame');
+let printFrame = document.getElementById('hiddenThermalPrintFrame');
   if (printFrame) printFrame.remove();
 
   printFrame = document.createElement('iframe');
   printFrame.id = 'hiddenThermalPrintFrame';
-  printFrame.style.cssText = 'position:fixed; left:-9999px; top:0; width:350px; height:600px; border:0; opacity:1;';
+  printFrame.style.cssText = 'position:fixed; left:-9999px; top:0; width:350px; height:600px; border:0;';
   document.body.appendChild(printFrame);
 
   const pageWidthCss =
@@ -1668,10 +1667,9 @@ function printThermalReceipt(trx) {
   `);
   frameDoc.close();
 
-  setTimeout(() => {
-    frameWin.focus();
-    frameWin.print();
-  }, 250);
+  // Panggil print() langsung tanpa setTimeout agar tidak diblokir popup/print blocker browser
+  frameWin.focus();
+  frameWin.print();
 }
 // =========================================================================
 // 10. PPOB, TARIK TUNAI, RETUR, CASH DROP, TUTUP SHIFT & CETAK LABEL
