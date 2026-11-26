@@ -1613,10 +1613,10 @@ function applyDynamicPageSizeCss(paperMode) {
 
   const pageRule =
     paperMode === '80'
-      ? '@page { size: 80mm auto; margin: 0mm; } #thermalReceiptArea, .receipt { width: 72mm !important; max-width: 72mm !important; }'
+      ? '@page { size: 80mm auto; margin: 0mm; } #thermalReceiptArea, .receipt { width: 70mm !important; max-width: 70mm !important; margin: 0 auto !important; padding: 0 1mm !important; box-sizing: border-box !important; }'
       : paperMode === 'A4'
       ? '@page { size: A4 portrait; margin: 10mm; } #thermalReceiptArea, .receipt { width: 100% !important; max-width: 190mm !important; }'
-      : '@page { size: 58mm auto; margin: 0mm; } #thermalReceiptArea, .receipt { width: 48mm !important; max-width: 48mm !important; }';
+      : '@page { size: 58mm auto; margin: 0mm; } #thermalReceiptArea, .receipt { width: 44mm !important; max-width: 44mm !important; margin: 0 auto !important; padding: 0 1mm !important; box-sizing: border-box !important; }';
 
   styleEl.textContent = `
     @media print {
