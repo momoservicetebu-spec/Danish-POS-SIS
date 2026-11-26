@@ -2368,35 +2368,22 @@
         </div>
       </div>
 
-      <footer class="app-footer">
-      <div class="footer-brand">
+      <footer class="app-footer" style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px; padding: 10px 20px; font-size: 12px;">
+      <div class="footer-brand" style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
         <div class="footer-logo-badge">POS</div>
-        <div>
-          <div class="footer-title">
-            <span id="footerStoreName">POS Pro Enterprise</span>
-            <span class="footer-version">v1.0</span>
-          </div>
-          <div style="font-size: 11.5px; margin-top: 2px;">
-            &copy; <span id="footerYear">2026</span> Sistem Manajemen Kasir &amp; Inventori Terpadu.
-          </div>
-        </div>
+        <span id="footerStoreName" style="font-weight: 700;">POS Pro Enterprise</span>
+        <span class="footer-version">v1.0</span>
+        <span style="opacity: 0.7;">&bull; &copy; <span id="footerYear">2026</span></span>
+        <span style="opacity: 0.7;">&bull; Developed by <strong style="font-weight: 600;">Guntoro / Danish Shop</strong></span>
       </div>
 
-      <div class="footer-links">
-        <a class="footer-link" onclick="switchView('dashboard')">Dashboard</a>
-        <a class="footer-link" onclick="switchView('reports')">Laporan</a>
-        <a class="footer-link" onclick="switchView('preferences')">Pengaturan</a>
-        <a class="footer-link" href="kasir.html" target="_blank">Buka Layar Kasir &#8599;</a>
-      </div>
-
-      <div class="footer-status">
-        <div class="status-pill" id="footerSyncBadge">
+      <div class="footer-status" style="display: flex; align-items: center; gap: 12px;">
+        <div class="status-pill" id="footerSyncBadge" style="padding: 3px 10px; font-size: 11.5px;">
           <span class="status-dot" id="footerSyncDot"></span>
           <span id="footerSyncText">Server &amp; Cloud Aktif</span>
         </div>
-        <div style="text-align: right; font-variant-numeric: tabular-nums;">
-          <div id="footerClock" style="font-weight: 800; color: var(--ink); font-size: 13px;">--:--:--</div>
-          <div style="font-size: 10.5px;">WIB / Lokal</div>
+        <div style="font-variant-numeric: tabular-nums; font-weight: 700; color: var(--ink);">
+          <span id="footerClock">--:--:--</span> <span style="font-weight: 400; font-size: 11px; opacity: 0.75;">WIB</span>
         </div>
       </div>
     </footer>
