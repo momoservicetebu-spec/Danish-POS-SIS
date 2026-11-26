@@ -392,6 +392,7 @@
         <span id="syncStatusPill" class="status-pill status-online" style="padding:2px 10px; font-size:11px;">● ONLINE &amp; SYNCED</span>
       </div>
       <div class="rene-titlebar-actions">
+        <button class="rene-top-pill" onclick="openUserGuideModal()" style="background:#10B981; border-color:#6EE7B7; color:#FFFFFF;">📖 Panduan (F1)</button>
         <button class="rene-top-pill" onclick="togglePosFullscreen()">Layar Penuh</button>
         <button class="rene-top-pill" onclick="syncMasterNow()">Sync Master</button>
         <button class="rene-top-pill" onclick="openKasirLabelModal()">Cetak Label</button>
@@ -875,6 +876,116 @@
       <div style="display:flex; gap:10px;">
         <button onclick="closeModals()" style="flex:1; padding:10px; border-radius:10px; border:1px solid var(--border); cursor:pointer;">Tutup</button>
         <button onclick="printKasirSelectedLabels()" style="flex:2; padding:10px; border-radius:10px; border:none; background:var(--amber); color:#0F172A; font-weight:800; cursor:pointer;">Cetak Label Sekarang</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL PANDUAN PENGGUNAAN APLIKASI (F1) -->
+  <div id="userGuideModal" class="modal-backdrop">
+    <div class="modal-box" style="max-width:760px; padding:0; overflow:hidden; display:flex; flex-direction:column;">
+      <!-- Header Modal -->
+      <div style="background:linear-gradient(90deg, #1E3A8A 0%, #2563EB 100%); color:#FFFFFF; padding:16px 22px; display:flex; justify-content:space-between; align-items:center;">
+        <div>
+          <h3 style="margin:0; font-size:18px;">📖 Panduan Penggunaan Sistem DANISH POS</h3>
+          <div style="font-size:12px; opacity:0.85; margin-top:2px;">Petunjuk Operasional Kasir, Pintasan Keyboard &amp; Backoffice Admin</div>
+        </div>
+        <button type="button" onclick="closeModals()" style="background:rgba(255,255,255,0.2); border:none; color:#fff; width:32px; height:32px; border-radius:8px; font-size:18px; font-weight:700; cursor:pointer;">&times;</button>
+      </div>
+
+      <!-- Tab Navigasi Panduan -->
+      <div style="display:flex; gap:6px; padding:10px 18px; background:#F1F5F9; border-bottom:1px solid #CBD5E1; flex-wrap:wrap;">
+        <button type="button" class="guide-tab-btn active" onclick="switchGuideTab('KASIR', this)" style="padding:7px 14px; border-radius:8px; border:none; background:#1E3A8A; color:#fff; font-weight:700; font-size:12px; cursor:pointer;">1. Transaksi Kasir</button>
+        <button type="button" class="guide-tab-btn" onclick="switchGuideTab('SHORTCUT', this)" style="padding:7px 14px; border-radius:8px; border:1px solid #CBD5E1; background:#fff; color:#334155; font-weight:700; font-size:12px; cursor:pointer;">2. Pintasan Keyboard</button>
+        <button type="button" class="guide-tab-btn" onclick="switchGuideTab('PAYMENT', this)" style="padding:7px 14px; border-radius:8px; border:1px solid #CBD5E1; background:#fff; color:#334155; font-weight:700; font-size:12px; cursor:pointer;">3. Pembayaran &amp; QRIS</button>
+        <button type="button" class="guide-tab-btn" onclick="switchGuideTab('SHIFT', this)" style="padding:7px 14px; border-radius:8px; border:1px solid #CBD5E1; background:#fff; color:#334155; font-weight:700; font-size:12px; cursor:pointer;">4. Shift, Retur &amp; Offline</button>
+        <button type="button" class="guide-tab-btn" onclick="switchGuideTab('ADMIN', this)" style="padding:7px 14px; border-radius:8px; border:1px solid #CBD5E1; background:#fff; color:#334155; font-weight:700; font-size:12px; cursor:pointer;">5. Backoffice Admin</button>
+      </div>
+
+      <!-- Konten Panduan -->
+      <div style="padding:20px 24px; overflow-y:auto; max-height:65vh; font-size:13.5px; line-height:1.6; color:#1E293B;">
+        <!-- TAB 1: TRANSAKSI KASIR -->
+        <div id="guidePane_KASIR" class="guide-pane">
+          <h4 style="margin-top:0; color:#1E3A8A;">Alur Transaksi Penjualan Harian</h4>
+          <ol style="padding-left:20px; margin-bottom:14px;">
+            <li><strong>Scan Barcode / Input Barang:</strong> Arahkan kursor ke kotak kuning <em>&lt; Kode/Cari Barang &gt;</em>, lalu tembak barcode produk. Untuk input banyak sekaligus, ketik format <code>jumlah*barcode</code> (contoh: <code>5*8996001600267</code> lalu tekan <strong>Enter</strong>).</li>
+            <li><strong>Cari Barang Tanpa Barcode:</strong> Tekan <strong>F2</strong> atau klik tombol oranye <strong>Katalog Barang</strong> untuk mencari berdasarkan nama barang atau kategori.</li>
+            <li><strong>Produk Cepat (Promo &amp; Fast Food):</strong> Klik langsung kartu produk pada panel <strong>PROMO SPESIAL</strong> atau <strong>FAST FOOD</strong> di sebelah kiri tabel belanja.</li>
+            <li><strong>Ubah Qty &amp; Diskon Baris:</strong> Pilih baris barang di tabel, tekan tombol <code>+</code> / <code>-</code> untuk mengubah jumlah, atau klik <strong>Ubah Qty / Diskon (F7)</strong> untuk diskon per item (memerlukan PIN Supervisor).</li>
+            <li><strong>Pilih Member / Pelanggan:</strong> Tekan <strong>F4</strong> untuk memilih member terdaftar atau mendaftarkan member baru agar poin otomatis terhitung.</li>
+            <li><strong>Tunda Antrean (Hold):</strong> Jika pelanggan ingin menambah belanjaan, tekan <strong>F5 Tunda</strong>. Untuk memanggil kembali antrean tersebut, tekan <strong>F3 Panggil</strong>.</li>
+          </ol>
+        </div>
+
+        <!-- TAB 2: PINTASAN KEYBOARD -->
+        <div id="guidePane_SHORTCUT" class="guide-pane" style="display:none;">
+          <h4 style="margin-top:0; color:#1E3A8A;">Daftar Lengkap Tombol Pintasan (Shortcut)</h4>
+          <table class="cart-table" style="border:1px solid #CBD5E1;">
+            <thead>
+              <tr>
+                <th style="width:140px;">Tombol</th>
+                <th>Fungsi Operasional</th>
+                <th style="width:140px;">Otorisasi</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr><td><strong>F1</strong></td><td>Membuka jendela Panduan Penggunaan Aplikasi</td><td>Semua Kasir</td></tr>
+              <tr><td><strong>F2</strong></td><td>Membuka Katalog Pencarian Barang Lokal</td><td>Semua Kasir</td></tr>
+              <tr><td><strong>F3</strong></td><td>Memanggil kembali transaksi tertunda (Recall)</td><td>Semua Kasir</td></tr>
+              <tr><td><strong>F4</strong></td><td>Memilih atau mendaftarkan Pelanggan / Member</td><td>Semua Kasir</td></tr>
+              <tr><td><strong>F5</strong></td><td>Menunda sementara transaksi aktif (Hold)</td><td>Semua Kasir</td></tr>
+              <tr><td><strong>F6</strong></td><td>Mencetak ulang struk transaksi terakhir</td><td>Semua Kasir</td></tr>
+              <tr><td><strong>F7</strong></td><td>Mengubah Qty atau memberi diskon per baris</td><td>PIN Supervisor (Diskon)</td></tr>
+              <tr><td><strong>F8</strong></td><td>Menghapus baris barang yang sedang dipilih</td><td>Semua Kasir</td></tr>
+              <tr><td><strong>F9</strong></td><td>Membuka jendela Penyelesaian Pembayaran (Bayar)</td><td>Semua Kasir</td></tr>
+              <tr><td><strong>F11</strong></td><td>Setor uang tunai laci ke brankas (Cash Drop)</td><td>PIN Supervisor</td></tr>
+              <tr><td><strong>F12</strong></td><td>Mengosongkan seluruh keranjang belanja (Clear)</td><td>Konfirmasi Kasir</td></tr>
+              <tr><td><strong>Alt + 1</strong></td><td>Transaksi Layanan Digital (PPOB / Pulsa / PLN)</td><td>Semua Kasir</td></tr>
+              <tr><td><strong>Alt + 2</strong></td><td>Retur penjualan berdasarkan nomor struk</td><td>PIN Supervisor</td></tr>
+              <tr><td><strong>Alt + 3</strong></td><td>Membuka laci uang kasir (Cash Drawer) manual</td><td>Semua Kasir</td></tr>
+              <tr><td><strong>Panah &uarr;/&darr; &amp; +/-</strong></td><td>Memilih baris barang dan menambah/mengurangi Qty</td><td>Semua Kasir</td></tr>
+            </tbody>
+          </table>
+        </div>
+
+        <!-- TAB 3: PEMBAYARAN & QRIS -->
+        <div id="guidePane_PAYMENT" class="guide-pane" style="display:none;">
+          <h4 style="margin-top:0; color:#1E3A8A;">Metode Pembayaran &amp; Split Bill</h4>
+          <ul style="padding-left:20px;">
+            <li><strong>Pembayaran Tunggal Cepat:</strong> Setelah menekan <strong>F9 (BAYAR)</strong>, gunakan tombol warna di bagian atas modal (<em>Tunai Pas, QRIS, E-Wallet, Transfer, Debit/Kredit</em>) untuk mengisi nominal otomatis sesuai tagihan akhir.</li>
+            <li><strong>Split Bill (Pembayaran Gabungan):</strong> Pelanggan dapat membayar sebagian dengan Tunai dan sisanya menggunakan QRIS, Transfer Bank, atau Kartu EDC. Masukkan nominal pada masing-masing kolom berwarna hingga total pembayaran mencukupi.</li>
+            <li><strong>QRIS Dinamis Layar Pelanggan:</strong> Pastikan jendela <strong>Layar Pelanggan</strong> terbuka di monitor kedua. Saat nominal QRIS diisi, kode QRIS otomatis tampil di layar pelanggan sesuai nominal tagihan.</li>
+            <li><strong>Tukar Poin Member:</strong> Jika member memiliki saldo poin, masukkan jumlah poin yang ingin ditukar pada kolom <em>Tukar Poin</em> untuk memotong tagihan.</li>
+          </ul>
+        </div>
+
+        <!-- TAB 4: SHIFT, RETUR & OFFLINE -->
+        <div id="guidePane_SHIFT" class="guide-pane" style="display:none;">
+          <h4 style="margin-top:0; color:#1E3A8A;">Manajemen Shift, Retur &amp; Mode Offline</h4>
+          <ul style="padding-left:20px;">
+            <li><strong>Cash Drop (F11):</strong> Apabila uang tunai di laci sudah menumpuk, lakukan setor sebagian ke brankas menggunakan menu <strong>F11 Cash Drop</strong> agar saldo laci tetap aman dan tercatat.</li>
+            <li><strong>Retur Barang (Alt+2):</strong> Masukkan nomor struk asal (contoh: <code>TRX-TK-001-...</code>), klik <em>Cari Struk</em>, isi jumlah barang yang dikembalikan, tulis alasan retur, dan masukkan PIN Supervisor.</li>
+            <li><strong>Transaksi Saat Internet Mati (Offline Mode):</strong> Sistem tetap berjalan normal saat internet terputus. Badge status di pojok kiri atas akan berubah menjadi merah (<em>OFFLINE</em>) dan seluruh transaksi disimpan aman di perangkat. Data akan otomatis terkirim ke server begitu koneksi internet kembali menyala.</li>
+            <li><strong>Kunci Layar Otomatis (Idle Lock):</strong> Jika terminal tidak digunakan selama 3 menit, layar akan terkunci otomatis demi keamanan dan hanya dapat dibuka dengan PIN Supervisor.</li>
+            <li><strong>Tutup Shift (Blind Drop):</strong> Di akhir jam kerja, klik tombol merah <strong>Tutup Shift</strong> di header kanan atas, hitung fisik uang tunai di laci, lalu masukkan nominalnya beserta PIN Supervisor untuk mencetak laporan Z-Report.</li>
+          </ul>
+        </div>
+
+        <!-- TAB 5: BACKOFFICE ADMIN -->
+        <div id="guidePane_ADMIN" class="guide-pane" style="display:none;">
+          <h4 style="margin-top:0; color:#1E3A8A;">Pengelolaan Data di Backoffice / Admin SIS</h4>
+          <ul style="padding-left:20px;">
+            <li><strong>Master Produk &amp; Import CSV:</strong> Tambah produk satuan atau unggah massal melalui template CSV resmi. Setelah mengubah harga/produk di Admin, tekan tombol <strong>Sync Master</strong> di layar kasir agar data terbaru langsung aktif.</li>
+            <li><strong>Pengaturan Promo &amp; Fast Food:</strong> Tandai produk sebagai <em>Promo</em> atau masukkan ke kategori <em>Fast Food</em> agar muncul di panel akses cepat kasir.</li>
+            <li><strong>Kustomisasi Desain &amp; Struk:</strong> Atur logo toko, ukuran kertas cetak (58mm, 80mm, atau A4), detail pajak PPN, serta footer struk melalui menu Pengaturan di Admin.</li>
+            <li><strong>Manajemen Pengguna &amp; PIN:</strong> Buat akun khusus Kasir dan Supervisor dengan hak akses terpisah serta atur PIN otorisasi untuk keamanan transaksi.</li>
+          </ul>
+        </div>
+      </div>
+
+      <!-- Footer Modal -->
+      <div style="padding:12px 22px; background:#F8FAFC; border-top:1px solid #CBD5E1; display:flex; justify-content:space-between; align-items:center;">
+        <span style="font-size:12px; color:#64748B;">Tips: Tekan tombol <strong>F1</strong> kapan saja di layar kasir untuk membuka panduan ini.</span>
+        <button type="button" onclick="closeModals()" style="padding:9px 22px; border-radius:8px; border:none; background:#1E3A8A; color:#fff; font-weight:700; cursor:pointer;">Tutup Panduan</button>
       </div>
     </div>
   </div>

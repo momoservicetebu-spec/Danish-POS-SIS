@@ -2235,7 +2235,10 @@ function updateSyncStatusBadge() {
 // =========================================================================
 function bindGlobalShortcuts() {
   document.addEventListener('keydown', (e) => {
-    if (e.key === 'F2') {
+    if (e.key === 'F1') {
+      e.preventDefault();
+      openUserGuideModal();
+    } else if (e.key === 'F2') {
       e.preventDefault();
       openSearchModal();
     } else if (e.key === 'F3') {
@@ -2345,4 +2348,31 @@ function playBeepSound() {
     osc.start();
     osc.stop(ctx.currentTime + 0.08);
   } catch (e) {}
+}
+
+function openUserGuideModal(defaultTab = 'KASIR') {
+  const modal = document.getElementById('userGuideModal');
+  if (!modal) return;
+  const firstBtn = modal.querySelector('.guide-tab-btn');
+  switchGuideTab(defaultTab, firstBtn);
+  modal.classList.add('active');
+}
+
+function switchGuideTab(tabName, btnEl) {
+  document.querySelectorAll('.guide-pane').forEach((pane) => {
+    pane.style.display = 'none';
+  });
+  const activePane = document.getElementById('guidePane_' + tabName);
+  if (activePane) activePane.style.display = 'block';
+
+  document.querySelectorAll('.guide-tab-btn').forEach((b) => {
+    b.style.background = '#FFFFFF';
+    b.style.color = '#334155';
+    b.style.border = '1px solid #CBD5E1';
+  });
+  if (btnEl) {
+    btnEl.style.background = '#1E3A8A';
+    btnEl.style.color = '#FFFFFF';
+    btnEl.style.border = 'none';
+  }
 }
