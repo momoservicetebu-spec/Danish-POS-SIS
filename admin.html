@@ -1021,11 +1021,15 @@
       <button class="tab-btn" onclick="switchTab('users', this)">
         <span class="nav-icon">&#128274;</span><span class="nav-label">User & Device</span>
       </button>
+      <button class="tab-btn" onclick="openAdminGuideModal()" style="color:#34D399; font-weight:700;">
+        <span class="nav-icon">&#128214;</span><span class="nav-label">Panduan Admin (F1)</span>
+      </button>
       <div class="sidebar-divider"></div>
 
       <button class="tab-btn" onclick="goKasir()" style="color:#60A5FA; font-weight:700;">
         <span class="nav-icon">&#128187;</span><span class="nav-label">Buka Layar Kasir</span>
       </button>
+      <button type="button" class="btn btn-green btn-sm" onclick="openAdminGuideModal()" title="Buka Panduan Backoffice Admin (F1)">&#128214; Panduan (F1)</button>
       <button class="tab-btn" onclick="logout()" style="color:#F87171;">
         <span class="nav-icon">&#128682;</span><span class="nav-label">Keluar Sistem</span>
       </button>
@@ -3952,6 +3956,129 @@
       </div>
     </div>
   </div>
+
+  <!-- MODAL 20: PANDUAN PENGGUNAAN BACKOFFICE ADMIN (F1) -->
+  <div id="adminGuideModal" class="modal-backdrop">
+    <div class="modal-box" style="max-width:860px; padding:0;">
+      <!-- Header Modal -->
+      <div class="modal-header" style="background:linear-gradient(90deg, #0B192C 0%, #1D4ED8 100%); color:#FFFFFF; border-bottom:none;">
+        <div>
+          <h3 style="margin:0; font-size:17px;">&#128214; Panduan Penggunaan Backoffice Admin &mdash; Danish POS &amp; SIS</h3>
+          <small style="color:#CBD5E1;">Petunjuk lengkap pengelolaan Master Barang, Gudang, Stock Opname, Laporan &amp; Pengaturan Sistem</small>
+        </div>
+        <button type="button" class="btn btn-red btn-sm" onclick="closeModal('adminGuideModal')">&#10006; Tutup</button>
+      </div>
+
+      <!-- Navigasi Tab Panduan Admin -->
+      <div style="display:flex; gap:6px; padding:10px 18px; background:#F1F5F9; border-bottom:1px solid var(--border); flex-wrap:wrap;">
+        <button type="button" class="btn btn-blue btn-sm adm-guide-tab" onclick="switchAdminGuideTab('MASTER', this)">1. Master &amp; Harga</button>
+        <button type="button" class="btn btn-dark btn-sm adm-guide-tab" onclick="switchAdminGuideTab('GUDANG', this)">2. Gudang, Pembelian &amp; SO</button>
+        <button type="button" class="btn btn-dark btn-sm adm-guide-tab" onclick="switchAdminGuideTab('KEUANGAN', this)">3. Member, Brankas &amp; Laporan</button>
+        <button type="button" class="btn btn-dark btn-sm adm-guide-tab" onclick="switchAdminGuideTab('KONFIG', this)">4. Preferensi, QRIS &amp; Desain</button>
+        <button type="button" class="btn btn-dark btn-sm adm-guide-tab" onclick="switchAdminGuideTab('SECURITY', this)">5. User, Backup &amp; Keamanan</button>
+      </div>
+
+      <!-- Konten Panduan -->
+      <div class="modal-body" style="font-size:13.5px; line-height:1.65; color:var(--text-main);">
+        <!-- TAB 1: MASTER & HARGA -->
+        <div id="admGuidePane_MASTER" class="adm-guide-pane">
+          <h4 style="margin-top:0; color:var(--blue);">Pengelolaan Katalog Master Barang, Promo &amp; Barcode</h4>
+          <ol style="padding-left:20px; margin-bottom:12px;">
+            <li><strong>Kategori Barang:</strong> Buka menu <em>Master &amp; Barcode &rarr; Kategori</em> untuk membuat kelompok produk dan mengatur tujuan cetak pesanan (Bar, Dapur, atau Gudang).</li>
+            <li><strong>Tambah &amp; Edit Produk:</strong> Klik <strong>Tambah Barang</strong> untuk mengisi SKU, Barcode/UPC, kode PLU timbangan, HPP (Modal), dan <strong>5 Tingkatan Harga</strong> (Reguler, Member, Tingkat 3–5).</li>
+            <li><strong>Set Harga Massal:</strong> Gunakan tombol <strong>Set Harga</strong> untuk mengubah harga banyak barang sekaligus (bisa memuat satu kategori penuh) dan menentukan tanggal mulai berlakunya.</li>
+            <li><strong>Promo Otomatis &amp; Komisi:</strong> Atur diskon langsung, harga grosir bertingkat (<em>Tiered</em>), paket <em>Bundling</em>, tebus murah (<em>PWP</em>), serta komisi sales/kasir per produk.</li>
+            <li><strong>Cetak Stiker Barcode &amp; Price Tag Rak:</strong> Centang barang di tabel katalog lalu klik <strong>Cetak Barcode</strong>, atau cetak antrean perubahan harga rak langsung dari panel <em>Dashboard KPI</em>.</li>
+            <li><strong>Sinkronisasi ke Kasir:</strong> Setelah menambah/mengubah harga barang di Admin, ingatkan kasir untuk menekan tombol <strong>Sync Master</strong> di layar kasir agar harga baru langsung berlaku.</li>
+          </ol>
+        </div>
+
+        <!-- TAB 2: GUDANG, PEMBELIAN & STOCK OPNAME -->
+        <div id="admGuidePane_GUDANG" class="adm-guide-pane" style="display:none;">
+          <h4 style="margin-top:0; color:var(--blue);">Alur Persediaan Gudang, Pembelian &amp; Stock Opname</h4>
+          <ul style="padding-left:20px;">
+            <li><strong>Faktur Pembelian (Supplier &amp; Beli):</strong> Catat pembelian barang dari pemasok (Tunai atau Tempo). Sistem otomatis menambah stok gudang, memperbarui HPP, dan mencatat hutang usaha jika pembayaran Tempo.</li>
+            <li><strong>Penerimaan Multi-Item &amp; Mutasi (Gudang &amp; Mutasi):</strong> Gunakan <em>Penerimaan Barang (Multi-Item)</em> untuk input surat jalan banyak item sekaligus beserta tanggal kedaluwarsa (<strong>FEFO</strong>). Gunakan <em>LPB / NRB / Mutasi</em> untuk retur barang rusak atau transfer stok antar cabang.</li>
+            <li><strong>Pecah Kemasan (Repack):</strong> Konversi stok kemasan besar ke eceran (contoh: <code>1 DUS &rarr; 40 PCS</code>) secara otomatis tanpa merusak perhitungan HPP satuan.</li>
+            <li><strong>Penyesuaian Stok:</strong> Koreksi selisih stok fisik akibat barang rusak/hilang dan cetak dokumen bukti penyesuaiannya.</li>
+            <li><strong>Blind Stock Opname (SO):</strong> Masuk ke menu <em>Stock Opname</em>, arahkan kursor ke kotak <em>Scan Barcode Rak</em>, lalu tembak barcode barang di rak (setiap scan menambah +1). Masukkan PIN Kepala Toko lalu klik <strong>Simpan Hasil SO</strong> untuk mencetak Berita Acara selisih stok.</li>
+          </ul>
+        </div>
+
+        <!-- TAB 3: MEMBER, BRANKAS & LAPORAN -->
+        <div id="admGuidePane_KEUANGAN" class="adm-guide-pane" style="display:none;">
+          <h4 style="margin-top:0; color:var(--blue);">Manajemen Piutang Member, Brankas &amp; Pusat Laporan</h4>
+          <ul style="padding-left:20px;">
+            <li><strong>Member &amp; Kartu Piutang:</strong> Daftarkan pelanggan, tentukan level harga khusus, diskon otomatis, dan batas limit piutang. Gunakan tombol <strong>Bayar Piutang</strong> untuk mencatat cicilan atau pelunasan tagihan member.</li>
+            <li><strong>Brankas &amp; Setoran Bank:</strong> Pantau uang tunai hasil <em>Cash Drop</em> dari laci kasir, serta catat setiap setoran tunai ke bank atau biaya operasional toko agar saldo fisik brankas selalu akurat.</li>
+            <li><strong>Pusat Laporan &amp; Laba Rugi:</strong> Pilih kategori laporan di panel kiri (Penjualan, Persediaan, Keuangan/Laba Rugi, Kasir/Shift), tentukan rentang tanggal, lalu klik <strong>Tampilkan Laporan</strong>. Hasil laporan dapat diekspor ke <strong>Excel (.CSV)</strong> atau dicetak ke <strong>PDF</strong>.</li>
+          </ul>
+        </div>
+
+        <!-- TAB 4: PREFERENSI, QRIS & DESAIN -->
+        <div id="admGuidePane_KONFIG" class="adm-guide-pane" style="display:none;">
+          <h4 style="margin-top:0; color:var(--blue);">Konfigurasi Perusahaan, QRIS Hybrid &amp; Studio Desain</h4>
+          <ul style="padding-left:20px;">
+            <li><strong>15 Panel Preferensi (Perusahaan &amp; Preferensi):</strong> Atur profil &amp; logo struk toko, PPN/PB1, pembulatan kembalian tunai, biaya kantong belanja, format barcode timbangan digital, poin reward, hingga jadwal <em>Shift Kasir</em> &amp; mode <em>Blind Closing</em>.</li>
+            <li><strong>Pengaturan QRIS Hybrid:</strong> Masuk ke <em>Perusahaan &amp; Preferensi &rarr; 3. Pembayaran &amp; EDC</em>. Anda dapat memilih <strong>Mode 1 (QRIS Dinamis Offline EMVCo)</strong> cukup dengan menempelkan string payload QRIS bank Anda tanpa API key, atau <strong>Mode 2 (Midtrans/Xendit)</strong> untuk konfirmasi lunas otomatis.</li>
+            <li><strong>Studio Desain (Desain &amp; Cetak Label):</strong> Kustomisasi komponen tampilan layar kasir, pilih format kertas cetak struk (Thermal 58mm, 80mm, atau Faktur A4), serta desain ulang tata letak Price Tag / Rack Tag.</li>
+          </ul>
+        </div>
+
+        <!-- TAB 5: USER, BACKUP & KEAMANAN -->
+        <div id="admGuidePane_SECURITY" class="adm-guide-pane" style="display:none;">
+          <h4 style="margin-top:0; color:var(--blue);">Hak Akses Karyawan, Keamanan &amp; Backup Database</h4>
+          <ul style="padding-left:20px;">
+            <li><strong>User &amp; Device Binding:</strong> Buat akun khusus untuk setiap Kasir, Pramuniaga, dan Kepala Toko. Jika karyawan berganti perangkat/komputer kasir, admin dapat mereset penguncian <em>Device ID</em> pada tabel pengguna.</li>
+            <li><strong>Ganti PIN Otorisasi:</strong> Ubah PIN Supervisor secara berkala melalui <em>Perusahaan &amp; Preferensi &rarr; Ganti PIN</em> untuk menjaga keamanan otorisasi Void, Diskon Manual, dan Stock Opname.</li>
+            <li><strong>Monitor Fraud &amp; Audit Trail:</strong> Periksa tabel <em>Log Keamanan</em> dan <em>Monitor Anomali</em> di Dashboard KPI untuk melacak aktivitas pembatalan transaksi atau ketidaksesuaian harga.</li>
+            <li><strong>Impor CSV &amp; Full Backup JSON:</strong> Gunakan fitur <em>Impor CSV/Excel</em> untuk unggah ribuan produk sekaligus, dan unduh salinan cadangan penuh secara berkala melalui menu <strong>File Database (.JSON)</strong>.</li>
+          </ul>
+        </div>
+      </div>
+
+      <!-- Footer Modal -->
+      <div style="padding:12px 20px; background:#F8FAFC; border-top:1px solid var(--border); display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:8px;">
+        <span style="font-size:12px; color:var(--text-muted);">Pintasan Cepat: Tekan tombol <strong>F1</strong> di halaman Admin untuk membuka panduan ini kapan saja.</span>
+        <button type="button" class="btn btn-blue" onclick="closeModal('adminGuideModal')">Mengerti &amp; Tutup</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    function openAdminGuideModal(defaultTab = 'MASTER') {
+      const modal = document.getElementById('adminGuideModal');
+      if (!modal) return;
+      const firstBtn = modal.querySelector('.adm-guide-tab');
+      switchAdminGuideTab(defaultTab, firstBtn);
+      modal.classList.add('open');
+    }
+
+    function switchAdminGuideTab(tabKey, btnEl) {
+      document.querySelectorAll('.adm-guide-pane').forEach(p => p.style.display = 'none');
+      const target = document.getElementById('admGuidePane_' + tabKey);
+      if (target) target.style.display = 'block';
+
+      document.querySelectorAll('.adm-guide-tab').forEach(b => {
+        b.classList.remove('btn-blue');
+        b.classList.add('btn-dark');
+      });
+      if (btnEl) {
+        btnEl.classList.remove('btn-dark');
+        btnEl.classList.add('btn-blue');
+      }
+    }
+
+    document.addEventListener('keydown', function(e) {
+      if (e.key === 'F1') {
+        e.preventDefault();
+        openAdminGuideModal();
+      } else if (e.key === 'Escape') {
+        const gm = document.getElementById('adminGuideModal');
+        if (gm && gm.classList.contains('open')) closeModal('adminGuideModal');
+      }
+    });
+  </script>
 
   <!-- DATALIST AUTOCOMPLETE KATALOG BARANG UNTUK SEMUA MODAL -->
   <datalist id="catalogDataList"></datalist>
