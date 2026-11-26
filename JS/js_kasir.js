@@ -1629,7 +1629,7 @@ function printThermalReceipt(trx) {
     area = document.createElement('div');
     area.id = 'thermalReceiptArea';
     area.className = 'thermal-only';
-    document.body.appendChild(area);
+    document.body.appendChild(area);R
   }
   area.innerHTML = html;
 
