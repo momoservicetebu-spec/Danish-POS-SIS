@@ -1,11 +1,9 @@
 /**
- * DANISH POS - KASIR TERMINAL ENGINE (V3.5 - COMPLETE UNIFIED EDITION)
- * - Auto-Sync Logo Base64/URL + Fallback Brand Vector
- * - Etalase Cepat PROMO SPESIAL & FAST FOOD (Murni Data Admin)
- * - Modal Pembayaran 6 Kanal + QRIS Dinamis EMVCo (CRC16) & Gateway
- * - Multi-Currency (IDR, USD, SGD, MYR, EUR, JPY)
- * - Engine Promo Otomatis, Stok Lokal, Poin Member, Riwayat Transaksi, Retur, Cash Drop & Tutup Shift
- * - Auto-Sync Pengaturan Struk Admin (58mm / 80mm / A4 + DPP/PPN + Poin + Slip Pesanan + Jarak Sobek)
+ * DANISH POS - KASIR TERMINAL ENGINE (V3.6 - COMPLETE UNIFIED & THERMAL ALIGNED)
+ * - Auto-Sync Desain & Pengaturan Struk Admin (58mm / 80mm / A4 + DPP/PPN + Poin + Slip Pesanan)
+ * - Kompatibel Penuh untuk Sesi Akun Owner maupun Akun Kasir
+ * - Tabel Struk Presisi 48mm (Kertas 58mm) & 72mm (Kertas 80mm) Anti-Terpotong
+ * - Etalase Cepat PROMO SPESIAL & FAST FOOD + QRIS Dinamis EMVCo & Gateway
  */
 
 // =========================================================================
@@ -21,18 +19,36 @@ function getActiveSession() {
     if (raw) {
       const parsed = JSON.parse(raw);
       if (parsed && typeof parsed === 'object') {
+        const rawUser = parsed.user || parsed;
+        const rawStore = parsed.store || parsed;
+        const resolvedStoreCode =
+          rawStore.kodeToko ||
+          rawStore.kode_toko ||
+          rawStore.storeCode ||
+          rawStore.store_code ||
+          rawStore.idToko ||
+          parsed.kodeToko ||
+          parsed.kode_toko ||
+          parsed.storeCode ||
+          'TK-001';
+
         return {
           ...parsed,
-          user: parsed.user || {
-            idUser: parsed.idUser || parsed.userId || parsed.username || 'KSR-01',
-            username: parsed.username || parsed.nama || 'kasir',
-            nama: parsed.nama || parsed.name || parsed.username || 'Kasir',
-            role: parsed.role || 'KASIR'
+          user: {
+            idUser: rawUser.idUser || rawUser.user_id || rawUser.userId || rawUser.username || 'KSR-01',
+            username: rawUser.username || rawUser.nama || 'kasir',
+            nama: rawUser.nama || rawUser.name || rawUser.username || 'Kasir',
+            role: rawUser.role || 'KASIR'
           },
-          store: parsed.store || {
-            kodeToko: parsed.storeCode || parsed.kodeToko || 'TK-001',
-            namaToko: parsed.namaToko || parsed.storeName || 'Minimarket Pusat 01',
-            alamat: parsed.alamat || ''
+          store: {
+            kodeToko: String(resolvedStoreCode).trim(),
+            namaToko:
+              rawStore.namaToko ||
+              rawStore.nama_toko ||
+              rawStore.storeName ||
+              parsed.namaToko ||
+              'Minimarket Pusat 01',
+            alamat: rawStore.alamat || rawStore.address || ''
           }
         };
       }
@@ -44,7 +60,15 @@ function getActiveSession() {
 
 function getStoreCode() {
   const s = getActiveSession();
-  return s?.store?.kodeToko || s?.storeCode || s?.kodeToko || 'TK-001';
+  return (
+    s?.store?.kodeToko ||
+    s?.store?.kode_toko ||
+    s?.storeCode ||
+    s?.store_code ||
+    s?.kodeToko ||
+    s?.kode_toko ||
+    'TK-001'
+  );
 }
 
 let ACTIVE_SHIFT = null;
@@ -204,7 +228,7 @@ function exitPosScreen() {
 }
 
 // =========================================================================
-// 3. SINKRONISASI DESAIN & LOGO PERUSAHAAN DARI ADMIN
+// 3. SINKRONISASI DESAIN & LOGO PERUSAHAAN DARI ADMIN (DATABASE)
 // =========================================================================
 function normalizeLogoDataUrl(rawLogo) {
   if (!rawLogo || typeof rawLogo !== 'string') return '';
@@ -268,19 +292,111 @@ function renderLogoToBox() {
     logoBox.innerHTML = getDefaultBrandLogoSvg();
   }
 }
+
+function normalizeAdminDesignPayload(raw, storeCode) {
+  if (!raw) return null;
+  let obj = raw;
+  if (typeof obj === 'string') {
+    try { obj = JSON.parse(obj); } catch (e) { return null; }
+  }
+  if (Array.isArray(obj)) {
+    obj =
+      obj.find((r) => String(r.kodeToko || r.kode_toko || '').toUpperCase() === storeCode.toUpperCase()) ||
+      obj[0];
+  }
+  if (!obj || typeof obj !== 'object') return null;
+
+  return {
+    ...obj,
+    kodeToko: obj.kodeToko || obj.kode_toko || storeCode,
+    preset: obj.preset || 'Minimarket 1',
+    compScan: obj.compScan !== undefined ? Boolean(obj.compScan) : obj.comp_scan !== false,
+    compActiveItem: obj.compActiveItem !== undefined ? Boolean(obj.compActiveItem) : obj.comp_active_item !== false,
+    compCatMenu: obj.compCatMenu !== undefined ? Boolean(obj.compCatMenu) : obj.comp_cat_menu !== false,
+    compCustomer: obj.compCustomer !== undefined ? Boolean(obj.compCustomer) : obj.comp_customer !== false,
+    compTableNo: obj.compTableNo !== undefined ? Boolean(obj.compTableNo) : obj.comp_table_no !== false,
+    compQuickMenu: obj.compQuickMenu !== undefined ? Boolean(obj.compQuickMenu) : obj.comp_quick_menu !== false,
+    compHoldRecall: obj.compHoldRecall !== undefined ? Boolean(obj.compHoldRecall) : obj.comp_hold_recall !== false,
+    compSplit: obj.compSplit !== undefined ? Boolean(obj.compSplit) : obj.comp_split !== false,
+    compLogo: obj.compLogo !== undefined ? Boolean(obj.compLogo) : obj.comp_logo !== false,
+    accentColor: obj.accentColor || obj.accent_color || '#4004cd',
+    totalSize: obj.totalSize || obj.total_size || '52px',
+    strukPaperSize: obj.strukPaperSize || obj.struk_paper_size || obj.paperSize || '58mm',
+    strukShowTaxDetail:
+      obj.strukShowTaxDetail !== undefined
+        ? Boolean(obj.strukShowTaxDetail)
+        : obj.struk_show_tax_detail !== undefined
+        ? Boolean(obj.struk_show_tax_detail)
+        : true,
+    strukShowMemberPoint:
+      obj.strukShowMemberPoint !== undefined
+        ? Boolean(obj.strukShowMemberPoint)
+        : Boolean(obj.struk_show_member_point),
+    strukPrintOrderSlip:
+      obj.strukPrintOrderSlip !== undefined
+        ? Boolean(obj.strukPrintOrderSlip)
+        : Boolean(obj.struk_print_order_slip),
+    labelModel: obj.labelModel || obj.label_model || 'PRICE_TAG_2'
+  };
+}
+
+function normalizeAdminPrefsPayload(raw, storeCode) {
+  if (!raw) return null;
+  let obj = raw;
+  if (typeof obj === 'string') {
+    try { obj = JSON.parse(obj); } catch (e) { return null; }
+  }
+  if (Array.isArray(obj)) {
+    obj =
+      obj.find((r) => String(r.kodeToko || r.kode_toko || '').toUpperCase() === storeCode.toUpperCase()) ||
+      obj[0];
+  }
+  if (!obj || typeof obj !== 'object') return null;
+
+  return {
+    ...obj,
+    companyName: obj.companyName || obj.company_name || obj.namaToko || '',
+    companyAddress: obj.companyAddress || obj.company_address || obj.alamat || '',
+    companyPhone: obj.companyPhone || obj.company_phone || obj.telepon || '',
+    logoBase64: obj.logoBase64 || obj.logo_base64 || '',
+    logoUrl: obj.logoUrl || obj.logo_url || '',
+    taxEnabled: obj.taxEnabled !== undefined ? Boolean(obj.taxEnabled) : Boolean(obj.tax_enabled),
+    taxPct: Number(obj.taxPct ?? obj.tax_pct ?? 11),
+    taxInclusive: obj.taxInclusive !== undefined ? Boolean(obj.taxInclusive) : obj.tax_inclusive !== false,
+    roundEnabled: obj.roundEnabled !== undefined ? Boolean(obj.roundEnabled) : obj.round_enabled !== false,
+    roundMode: obj.roundMode || obj.round_mode || 'DOWN',
+    roundStep: Number(obj.roundStep ?? obj.round_step ?? 100),
+    pointEarnStep: Number(obj.pointEarnStep ?? obj.point_earn_step ?? 10000),
+    pointRedeemVal: Number(obj.pointRedeemVal ?? obj.point_redeem_val ?? 100),
+    prefixStruk: obj.prefixStruk || obj.prefix_struk || 'TRX-',
+    receiptFooter:
+      obj.receiptFooter ||
+      obj.receipt_footer ||
+      'TERIMA KASIH\n# Barang yang sudah dibeli tidak dapat ditukar/dikembalikan'
+  };
+}
+
 async function initKasirDesignConfig() {
   const storeCode = getStoreCode();
   const designCacheKey = 'DANISH_DESIGN_CONFIG_' + storeCode;
 
   try {
-    const cachedDesign = localStorage.getItem(designCacheKey);
-    if (cachedDesign) KASIR_DESIGN_CFG = { ...KASIR_DESIGN_CFG, ...JSON.parse(cachedDesign) };
+    const cachedDesign =
+      localStorage.getItem(designCacheKey) ||
+      localStorage.getItem('DANISH_DESIGN_CONFIG_TK-001');
+    if (cachedDesign) {
+      const normD = normalizeAdminDesignPayload(cachedDesign, storeCode);
+      if (normD) KASIR_DESIGN_CFG = { ...KASIR_DESIGN_CFG, ...normD };
+    }
 
     const cachedPrefs =
       localStorage.getItem('DANISH_POS_COMPANY_PREFS') ||
       localStorage.getItem('DANISH_COMPANY_PREFS_' + storeCode) ||
       localStorage.getItem('DANISH_COMPANY_PREFS_GLOBAL');
-    if (cachedPrefs) KASIR_COMPANY_PREFS = { ...KASIR_COMPANY_PREFS, ...JSON.parse(cachedPrefs) };
+    if (cachedPrefs) {
+      const normP = normalizeAdminPrefsPayload(cachedPrefs, storeCode);
+      if (normP) KASIR_COMPANY_PREFS = { ...KASIR_COMPANY_PREFS, ...normP };
+    }
 
     applyKasirDesignToDOM();
   } catch (e) {}
@@ -291,15 +407,17 @@ async function initKasirDesignConfig() {
       ApiClient.call('admin/get-preferences', { kodeToko: storeCode }).catch(() => null)
     ]);
 
-    const rawDesign = cloudCfg?.data || cloudCfg?.config || cloudCfg;
-    if (rawDesign && typeof rawDesign === 'object' && Object.keys(rawDesign).length > 0) {
-      KASIR_DESIGN_CFG = { ...KASIR_DESIGN_CFG, ...rawDesign };
+    const rawDesign = cloudCfg?.data || cloudCfg?.config || cloudCfg?.design || cloudCfg;
+    const normDesign = normalizeAdminDesignPayload(rawDesign, storeCode);
+    if (normDesign) {
+      KASIR_DESIGN_CFG = { ...KASIR_DESIGN_CFG, ...normDesign };
       localStorage.setItem(designCacheKey, JSON.stringify(KASIR_DESIGN_CFG));
     }
 
-    const rawPrefs = cloudPrefs?.data || cloudPrefs?.preferences || cloudPrefs;
-    if (rawPrefs && typeof rawPrefs === 'object' && Object.keys(rawPrefs).length > 0) {
-      KASIR_COMPANY_PREFS = { ...KASIR_COMPANY_PREFS, ...rawPrefs };
+    const rawPrefs = cloudPrefs?.data || cloudPrefs?.preferences || cloudPrefs?.prefs || cloudPrefs;
+    const normPrefs = normalizeAdminPrefsPayload(rawPrefs, storeCode);
+    if (normPrefs) {
+      KASIR_COMPANY_PREFS = { ...KASIR_COMPANY_PREFS, ...normPrefs };
       localStorage.setItem('DANISH_POS_COMPANY_PREFS', JSON.stringify(KASIR_COMPANY_PREFS));
     }
 
@@ -313,7 +431,6 @@ function applyKasirDesignToDOM() {
   const cfg = KASIR_DESIGN_CFG;
   const prefs = KASIR_COMPANY_PREFS;
 
-  // Terapkan accentColor ke Topbar & variabel CSS
   const accent = cfg.accentColor || cfg.primaryColor || '#1E3A8A';
   document.documentElement.style.setProperty('--royal-blue', accent);
   const titleBar = document.getElementById('reneTitleBar');
@@ -321,13 +438,11 @@ function applyKasirDesignToDOM() {
     titleBar.style.background = `linear-gradient(90deg, ${accent} 0%, #2563EB 100%)`;
   }
 
-  // Terapkan ukuran font Grand Total (totalSize: "52px")
   const grandTotalEl = document.getElementById('lblGrandTotal');
   if (grandTotalEl && cfg.totalSize) {
     grandTotalEl.style.fontSize = cfg.totalSize;
   }
 
-  // Visibilitas komponen dari database Admin
   const toggleEl = (selectorOrId, visible) => {
     const el = document.getElementById(selectorOrId) || document.querySelector(selectorOrId);
     if (el) el.style.display = visible === false ? 'none' : '';
@@ -354,6 +469,7 @@ function applyKasirDesignToDOM() {
 
   renderLogoToBox();
 }
+
 // =========================================================================
 // 4. MULTI-MATA UANG (DUAL CURRENCY / FOREX ENGINE)
 // =========================================================================
@@ -458,18 +574,38 @@ async function loadInitialPosData() {
       ApiClient.call('admin/get-qris', { kodeToko: storeCode }).catch(() => null)
     ]);
 
-    if (masterRes && Array.isArray(masterRes.products)) {
-      PRODUCTS = masterRes.products.map(normalizeBackendProduct);
-      localStorage.setItem('DANISH_PRODUCTS_' + storeCode, JSON.stringify(PRODUCTS));
+    if (masterRes) {
+      if (Array.isArray(masterRes.products)) {
+        PRODUCTS = masterRes.products.map(normalizeBackendProduct);
+        localStorage.setItem('DANISH_PRODUCTS_' + storeCode, JSON.stringify(PRODUCTS));
+      }
+      if (Array.isArray(masterRes.members)) {
+        CUSTOMERS = masterRes.members.map(normalizeBackendMember);
+        localStorage.setItem('DANISH_CUSTOMERS_' + storeCode, JSON.stringify(CUSTOMERS));
+      }
+      if (Array.isArray(masterRes.promotions)) {
+        PROMOTIONS = masterRes.promotions;
+        localStorage.setItem('DANISH_PROMOS_' + storeCode, JSON.stringify(PROMOTIONS));
+      }
+      // Fallback jika pos/sync-master ikut membawa design atau preferences dari database
+      if (masterRes.design) {
+        const normD = normalizeAdminDesignPayload(masterRes.design, storeCode);
+        if (normD) {
+          KASIR_DESIGN_CFG = { ...KASIR_DESIGN_CFG, ...normD };
+          localStorage.setItem('DANISH_DESIGN_CONFIG_' + storeCode, JSON.stringify(KASIR_DESIGN_CFG));
+          applyKasirDesignToDOM();
+        }
+      }
+      if (masterRes.preferences) {
+        const normP = normalizeAdminPrefsPayload(masterRes.preferences, storeCode);
+        if (normP) {
+          KASIR_COMPANY_PREFS = { ...KASIR_COMPANY_PREFS, ...normP };
+          localStorage.setItem('DANISH_POS_COMPANY_PREFS', JSON.stringify(KASIR_COMPANY_PREFS));
+          applyKasirDesignToDOM();
+        }
+      }
     }
-    if (masterRes && Array.isArray(masterRes.members)) {
-      CUSTOMERS = masterRes.members.map(normalizeBackendMember);
-      localStorage.setItem('DANISH_CUSTOMERS_' + storeCode, JSON.stringify(CUSTOMERS));
-    }
-    if (masterRes && Array.isArray(masterRes.promotions)) {
-      PROMOTIONS = masterRes.promotions;
-      localStorage.setItem('DANISH_PROMOS_' + storeCode, JSON.stringify(PROMOTIONS));
-    }
+
     if (qrisRes) {
       QRIS_STATE.mode = qrisRes.mode || 'OFFLINE_EMVCO';
       if (qrisRes.staticPayload) {
@@ -1004,7 +1140,10 @@ async function quickRegisterMember() {
 
 function handleHoldRecall(mode = 'HOLD') {
   if (mode === 'HOLD' && CART.length > 0) {
-    const note = prompt('Masukkan catatan pembeli / nomor meja:', document.getElementById('kasirTableNumberInput')?.value || `Antrean #${PARKED_CARTS.length + 1}`);
+    const note = prompt(
+      'Masukkan catatan pembeli / nomor meja:',
+      document.getElementById('kasirTableNumberInput')?.value || `Antrean #${PARKED_CARTS.length + 1}`
+    );
     if (note === null) return;
     const totals = getCartTotals();
     PARKED_CARTS.push({
@@ -1037,8 +1176,8 @@ function handleHoldRecall(mode = 'HOLD') {
             <td class="num">${p.items.length}</td>
             <td class="num"><strong>Rp ${formatNumber(p.total)}</strong></td>
             <td>
-              <button onclick="recallParkedCart(${idx})" style="padding:4px 8px; border-radius:6px; border:none; background:#2563EB; color:#fff; font-weight:700; cursor:pointer;">Panggil</button>
-              <button onclick="deleteParkedCart(${idx})" style="padding:4px 7px; border-radius:6px; border:none; background:#DC2626; color:#fff; font-weight:700; cursor:pointer;">Hapus</button>
+              <button type="button" onclick="recallParkedCart(${idx})" style="padding:4px 8px; border-radius:6px; border:none; background:#2563EB; color:#fff; font-weight:700; cursor:pointer;">Panggil</button>
+              <button type="button" onclick="deleteParkedCart(${idx})" style="padding:4px 7px; border-radius:6px; border:none; background:#DC2626; color:#fff; font-weight:700; cursor:pointer;">Hapus</button>
             </td>
           </tr>`;
       });
@@ -1144,9 +1283,10 @@ function getComputedCheckoutSummary() {
   let finalDue = base;
   const step = Number(prefs.roundStep) || 100;
   if (autoRound && finalDue > 0 && step > 0) {
-    finalDue = prefs.roundMode === 'UP'
-      ? Math.ceil(finalDue / step) * step
-      : Math.floor(finalDue / step) * step;
+    finalDue =
+      prefs.roundMode === 'UP'
+        ? Math.ceil(finalDue / step) * step
+        : Math.floor(finalDue / step) * step;
   }
 
   return {
@@ -1384,7 +1524,7 @@ async function processFinalPayment() {
     payments
   };
 
-saveTransactionToLocalHistory(LAST_RECEIPT_OBJ);
+  saveTransactionToLocalHistory(LAST_RECEIPT_OBJ);
   enqueueOfflineTransaction(serverTrx);
   syncOfflineTransactions();
 
@@ -1403,7 +1543,6 @@ saveTransactionToLocalHistory(LAST_RECEIPT_OBJ);
 
 function saveTransactionToLocalHistory(trx) {
   const key = 'DANISH_TRX_HISTORY_' + getStoreCode();
-
   try {
     const list = JSON.parse(localStorage.getItem(key) || '[]');
     list.unshift(trx);
@@ -1415,8 +1554,10 @@ function saveTransactionToLocalHistory(trx) {
 function reprintLastReceipt() {
   if (!LAST_RECEIPT_OBJ) {
     const key = 'DANISH_TRX_HISTORY_' + getStoreCode();
-    const list = JSON.parse(localStorage.getItem(key) || '[]');
-    if (list.length > 0) LAST_RECEIPT_OBJ = list[0];
+    try {
+      const list = JSON.parse(localStorage.getItem(key) || '[]');
+      if (list.length > 0) LAST_RECEIPT_OBJ = list[0];
+    } catch (e) {}
   }
   if (!LAST_RECEIPT_OBJ) {
     showToast('Belum ada transaksi terakhir untuk dicetak ulang', 'warning');
@@ -1430,6 +1571,7 @@ function getReceiptPrintConfig() {
   let saved = { ...KASIR_DESIGN_CFG };
 
   const candidateKeys = [
+    'DANISH_DESIGN_CONFIG_TK-001',
     'DANISH_DESIGN_CONFIG_' + storeCode,
     'DANISH_RECEIPT_CONFIG_' + storeCode,
     'DANISH_POS_RECEIPT_CFG',
@@ -1439,11 +1581,13 @@ function getReceiptPrintConfig() {
   for (const k of candidateKeys) {
     try {
       const raw = localStorage.getItem(k);
-      if (raw) saved = { ...saved, ...JSON.parse(raw) };
+      if (raw) {
+        const norm = normalizeAdminDesignPayload(raw, storeCode);
+        if (norm) saved = { ...saved, ...norm };
+      }
     } catch (e) {}
   }
 
-  // Ambil langsung dari key database: strukPaperSize ("58mm" | "80mm" | "A4")
   const rawPaper = String(saved.strukPaperSize || '58mm').toUpperCase();
   let paperMode = '58';
   if (rawPaper.includes('80')) paperMode = '80';
@@ -1454,7 +1598,7 @@ function getReceiptPrintConfig() {
     showTax: saved.strukShowTaxDetail !== false,
     showPoints: Boolean(saved.strukShowMemberPoint),
     showOrderSlip: Boolean(saved.strukPrintOrderSlip),
-    labelModel: saved.labelModel || 'PRICE_TAG_1',
+    labelModel: saved.labelModel || 'PRICE_TAG_2',
     customFooterNote: saved.receiptFooterNote || ''
   };
 }
@@ -1467,13 +1611,12 @@ function applyDynamicPageSizeCss(paperMode) {
     document.head.appendChild(styleEl);
   }
 
-  // Lebar area cetak efektif: 48mm untuk kertas 58mm, 72mm untuk kertas 80mm
   const pageRule =
     paperMode === '80'
-      ? '@page { size: 80mm auto; margin: 0mm; } #thermalReceiptArea, .receipt { width: 72mm !important; max-width: 72mm !important; padding: 2mm 1mm !important; }'
+      ? '@page { size: 80mm auto; margin: 0mm; } #thermalReceiptArea, .receipt { width: 72mm !important; max-width: 72mm !important; }'
       : paperMode === 'A4'
-      ? '@page { size: A4 portrait; margin: 10mm; } #thermalReceiptArea, .receipt { width: 100% !important; max-width: 190mm !important; padding: 4mm !important; }'
-      : '@page { size: 58mm auto; margin: 0mm; } #thermalReceiptArea, .receipt { width: 48mm !important; max-width: 48mm !important; padding: 1.5mm 1mm !important; }';
+      ? '@page { size: A4 portrait; margin: 10mm; } #thermalReceiptArea, .receipt { width: 100% !important; max-width: 190mm !important; }'
+      : '@page { size: 58mm auto; margin: 0mm; } #thermalReceiptArea, .receipt { width: 48mm !important; max-width: 48mm !important; }';
 
   styleEl.textContent = `
     @media print {
@@ -1490,7 +1633,7 @@ function applyDynamicPageSizeCss(paperMode) {
         table-layout: fixed !important;
       }
       #thermalReceiptArea td, #thermalReceiptArea th {
-        padding: 1.5px 0 !important;
+        padding: 1px 0 !important;
         vertical-align: top !important;
         word-wrap: break-word !important;
         overflow-wrap: break-word !important;
@@ -1504,7 +1647,10 @@ function printThermalReceipt(trx) {
   const printCfg = getReceiptPrintConfig();
   applyDynamicPageSizeCss(printCfg.paperMode);
 
-  const logoSrc = normalizeLogoDataUrl(prefs.logoBase64 || prefs.logoUrl || '');
+  const logoSrc =
+    KASIR_DESIGN_CFG.compLogo !== false
+      ? normalizeLogoDataUrl(prefs.logoBase64 || prefs.logoUrl || '')
+      : '';
   const tableNo = (document.getElementById('kasirTableNumberInput')?.value || '').trim();
   const paperClass =
     printCfg.paperMode === '80'
@@ -1555,11 +1701,15 @@ function printThermalReceipt(trx) {
       </table>`;
   } else {
     rows = `
-      <table style="width:100%; border-collapse:collapse; font-size:${baseFont};">
+      <table style="width:100%; border-collapse:collapse; table-layout:fixed; font-size:${baseFont};">
+        <colgroup>
+          <col style="width:66%;">
+          <col style="width:34%;">
+        </colgroup>
         <thead>
           <tr>
             <th style="text-align:left; font-weight:bold; padding-bottom:3px;">Kts Nama Barang</th>
-            <th style="text-align:right; font-weight:bold; width:34%; padding-bottom:3px;">Jumlah</th>
+            <th style="text-align:right; font-weight:bold; padding-bottom:3px;">Jumlah</th>
           </tr>
         </thead>
         <tbody>
@@ -1588,7 +1738,7 @@ function printThermalReceipt(trx) {
       <div style="font-size:9.5px; border-top:1px dashed #000; border-bottom:1px dashed #000; padding:4px 0; margin-bottom:4px;">
         <div>No# : ${escapeHtml(tableNo || trx.trxId)}</div>
         <div>Kasir : ${escapeHtml(trx.kasirNama)}</div>
-        <div>Tgl : ${tglFormatted}</div>
+        <div>Tanggal : ${tglFormatted}</div>
         ${trx.customerName ? `<div>Member : ${escapeHtml(trx.customerName)}</div>` : ''}
       </div>
 
@@ -1598,7 +1748,11 @@ function printThermalReceipt(trx) {
 
       <div style="font-size:${baseFont};">
         <div style="margin-bottom:2px;">Total barang dibeli ${totalQty}</div>
-        <table style="width:100%; border-collapse:collapse; font-size:${baseFont};">
+        <table style="width:100%; border-collapse:collapse; table-layout:fixed; font-size:${baseFont};">
+          <colgroup>
+            <col style="width:58%;">
+            <col style="width:42%;">
+          </colgroup>
           <tr>
             <td style="text-align:left;">SUBTOTAL</td>
             <td style="text-align:right;">${formatNumber(trx.subtotal)}</td>
@@ -1634,12 +1788,18 @@ function printThermalReceipt(trx) {
       ${
         printCfg.showTax && trx.pajak > 0
           ? `<div style="font-size:9.5px; border-top:1px dashed #000; margin-top:4px; padding-top:4px;">
-               <table style="width:100%; border-collapse:collapse; font-size:9.5px;">
+               <table style="width:100%; border-collapse:collapse; table-layout:fixed; font-size:9.5px;">
+                 <colgroup>
+                   <col style="width:24%;">
+                   <col style="width:20%;">
+                   <col style="width:28%;">
+                   <col style="width:28%;">
+                 </colgroup>
                  <tr>
-                   <th style="text-align:left; width:26%;">PAJAK</th>
-                   <th style="text-align:left; width:20%;">TARIF</th>
-                   <th style="text-align:right; width:27%;">DPP</th>
-                   <th style="text-align:right; width:27%;">PPN</th>
+                   <th style="text-align:left;">PAJAK</th>
+                   <th style="text-align:left;">TARIF</th>
+                   <th style="text-align:right;">DPP</th>
+                   <th style="text-align:right;">PPN</th>
                  </tr>
                  <tr>
                    <td style="text-align:left;">*</td>
@@ -1692,6 +1852,7 @@ function printThermalReceipt(trx) {
 
   window.print();
 }
+
 // =========================================================================
 // 10. PPOB, TARIK TUNAI, RETUR, CASH DROP, TUTUP SHIFT & CETAK LABEL
 // =========================================================================
@@ -1713,16 +1874,19 @@ function addPpobToCart() {
     showToast('Masukkan harga jual layanan PPOB', 'error');
     return;
   }
-  addProductToCart({
-    id: 'PPOB-' + Date.now(),
-    sku: 'PPOB-' + cat,
-    barcode: 'PPOB',
-    nama: `${cat} (${target})`,
-    satuan: 'TRX',
-    hargaJual: price,
-    trackStock: false,
-    isCustom: true
-  }, 1);
+  addProductToCart(
+    {
+      id: 'PPOB-' + Date.now(),
+      sku: 'PPOB-' + cat,
+      barcode: 'PPOB',
+      nama: `${cat} (${target})`,
+      satuan: 'TRX',
+      hargaJual: price,
+      trackStock: false,
+      isCustom: true
+    },
+    1
+  );
   closeModals();
 }
 
@@ -1773,13 +1937,17 @@ function searchTrxForReturn() {
 
   RETURN_LOADED_TRX = found;
   document.getElementById('returnTrxMeta').textContent = `Struk ${found.trxId} • Tgl: ${new Date(found.tanggal).toLocaleString('id-ID')} • Kasir: ${found.kasirNama}`;
-  document.getElementById('returnItemsBody').innerHTML = found.items.map((it, idx) => `
+  document.getElementById('returnItemsBody').innerHTML = found.items
+    .map(
+      (it, idx) => `
     <tr>
       <td>${escapeHtml(it.nama)}</td>
       <td class="num">Rp ${formatNumber(it.harga)}</td>
       <td class="num">${it.qty}</td>
       <td class="num"><input type="number" id="retQty_${idx}" min="0" max="${it.qty}" value="0" style="width:65px; margin:0; padding:4px;"></td>
-    </tr>`).join('');
+    </tr>`
+    )
+    .join('');
 }
 
 async function submitSalesReturn() {
@@ -1882,13 +2050,17 @@ function searchKasirLabelProducts() {
   const tbody = document.getElementById('kasirLabelTableBody');
   if (!tbody) return;
   const list = PRODUCTS.filter((p) => !q || `${p.nama} ${p.barcode}`.toLowerCase().includes(q)).slice(0, 25);
-  tbody.innerHTML = list.map((p, i) => `
+  tbody.innerHTML = list
+    .map(
+      (p, i) => `
     <tr>
       <td><input type="checkbox" id="lblChk_${i}" checked></td>
       <td>${escapeHtml(p.nama)}<br><small style="color:#64748B;">${escapeHtml(p.barcode)}</small></td>
       <td class="num">Rp ${formatNumber(p.hargaJual)}</td>
       <td class="num"><input type="number" id="lblQty_${i}" value="1" min="1" style="width:60px; margin:0; padding:4px;"></td>
-    </tr>`).join('');
+    </tr>`
+    )
+    .join('');
 }
 
 function printKasirSelectedLabels() {
@@ -1896,17 +2068,17 @@ function printKasirSelectedLabels() {
   const q = (document.getElementById('kasirLabelSearch')?.value || '').trim().toLowerCase();
   const list = PRODUCTS.filter((p) => !q || `${p.nama} ${p.barcode}`.toLowerCase().includes(q)).slice(0, 25);
 
-  let labelsHtml = '<div style="display:grid; grid-template-columns:repeat(2, 1fr); gap:6px; padding:4px;">';
+  let labelsHtml = '<div class="price-tag-grid">';
   list.forEach((p, i) => {
     const chk = document.getElementById(`lblChk_${i}`);
     const qty = parseInt(document.getElementById(`lblQty_${i}`)?.value, 10) || 1;
     if (chk && chk.checked) {
       for (let c = 0; c < qty; c++) {
         labelsHtml += `
-          <div style="border:1.5px solid #000; padding:6px; border-radius:4px; font-family:sans-serif;">
-            <div style="font-size:11px; font-weight:bold;">${escapeHtml(p.nama)}</div>
-            <div style="font-size:16px; font-weight:900; margin-top:4px;">Rp ${formatNumber(p.hargaJual)}</div>
-            <div style="font-size:9px; color:#333;">${escapeHtml(p.barcode)}</div>
+          <div class="price-tag-card">
+            <div class="pt-name">${escapeHtml(p.nama)}</div>
+            <div class="pt-price">Rp ${formatNumber(p.hargaJual)}</div>
+            <div class="pt-meta"><span>${escapeHtml(p.barcode)}</span><span>${escapeHtml(p.satuan || 'PCS')}</span></div>
           </div>`;
       }
     }

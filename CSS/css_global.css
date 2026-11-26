@@ -1,311 +1,126 @@
-:root {
-  --bg-canvas: #F4F6F9;
-  --surface: #FFFFFF;
-  --border: #E2E8F0;
-  --text-main: #0F172A;
-  --text-muted: #64748B;
-  
-  /* Warna Fungsional Action Tiles sesuai PRD v3.1 */
-  --emerald: #10B981;
-  --royal-blue: #2563EB;
-  --sky-blue: #0284C7;
-  --amber: #F59E0B;
-  --violet: #7C3AED;
-  --slate: #475569;
-  --teal: #0D9488;
-  --crimson: #DC2626;
-  --online-green: #16A34A;
-  --offline-orange: #EA580C;
+/* Sembunyikan area cetak struk saat tampilan layar normal */
+.thermal-only {
+  display: none;
 }
 
-* { box-sizing: border-box; font-family: 'Inter', system-ui, -apple-system, sans-serif; }
-
-/* Viewport Terkunci 100vh Non-Scrolling untuk Desktop POS */
-html, body {
-  margin: 0; padding: 0; height: 100vh; width: 100vw; overflow: hidden;
-  background-color: var(--bg-canvas); color: var(--text-main);
-  user-select: none;
-}
-
-.pos-wrapper {
-  display: flex; flex-direction: column; height: 100vh; width: 100%; padding: 12px; gap: 12px;
-}
-
-/* Top Header Bar (~60px) */
-.pos-header {
-  min-height: 60px; background: var(--surface); border-radius: 16px;
-  border: 1px solid var(--border); box-shadow: 0 4px 12px rgba(15, 23, 42, 0.04);
-  padding: 8px 20px; display: flex; align-items: center; justify-content: space-between;
-  flex-shrink: 0; gap: 10px;
-}
-
-.status-pill {
-  padding: 6px 14px; border-radius: 999px; font-size: 12px; font-weight: 700;
-  color: #fff; display: inline-flex; align-items: center; gap: 6px; white-space: nowrap;
-}
-.status-online { background: var(--online-green); }
-.status-offline { background: var(--offline-orange); animation: pulse 1.5s infinite; }
-
-@keyframes pulse {
-  0%, 100% { opacity: 1; }
-  50% { opacity: 0.65; }
-}
-
-/* Bento Grid Utama: Kiri 65% | Kanan 35% */
-.pos-bento {
-  display: grid; grid-template-columns: 65fr 35fr; gap: 14px;
-  flex: 1; min-height: 0; width: 100%;
-}
-
-.col-left, .col-right {
-  display: flex; flex-direction: column; gap: 12px; min-height: 0; min-width: 0;
-}
-
-.card {
-  background: var(--surface); border-radius: 16px; border: 1px solid var(--border);
-  box-shadow: 0 4px 12px rgba(15, 23, 42, 0.04); padding: 16px;
-}
-
-/* Input Scan Barcode Auto-Focus */
-.scan-card { display: flex; gap: 10px; align-items: center; flex-shrink: 0; }
-.scan-input {
-  flex: 1; min-width: 0; font-size: 18px; font-weight: 600; padding: 12px 16px;
-  border: 2px solid var(--royal-blue); border-radius: 12px; outline: none;
-}
-
-/* Tabel Daftar Belanja dengan Internal Scroll Mandiri */
-.cart-card {
-  flex: 1; display: flex; flex-direction: column; min-height: 0; padding: 0; overflow: hidden;
-}
-.cart-scroll { flex: 1; overflow-y: auto; overflow-x: auto; -webkit-overflow-scrolling: touch; }
-.cart-table { width: 100%; border-collapse: collapse; }
-.cart-table th {
-  position: sticky; top: 0; background: #F8FAFC; padding: 12px 14px;
-  text-align: left; font-size: 12px; color: var(--text-muted); border-bottom: 1px solid var(--border);
-  z-index: 2;
-}
-.cart-table td { padding: 12px 14px; border-bottom: 1px solid var(--border); font-size: 14px; }
-.cart-row.selected { background: #EFF6FF; }
-.num { font-variant-numeric: tabular-nums; text-align: right; }
-
-/* Kartu Grand Total & Promo Alert */
-.total-card {
-  background: #0F172A; color: #FFFFFF; border-radius: 16px; padding: 20px; flex-shrink: 0;
-}
-.grand-total-val {
-  font-size: 40px; font-weight: 800; font-variant-numeric: tabular-nums;
-  color: #34D399; margin: 4px 0; text-align: right;
-}
-.promo-alert {
-  display: none; background: #7C3AED; color: #fff; padding: 8px 12px;
-  border-radius: 10px; font-size: 12px; font-weight: 600; margin-top: 8px;
-}
-
-/* Panel Color-Coded Action Tiles */
-.action-grid {
-  display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; flex: 1;
-}
-.tile-btn {
-  border: none; border-radius: 14px; color: #FFFFFF; padding: 12px 14px;
-  display: flex; flex-direction: column; justify-content: space-between;
-  align-items: flex-start; cursor: pointer; font-weight: 700; font-size: 13px;
-  transition: transform 0.1s; min-height: 58px;
-}
-.tile-btn:active { transform: scale(0.98); }
-.kbd-badge {
-  background: rgba(0, 0, 0, 0.25); padding: 2px 7px; border-radius: 6px;
-  font-size: 11px; font-family: monospace;
-}
-
-.bg-emerald { background: var(--emerald); }
-.bg-royal { background: var(--royal-blue); }
-.bg-sky { background: var(--sky-blue); }
-.bg-amber { background: var(--amber); }
-.bg-violet { background: var(--violet); }
-.bg-slate { background: var(--slate); }
-.bg-teal { background: var(--teal); }
-.bg-crimson { background: var(--crimson); }
-
-.btn-checkout {
-  height: 68px; background: var(--emerald); color: #fff; border: none;
-  border-radius: 16px; font-size: 20px; font-weight: 800; cursor: pointer;
-  display: flex; align-items: center; justify-content: space-between; padding: 0 24px;
-  flex-shrink: 0; width: 100%;
-}
-
-/* Modal Overlay */
-.modal-backdrop {
-  display: none; position: fixed; inset: 0; background: rgba(15, 23, 42, 0.55);
-  align-items: center; justify-content: center; z-index: 50; padding: 16px;
-}
-.modal-box {
-  background: #fff; border-radius: 16px; width: 100%; max-width: 480px;
-  max-height: 90vh; overflow-y: auto;
-  padding: 24px; box-shadow: 0 20px 25px -5px rgba(0,0,0,0.1);
-}
-.modal-box input, .modal-box select {
-  width: 100%; padding: 12px; border: 1px solid var(--border);
-  border-radius: 10px; font-size: 15px; margin-bottom: 12px;
-}
-
-/* ========================================================= */
-/* RESPONSIF TABLET (<= 1024px)                              */
-/* ========================================================= */
-@media (max-width: 1024px) {
+@media print {
   html, body {
-    height: auto;
-    min-height: 100vh;
-    overflow-y: auto;
-    overflow-x: hidden;
+    height: auto !important;
+    min-height: 0 !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    overflow: visible !important;
+    background: #FFFFFF !important;
+    color: #000000 !important;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
   }
 
-  .pos-wrapper {
-    height: auto;
-    min-height: 100vh;
-    padding: 10px;
-    gap: 10px;
+  /* Sembunyikan seluruh tampilan layar kasir, modal, toast, dan layar kunci */
+  .rene-shell,
+  .modal-backdrop,
+  #posToastContainer,
+  #securityLockOverlay {
+    display: none !important;
   }
 
-  .pos-bento {
-    grid-template-columns: 1fr;
-    gap: 12px;
+  .thermal-only {
+    display: block !important;
+    position: static !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    background: #FFFFFF !important;
+    color: #000000 !important;
   }
 
-  .cart-card {
-    min-height: 290px;
-    max-height: 44vh;
+  /* Area cetak efektif kertas thermal 58mm = 48mm agar kiri-kanan tidak terpotong */
+  .receipt.paper-58 {
+    box-sizing: border-box;
+    width: 48mm;
+    max-width: 48mm;
+    margin: 0;
+    padding: 1.5mm 1mm 14mm 1mm;
+    font-family: 'Courier New', Courier, monospace;
+    font-size: 10.5px;
+    line-height: 1.3;
+    color: #000000;
+    word-wrap: break-word;
   }
 
-  .action-grid {
-    grid-template-columns: repeat(4, 1fr);
-    gap: 8px;
+  /* Area cetak efektif kertas thermal 80mm = 72mm */
+  .receipt.paper-80 {
+    box-sizing: border-box;
+    width: 72mm;
+    max-width: 72mm;
+    margin: 0;
+    padding: 2mm 1.5mm 16mm 1.5mm;
+    font-family: 'Courier New', Courier, monospace;
+    font-size: 11.5px;
+    line-height: 1.35;
+    color: #000000;
+    word-wrap: break-word;
   }
 
-  .grand-total-val {
-    font-size: 34px;
-  }
-}
-
-/* ========================================================= */
-/* RESPONSIF MOBILE / HP (<= 640px)                          */
-/* ========================================================= */
-@media (max-width: 640px) {
-  .pos-wrapper {
-    padding: 8px;
-    gap: 8px;
-  }
-
-  .pos-header {
-    padding: 8px 12px;
-    border-radius: 12px;
-    flex-wrap: wrap;
+  /* Ukuran Kertas A4 / Dotmatrix */
+  .receipt.paper-a4 {
+    box-sizing: border-box;
+    width: 100%;
+    max-width: 190mm;
+    margin: 0 auto;
+    padding: 8mm 10mm;
+    font-family: 'Courier New', Courier, monospace;
     font-size: 13px;
+    line-height: 1.4;
+    color: #000000;
   }
 
-  .scan-card {
-    padding: 10px;
-    border-radius: 12px;
-    gap: 8px;
+  .receipt hr {
+    border: none;
+    border-top: 1px dashed #000000;
+    margin: 4px 0;
   }
 
-  .scan-input {
-    font-size: 15px;
-    padding: 10px 12px;
+  /* Tata Letak Cetak Label Rak (Price Tag) */
+  .price-tag-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 60mm);
+    gap: 4mm;
+    padding: 4mm;
   }
 
-  .cart-card {
-    min-height: 240px;
-    max-height: 40vh;
-    border-radius: 12px;
+  .price-tag-card {
+    box-sizing: border-box;
+    width: 60mm;
+    height: 32mm;
+    border: 1.5px solid #000000;
+    padding: 2mm 3mm;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    font-family: 'Inter', Arial, sans-serif;
+    page-break-inside: avoid;
   }
 
-  .cart-table th, .cart-table td {
-    padding: 9px 10px;
-    font-size: 12px;
-    white-space: nowrap;
+  .pt-name {
+    font-size: 10px;
+    font-weight: 700;
+    line-height: 1.15;
+    max-height: 24px;
+    overflow: hidden;
   }
 
-  .total-card {
-    padding: 14px 16px;
-    border-radius: 12px;
+  .pt-price {
+    font-size: 20px;
+    font-weight: 900;
+    text-align: right;
+    letter-spacing: -0.5px;
   }
 
-  .grand-total-val {
-    font-size: 28px;
-  }
-
-  .action-grid {
-    grid-template-columns: repeat(2, 1fr);
-    gap: 8px;
-  }
-
-  .tile-btn {
-    padding: 10px 12px;
-    font-size: 12px;
-    min-height: 52px;
-    border-radius: 12px;
-  }
-
-  .kbd-badge {
-    display: none;
-  }
-
-  .btn-checkout {
-    height: 56px;
-    font-size: 17px;
-    padding: 0 18px;
-    border-radius: 12px;
-  }
-
-  .modal-box {
-    padding: 16px;
-    border-radius: 14px;
+  .pt-meta {
+    font-size: 8px;
+    display: flex;
+    justify-content: space-between;
+    border-top: 1px solid #000000;
+    padding-top: 1px;
   }
 }
-
-/* Running Text Watermark Perusahaan di Topbar */
-    .company-watermark-marquee {
-      flex: 1;
-      min-width: 0;
-      overflow: hidden;
-      background: linear-gradient(90deg, #0B192C, #152842);
-      color: #F8FAFC;
-      padding: 7px 14px;
-      border-radius: 99px;
-      border: 1px solid rgba(59, 130, 246, 0.35);
-      font-size: 12px;
-      white-space: nowrap;
-      display: flex;
-      align-items: center;
-      box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.25);
-    }
-    .company-watermark-track {
-      display: inline-block;
-      padding-left: 100%;
-      animation: marqueeRun 28s linear infinite;
-    }
-    .company-watermark-marquee:hover .company-watermark-track {
-      animation-play-state: paused;
-    }
-    .wm-gold {
-      color: #FBBF24;
-      font-weight: 800;
-    }
-    @keyframes marqueeRun {
-      0%   { transform: translateX(0); }
-      100% { transform: translateX(-100%); }
-    }
-
-    @media (max-width: 1200px) {
-      .company-watermark-marquee { display: none; }
-    }
-#tab-company .card {
-  min-width: 0;
-  overflow: hidden;
-}
-@media (max-width: 900px) {
-  .pref-split-grid {
-    grid-template-columns: 1fr !important;
-  }
-}    
-
