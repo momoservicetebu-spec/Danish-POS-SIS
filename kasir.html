@@ -38,30 +38,57 @@
       padding: 10px; flex: 1; min-height: 0;
     }
 
-    /* Kolom Kiri: Tombol Fungsi Gelap & Menu Tambahan Oranye */
+    /* Kolom Kiri: Tombol Fungsi Gelap, Menu Oranye & Aksi Baris (Full Height) */
     .rene-left-rail {
-      display: flex; flex-direction: column; gap: 6px; overflow-y: auto;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      height: 100%;
+      min-height: 0;
+    }
+    .rene-left-rail > button,
+    #reneQuickMenuGroup > button,
+    .rene-row-action-group > button {
+      flex: 1;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      text-align: center;
+      min-height: 36px;
+      font-size: 12.5px;
+      font-weight: 700;
+      border-radius: 8px;
+      cursor: pointer;
+      transition: opacity 0.15s, transform 0.1s;
+    }
+    .rene-left-rail button:active {
+      transform: scale(0.98);
     }
     .rene-dark-btn {
-      background: #1E293B; color: #FFFFFF; border: none; border-radius: 8px;
-      padding: 9px 10px; font-size: 12px; font-weight: 700; cursor: pointer;
-      text-align: center; transition: opacity 0.15s;
+      background: #1E293B; color: #FFFFFF; border: none; padding: 6px 10px;
     }
     .rene-dark-btn:hover { opacity: 0.9; }
     .rene-split-btn {
-      background: #7C3AED; color: #FFFFFF; border: none; border-radius: 8px;
-      padding: 9px 10px; font-size: 12px; font-weight: 700; cursor: pointer;
+      background: #7C3AED; color: #FFFFFF; border: none; padding: 6px 10px;
     }
     .rene-clear-btn {
-      background: #DC2626; color: #FFFFFF; border: none; border-radius: 8px;
-      padding: 9px 10px; font-size: 12px; font-weight: 700; cursor: pointer;
+      background: #DC2626; color: #FFFFFF; border: none; padding: 6px 10px;
     }
     .rene-quick-orange {
-      background: #D97706; color: #FFFFFF; border: none; border-radius: 8px;
-      padding: 8px 8px; font-size: 11px; font-weight: 700; cursor: pointer;
-      line-height: 1.25; text-align: center;
+      background: #D97706; color: #FFFFFF; border: none; padding: 6px 8px;
+      font-size: 12px !important; line-height: 1.25;
     }
     .rene-quick-orange:hover { background: #B45309; }
+    .rene-edit-qty-btn {
+      background: #FEF3C7; color: #B45309; border: 1.5px solid #F59E0B; padding: 6px 8px;
+      line-height: 1.25;
+    }
+    .rene-edit-qty-btn:hover { background: #FDE68A; }
+    .rene-void-row-btn {
+      background: #FEE2E2; color: #DC2626; border: 1.5px solid #F87171; padding: 6px 8px;
+      line-height: 1.25;
+    }
+    .rene-void-row-btn:hover { background: #FECACA; }
 
     /* Kolom Kanan / Utama */
     .rene-main-area {
@@ -377,7 +404,7 @@
 
     <!-- WORKSPACE UTAMA -->
     <div class="rene-workspace">
-      <!-- PANEL KIRI: TOMBOL FUNGSI & MENU TAMBAHAN -->
+     <!-- PANEL KIRI: TOMBOL FUNGSI, MENU TAMBAHAN & AKSI BARIS -->
       <aside class="rene-left-rail">
         <button id="btnReneHold" class="rene-dark-btn" onclick="handleHoldRecall('HOLD')">F5 Tunda</button>
         <button id="btnReneRecall" class="rene-dark-btn" onclick="handleHoldRecall('RECALL')">F3 Panggil</button>
@@ -387,11 +414,16 @@
         <button class="rene-dark-btn" onclick="openCashDropModal()">F11 Cash Drop</button>
         <button id="btnReneClear" class="rene-clear-btn" onclick="clearCartWithPin()">F12 Clear</button>
 
-        <div id="reneQuickMenuGroup" style="display:flex; flex-direction:column; gap:6px; margin-top:4px;">
+        <div id="reneQuickMenuGroup" style="display:flex; flex-direction:column; gap:6px; flex:4;">
           <button class="rene-quick-orange" onclick="openNonPhysicalModal()">PPOB / Pulsa<br>(Alt+1)</button>
           <button class="rene-quick-orange" onclick="openReturnModal()">Retur Struk<br>(Alt+2)</button>
           <button class="rene-quick-orange" onclick="manualKickDrawer()">Buka Laci<br>(Alt+3)</button>
           <button class="rene-quick-orange" onclick="openSearchModal()">Katalog Barang<br>(F2)</button>
+        </div>
+
+        <div class="rene-row-action-group" style="display:flex; flex-direction:column; gap:6px; flex:2; border-top:1px dashed #CBD5E1; padding-top:6px;">
+          <button class="rene-edit-qty-btn" onclick="openEditItemModal()">Ubah Qty / Diskon<br>(F7)</button>
+          <button class="rene-void-row-btn" onclick="voidSelectedItem()">Hapus Baris<br>(F8)</button>
         </div>
       </aside>
 
