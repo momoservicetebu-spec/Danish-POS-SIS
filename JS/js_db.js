@@ -30,7 +30,7 @@ const LocalDB = {
   },
 
   searchProducts: async function(keyword) {
-    const kw = keyword.toLowerCase();
+    const kw = String(keyword || '').toLowerCase();
     return await db.products
       .filter(p => p.name.toLowerCase().includes(kw) || p.barcode.includes(kw) || p.sku_code.toLowerCase().includes(kw))
       .limit(30)
@@ -73,5 +73,22 @@ const LocalDB = {
 
   markTransactionsSynced: async function(trxIds) {
     await db.transactions.where('trx_id').anyOf(trxIds).modify({ sync_status: 'SYNCED' });
+  },
+
+  logAudit: async function(actionType, detail, supervisorId = '') {
+    await db.audit_logs.add({
+      timestamp: new Date().toISOString(),
+      supervisor_id: supervisorId,
+      action_type: actionType,
+      detail: typeof detail === 'string' ? detail : JSON.stringify(detail),
+      sync_status: 'PENDING'
+    });
+  },
+
+  clearSensitiveCacheOnLogout: async function() {
+    await db.transaction('rw', db.members, db.held_carts, async () => {
+      await db.members.clear();
+      await db.held_carts.clear();
+    });
   }
 };

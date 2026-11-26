@@ -1,7 +1,19 @@
-// JS/js_api.js - Konfigurasi Endpoint Backend GAS, Auto-Sync & Indikator Status Jaringan
+// JS/js_api.js - Konfigurasi Endpoint Backend GAS, Auto-Sync & Keamanan Sesi
 const GAS_API_URL = 'https://script.google.com/macros/s/AKfycbzyFxohvFDWhh73ZX8PZpnQXoBzB5pEM-HLTcN8Twu9-ABYvRMHU8CfhgF72Bk1uST0/exec';
 
-const SESSION = JSON.parse(localStorage.getItem('POS_SESSION') || 'null');
+function readActiveSession() {
+  try {
+    return JSON.parse(
+      localStorage.getItem('POS_SESSION') ||
+      localStorage.getItem('DANISH_POS_SESSION') ||
+      'null'
+    );
+  } catch (e) {
+    return null;
+  }
+}
+
+const SESSION = readActiveSession();
 const DEVICE_ID = localStorage.getItem('POS_DEVICE_ID') || 'UNKNOWN_DEV';
 
 // Redirect ke login.html jika belum ada sesi (kecuali sedang di halaman login atau display)
@@ -13,12 +25,28 @@ if (!SESSION && !currentPath.endsWith('login.html') && !currentPath.endsWith('di
 const ApiClient = {
   _isSyncing: false,
 
+  forceLogout: function(reason = '') {
+    localStorage.removeItem('POS_SESSION');
+    localStorage.removeItem('DANISH_POS_SESSION');
+    sessionStorage.removeItem('POS_SESSION');
+    sessionStorage.removeItem('DANISH_POS_SESSION');
+    if (reason) alert(reason);
+    if (!window.location.pathname.endsWith('login.html')) {
+      window.location.href = 'login.html';
+    }
+  },
+
   call: async function(endpoint, payload, isPublic = false) {
+    const activeSess = readActiveSession();
+    const storeCode = isPublic
+      ? (payload?.storeCode || '')
+      : (activeSess?.store?.kodeToko || activeSess?.storeCode || '');
+
     const body = {
       endpoint: endpoint,
-      token: isPublic ? '' : (SESSION ? SESSION.token : ''),
+      token: isPublic ? '' : (activeSess?.token || ''),
       deviceId: DEVICE_ID,
-      storeCode: isPublic ? (payload.storeCode || '') : (SESSION ? SESSION.store.kodeToko : ''),
+      storeCode: storeCode,
       clientTimestamp: new Date().toISOString(),
       payload: payload || {}
     };
@@ -30,8 +58,18 @@ const ApiClient = {
     });
 
     const res = await response.json();
+
+    // Perbarui referensi waktu server jika tersedia untuk mencegah manipulasi jam lokal
+    if (res.serverTimestamp) {
+      const srvMs = Date.parse(res.serverTimestamp);
+      if (!isNaN(srvMs)) localStorage.setItem('POS_LAST_SERVER_MS', String(srvMs));
+    }
+
     if (res.status === 200) {
       return res.data;
+    } else if (!isPublic && (res.status === 401 || res.status === 403)) {
+      this.forceLogout('Sesi login Anda telah berakhir atau tidak valid. Silakan login kembali.');
+      throw new Error(res.error || 'Sesi tidak valid.');
     } else {
       throw new Error(res.error || 'Terjadi kesalahan pada server.');
     }
@@ -87,24 +125,24 @@ const ApiClient = {
       if (pendingTrx.length > 0) {
         this.updateSyncBadge('SYNCING', pendingTrx.length);
         const res = await this.call('pos/sync-trx', { transactions: pendingTrx });
-        if (res.syncedIds && res.syncedIds.length > 0) {
+        if (res && Array.isArray(res.syncedIds) && res.syncedIds.length > 0) {
           await LocalDB.markTransactionsSynced(res.syncedIds);
         }
       }
 
-      // 2. Sinkronkan Log Audit Lokal (Void Item / Reprint Struk) jika ada
+      // 2. Sinkronkan Log Audit Lokal (Perbaikan: gunakan log.log_id sesuai skema Dexie)
       if (typeof db !== 'undefined' && db.audit_logs) {
         const pendingLogs = await db.audit_logs.where('sync_status').equals('PENDING').toArray();
         for (const log of pendingLogs) {
           try {
             await this.call('security/audit-log', {
-              supervisorId: log.supervisor_id || (SESSION ? SESSION.user.userId : ''),
+              supervisorId: log.supervisor_id || (readActiveSession()?.user?.idUser || ''),
               actionType: log.action_type,
               detail: log.detail
             });
-            await db.audit_logs.update(log.id, { sync_status: 'SYNCED' });
+            await db.audit_logs.update(log.log_id, { sync_status: 'SYNCED' });
           } catch (logErr) {
-            break; // Hentikan sementara jika jaringan kembali terputus
+            break;
           }
         }
       }
@@ -124,13 +162,11 @@ const ApiClient = {
   }
 };
 
-// Jalankan pengecekan awal segera setelah DOM siap, lalu setiap 15 detik
 window.addEventListener('DOMContentLoaded', () => ApiClient.syncQueue());
 setInterval(() => ApiClient.syncQueue(), 15000);
 window.addEventListener('online', () => ApiClient.syncQueue());
 window.addEventListener('offline', () => ApiClient.syncQueue());
 
-// Registrasi Service Worker (sw.js harus berada di root folder sejajar login.html)
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', () => {
     navigator.serviceWorker.register('./sw.js').catch(err => {
