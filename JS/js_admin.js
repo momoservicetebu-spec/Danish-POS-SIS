@@ -3405,7 +3405,7 @@ function loadDesignSettings() {
   }, '', true);
 }
 
-/* --- SUB-MODUL 2: CETAK STRUK & DOKUMEN --- */
+/* --- SUB-MODUL 2: CETAK STRUK & DOKUMEN (6 TEMPLATE ALA RENE POS) --- */
 function switchStrukDocType(docType, btnEl) {
   activeStrukDocType = docType;
   document.querySelectorAll('.struk-nav-btn').forEach(b => {
@@ -3418,7 +3418,7 @@ function switchStrukDocType(docType, btnEl) {
   }
 
   const meta = {
-    pembayaran: ['Struk Pembayaran', 'Pilih desain struk pembayaran yang cocok untuk keperluan kasir toko Anda.'],
+    pembayaran: ['Struk Pembayaran', 'Pilih 1 dari 6 desain struk pembayaran (termasuk rincian diskon per item).'],
     laporan_kasir: ['Laporan Kasir', 'Pilih format laporan rekap shift kasir yang sesuai dengan kebutuhan toko Anda.'],
     penerimaan: ['Penerimaan Barang (ReceiveItem A4)', 'Format bukti penerimaan barang dari pemasok.'],
     penyesuaian: ['Penyesuaian Stok (StockAdjustment A4)', 'Format berita acara penyesuaian kuantitas stok persediaan.'],
@@ -3429,68 +3429,188 @@ function switchStrukDocType(docType, btnEl) {
   renderStrukDocPreview();
 }
 
+function normalizeStrukTemplateVal(raw) {
+  const val = String(raw || 'RENE_MINIMARKET_58').toUpperCase();
+  if (val === '58MM' || val === '58') return 'RENE_MINIMARKET_58';
+  if (val === '80MM' || val === '80') return 'RENE_GROSIR_80';
+  if (val === 'A4') return 'RENE_INVOICE_A4';
+  return val;
+}
+
 function renderStrukDocPreview() {
   const canvas = document.getElementById('strukPreviewCanvas');
   if (!canvas) return;
   const storeName = document.getElementById('cfgCompanyName')?.value || 'DANISH SHOP';
   const storeAddr = document.getElementById('cfgCompanyAddress')?.value || 'Jl. Raya Utama No. 44';
   const storePhone = document.getElementById('cfgCompanyPhone')?.value || '0812-7361-3498';
-  const paper = document.getElementById('strukPaperSizeSelect')?.value || '58mm';
-  const wThermal = paper === '80mm' ? '310px' : '245px';
+  const tpl = normalizeStrukTemplateVal(document.getElementById('strukPaperSizeSelect')?.value);
+
+  const is80 = tpl === 'RENE_GROSIR_80';
+  const isA4 = tpl === 'RENE_INVOICE_A4';
+  const wThermal = is80 ? '300px' : '225px';
   const showTax = document.getElementById('strukShowTaxDetail')?.checked;
   const showPoint = document.getElementById('strukShowMemberPoint')?.checked;
   const showOrder = document.getElementById('strukPrintOrderSlip')?.checked;
 
   if (activeStrukDocType === 'pembayaran') {
+    if (isA4) {
+      canvas.innerHTML = `
+        <div style="background:#fff; width:100%; max-width:660px; padding:22px; font-family:sans-serif; font-size:12px; color:#000; box-shadow:0 6px 18px rgba(0,0,0,0.3);">
+          <div style="display:flex; justify-content:space-between; border-bottom:2px solid #000; padding-bottom:8px; margin-bottom:10px;">
+            <div>
+              <div style="font-size:16px; font-weight:800;">${storeName}</div>
+              <div>${storeAddr} • Telp. ${storePhone}</div>
+            </div>
+            <div style="text-align:right;">
+              <div style="font-size:15px; font-weight:800;">FAKTUR PENJUALAN</div>
+              <div>No#: STRUK# 001 | Tgl: 24-11-2026</div>
+            </div>
+          </div>
+          <table style="width:100%; border-collapse:collapse; font-size:11.5px; margin-bottom:12px;">
+            <thead>
+              <tr style="border-top:1px solid #000; border-bottom:1px solid #000;">
+                <th style="text-align:left; padding:5px 0;">Nama Barang</th>
+                <th style="text-align:right; padding:5px;">Qty</th>
+                <th style="text-align:right; padding:5px;">Harga</th>
+                <th style="text-align:right; padding:5px;">Diskon</th>
+                <th style="text-align:right; padding:5px 0;">Subtotal</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr style="border-bottom:1px dashed #ccc;">
+                <td style="padding:5px 0;">Barang/Menu Promo #1</td>
+                <td style="text-align:right;">3</td>
+                <td style="text-align:right;">3.000</td>
+                <td style="text-align:right; color:#DC2626;">-2.000</td>
+                <td style="text-align:right;">7.000</td>
+              </tr>
+              <tr style="border-bottom:1px dashed #ccc;">
+                <td style="padding:5px 0;">Barang/Menu #2</td>
+                <td style="text-align:right;">4</td>
+                <td style="text-align:right;">3.000</td>
+                <td style="text-align:right;">0</td>
+                <td style="text-align:right;">12.000</td>
+              </tr>
+            </tbody>
+          </table>
+          <div style="display:flex; justify-content:space-between;">
+            <div style="font-size:11px;">Kasir: Administrator<br>Total Hemat: <strong>Rp 2.000</strong></div>
+            <table style="width:220px; border-collapse:collapse; font-size:12px;">
+              <tr><td>Subtotal</td><td style="text-align:right;">21.000</td></tr>
+              <tr><td>Diskon Item</td><td style="text-align:right;">-2.000</td></tr>
+              <tr style="font-weight:800; border-top:1px solid #000;"><td>GRAND TOTAL</td><td style="text-align:right;">19.000</td></tr>
+            </table>
+          </div>
+        </div>`;
+      return;
+    }
+
+    // Header khusus Resto / Hemat / Standar
+    let headerExtra = '';
+    if (tpl === 'RENE_RESTO_58') {
+      headerExtra = `<div style="text-align:center; font-weight:bold; border:1px solid #000; padding:3px; margin:4px 0;">MEJA: 05 • DINE-IN</div>`;
+    }
+
+    // Bagian Daftar Barang sesuai template
+    let itemsBlock = '';
+    if (tpl === 'RENE_PROMO_DISKON_58' || tpl === 'RENE_GROSIR_80') {
+      itemsBlock = `
+        <table style="width:100%; border-collapse:collapse; table-layout:fixed; font-size:10.5px;">
+          <colgroup><col style="width:65%;"><col style="width:35%;"></colgroup>
+          <tr style="border-bottom:1px dashed #000;">
+            <th style="text-align:left;">Nama Barang</th>
+            <th style="text-align:right;">Total</th>
+          </tr>
+          <tr><td colspan="2" style="font-weight:bold; padding-top:3px;">Barang/Menu Promo #1</td></tr>
+          <tr>
+            <td style="padding-left:4px;">3 PCS x 3.000</td>
+            <td style="text-align:right;">9.000 *</td>
+          </tr>
+          <tr>
+            <td style="padding-left:8px; font-style:italic;">Disc. Item</td>
+            <td style="text-align:right;">-2.000</td>
+          </tr>
+          <tr><td colspan="2" style="font-weight:bold; padding-top:3px;">Barang/Menu #2</td></tr>
+          <tr>
+            <td style="padding-left:4px;">4 PCS x 3.000</td>
+            <td style="text-align:right;">12.000 *</td>
+          </tr>
+        </table>`;
+    } else {
+      itemsBlock = `
+        <table style="width:100%; border-collapse:collapse; table-layout:fixed; font-size:10.5px;">
+          <colgroup><col style="width:66%;"><col style="width:34%;"></colgroup>
+          <tr>
+            <th style="text-align:left;">Kts Nama Barang</th>
+            <th style="text-align:right;">Jumlah</th>
+          </tr>
+          <tr><td>3 Barang/Menu #1</td><td style="text-align:right;">7.000 *</td></tr>
+          <tr><td>4 Barang/Menu #2</td><td style="text-align:right;">12.000 *</td></tr>
+        </table>`;
+    }
+
     canvas.innerHTML = `
-      <div style="background:#fff; width:${wThermal}; padding:14px; font-family:monospace; font-size:11px; line-height:1.45; box-shadow:0 6px 18px rgba(0,0,0,0.3);">
+      <div style="background:#fff; width:${wThermal}; padding:12px; font-family:'Courier New', monospace; font-size:10.5px; line-height:1.35; color:#000; box-shadow:0 6px 18px rgba(0,0,0,0.3);">
         <div style="text-align:center; font-weight:700;">${storeName}</div>
-        <div style="text-align:center;">${storeAddr}</div>
-        <div style="text-align:center; margin-bottom:6px;">Telp. ${storePhone}</div>
-        <div>No# : STRUK# 001</div>
-        <div>Kasir : Administrator</div>
-        <div style="border-bottom:1px dashed #64748B; padding-bottom:4px; margin-bottom:4px;">Tanggal : 24-11-2026 20:06</div>
-        <div style="display:flex; justify-content:space-between; font-weight:700;"><span>Kts Nama Barang</span><span>Jumlah</span></div>
-        <div style="display:flex; justify-content:space-between;"><span>3 Barang/Menu #1</span><span>7.000 *</span></div>
-        <div style="display:flex; justify-content:space-between;"><span>4 Barang/Menu #2</span><span>12.000 *</span></div>
-        <div style="border-top:1px dashed #64748B; margin-top:4px; padding-top:4px;">Total barang dibeli 7</div>
-        <div style="display:flex; justify-content:space-between;"><span>SUBTOTAL</span><span>19.000</span></div>
-        <div style="display:flex; justify-content:space-between;"><span>DISKON</span><span>0</span></div>
-        <div style="display:flex; justify-content:space-between;"><span>PEMBULATAN</span><span>-20</span></div>
-        <div style="display:flex; justify-content:space-between; font-weight:700; border-top:1px dashed #64748B; margin-top:4px; padding-top:4px;"><span>TOTAL</span><span>21.450</span></div>
-        <div style="display:flex; justify-content:space-between;"><span>TUNAI</span><span>25.000</span></div>
-        <div style="display:flex; justify-content:space-between;"><span>KEMBALI</span><span>3.550</span></div>
-        ${showTax ? `<div style="border-top:1px dashed #64748B; margin-top:6px; padding-top:4px;">PAJAK &nbsp; TARIF &nbsp; DPP &nbsp;&nbsp;&nbsp; PPN<br>* &nbsp;&nbsp;&nbsp;&nbsp;&nbsp; 11% &nbsp;&nbsp;&nbsp; 19.000 &nbsp; 2.090</div>` : ''}
-        ${showPoint ? `<div style="border-top:1px dashed #64748B; margin-top:6px; padding-top:4px;">MEMBER ${storeName}<br>&nbsp;&nbsp;ANDA DAPAT POIN : 3<br>&nbsp;&nbsp;TOTAL POIN &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;: 15</div>` : ''}
-        <div style="text-align:center; margin-top:8px;">TERIMA KASIH<br># Barang yang sudah dibeli tidak dapat ditukar/dikembalikan</div>
+        ${tpl !== 'RENE_HEMAT_58' ? `<div style="text-align:center;">${storeAddr}</div>` : ''}
+        <div style="text-align:center; margin-bottom:4px;">Telp. ${storePhone}</div>
+        ${headerExtra}
+        <div style="border-top:1px dashed #000; border-bottom:1px dashed #000; padding:3px 0; margin-bottom:4px; font-size:10px;">
+          ${tpl === 'RENE_HEMAT_58'
+            ? `<div>STRUK#001 | 24/11/26 20:06 | Adm</div>`
+            : `<div>No# : STRUK# 001</div><div>Kasir : Administrator</div><div>Tanggal : 24-11-2026 20:06</div>`}
+        </div>
+        ${itemsBlock}
+        <div style="border-top:1px dashed #000; margin-top:4px; padding-top:4px;">
+          <div>Total barang dibeli 7</div>
+          <table style="width:100%; border-collapse:collapse; table-layout:fixed; font-size:10.5px;">
+            <colgroup><col style="width:60%;"><col style="width:40%;"></colgroup>
+            <tr><td>SUBTOTAL</td><td style="text-align:right;">${tpl === 'RENE_PROMO_DISKON_58' ? '21.000' : '19.000'}</td></tr>
+            ${tpl === 'RENE_PROMO_DISKON_58' ? `<tr><td>DISKON ITEM</td><td style="text-align:right;">-2.000</td></tr>` : `<tr><td>DISKON</td><td style="text-align:right;">0</td></tr>`}
+            <tr><td>PEMBULATAN</td><td style="text-align:right;">-20</td></tr>
+            <tr style="font-weight:700; border-top:1px dashed #000;"><td>TOTAL</td><td style="text-align:right;">21.450</td></tr>
+            <tr><td>TUNAI</td><td style="text-align:right;">25.000</td></tr>
+            <tr><td>KEMBALI</td><td style="text-align:right;">3.550</td></tr>
+          </table>
+          ${tpl === 'RENE_PROMO_DISKON_58' ? `<div style="text-align:center; font-weight:bold; border:1px dashed #000; padding:2px; margin-top:4px;">ANDA HEMAT : Rp 2.000</div>` : ''}
+        </div>
+        ${showTax ? `
+        <table style="width:100%; border-collapse:collapse; table-layout:fixed; font-size:9.5px; border-top:1px dashed #000; margin-top:4px; padding-top:4px;">
+          <colgroup><col style="width:24%;"><col style="width:20%;"><col style="width:28%;"><col style="width:28%;"></colgroup>
+          <tr><th style="text-align:left;">PAJAK</th><th style="text-align:left;">TARIF</th><th style="text-align:right;">DPP</th><th style="text-align:right;">PPN</th></tr>
+          <tr><td>*</td><td>11%</td><td style="text-align:right;">19.000</td><td style="text-align:right;">2.090</td></tr>
+        </table>` : ''}
+        ${showPoint ? `<div style="border-top:1px dashed #000; margin-top:4px; padding-top:4px; text-align:center; font-size:9.5px;">POIN DIDAPAT: +3 | SALDO POIN: 15</div>` : ''}
+        <div style="text-align:center; border-top:1px dashed #000; margin-top:6px; padding-top:4px; font-size:9.5px;">TERIMA KASIH<br># Barang yang sudah dibeli tidak dapat ditukar/dikembalikan</div>
       </div>
       ${showOrder ? `
-      <div style="background:#fff; width:220px; padding:14px; font-family:monospace; font-size:11px; line-height:1.5; align-self:flex-start; box-shadow:0 6px 18px rgba(0,0,0,0.3);">
+      <div style="background:#fff; width:210px; padding:12px; font-family:'Courier New', monospace; font-size:10.5px; line-height:1.4; align-self:flex-start; box-shadow:0 6px 18px rgba(0,0,0,0.3);">
         <div><strong>ID : Umum</strong></div>
-        <div style="text-align:center; font-size:14px; font-weight:700; margin:8px 0; border-top:1px dashed #64748B; border-bottom:1px dashed #64748B; padding:4px 0;">PESANAN / DELIVERY</div>
+        <div style="text-align:center; font-size:13px; font-weight:700; margin:6px 0; border-top:1px dashed #000; border-bottom:1px dashed #000; padding:4px 0;">PESANAN / DELIVERY</div>
         <div>3 Barang/Menu #1</div>
         <div>4 Barang/Menu #2</div>
-        <div style="border-top:1px dashed #64748B; margin-top:6px; padding-top:4px;">Total Menu 7</div>
-        <div style="margin-top:8px;">STRUK# 001<br>Administrator 24-11-2026</div>
+        <div style="border-top:1px dashed #000; margin-top:6px; padding-top:4px;">Total Menu 7</div>
+        <div style="margin-top:6px;">STRUK# 001<br>Administrator 24-11-2026</div>
       </div>` : ''}
     `;
   } else if (activeStrukDocType === 'laporan_kasir') {
     canvas.innerHTML = `
-      <div style="background:#fff; width:${wThermal}; padding:14px; font-family:monospace; font-size:11px; line-height:1.45; box-shadow:0 6px 18px rgba(0,0,0,0.3);">
-        <div style="text-align:center; font-weight:700; border-bottom:1px dashed #64748B; padding-bottom:4px; margin-bottom:6px;">LAPORAN SHIFT KASIR</div>
-        <div>KASIR &nbsp;: Administrator</div>
-        <div>LOGIN &nbsp;: 24-11-2026 07.00</div>
-        <div style="border-bottom:1px dashed #64748B; padding-bottom:4px; margin-bottom:6px;">DICETAK: 24-11-2026 20.07</div>
-        <div style="display:flex; justify-content:space-between; font-weight:700;"><span>TOTAL BELANJA :</span><span>21.450</span></div>
-        <div style="margin-top:6px; font-weight:700;">PEMBAYARAN</div>
-        <div style="display:flex; justify-content:space-between;"><span>&nbsp;Tunai :</span><span>21.450</span></div>
-        <div style="display:flex; justify-content:space-between;"><span>&nbsp;QRIS / EDC :</span><span>0</span></div>
-        <div style="margin-top:6px; font-weight:700;">SETORAN</div>
-        <div style="display:flex; justify-content:space-between;"><span>&nbsp;Setor Awal :</span><span>100.000</span></div>
-        <div style="display:flex; justify-content:space-between;"><span>&nbsp;Pembayaran Tunai :</span><span>21.450</span></div>
-        <div style="display:flex; justify-content:space-between; font-weight:700; border-top:1px dashed #64748B; padding-top:4px;"><span>TOTAL SETORAN :</span><span>121.450</span></div>
-      </div>
-    `;
+      <div style="background:#fff; width:${wThermal}; padding:12px; font-family:'Courier New', monospace; font-size:10.5px; line-height:1.4; color:#000; box-shadow:0 6px 18px rgba(0,0,0,0.3);">
+        <div style="text-align:center; font-weight:700; border-bottom:1px dashed #000; padding-bottom:4px; margin-bottom:6px;">LAPORAN SHIFT KASIR</div>
+        <div>KASIR  : Administrator</div>
+        <div>LOGIN  : 24-11-2026 07.00</div>
+        <div style="border-bottom:1px dashed #000; padding-bottom:4px; margin-bottom:6px;">DICETAK: 24-11-2026 20.07</div>
+        <table style="width:100%; border-collapse:collapse; font-size:10.5px;">
+          <tr style="font-weight:700;"><td>TOTAL BELANJA :</td><td style="text-align:right;">21.450</td></tr>
+          <tr><td colspan="2" style="padding-top:6px; font-weight:700;">PEMBAYARAN</td></tr>
+          <tr><td>&nbsp;Tunai :</td><td style="text-align:right;">21.450</td></tr>
+          <tr><td>&nbsp;QRIS / EDC :</td><td style="text-align:right;">0</td></tr>
+          <tr><td colspan="2" style="padding-top:6px; font-weight:700;">SETORAN</td></tr>
+          <tr><td>&nbsp;Setor Awal :</td><td style="text-align:right;">100.000</td></tr>
+          <tr><td>&nbsp;Pembayaran Tunai :</td><td style="text-align:right;">21.450</td></tr>
+          <tr style="font-weight:700; border-top:1px dashed #000;"><td>TOTAL SETORAN :</td><td style="text-align:right;">121.450</td></tr>
+        </table>
+      </div>`;
   } else {
     const titleMap = {
       penerimaan: 'PENERIMAAN BARANG',
@@ -3506,7 +3626,7 @@ function renderStrukDocPreview() {
       <div style="background:#fff; width:100%; max-width:650px; min-height:380px; padding:24px; font-family:sans-serif; font-size:12px; box-shadow:0 6px 18px rgba(0,0,0,0.3);">
         <div style="font-size:16px; font-weight:800; margin-bottom:12px;">${titleMap[activeStrukDocType]}</div>
         <div style="display:grid; grid-template-columns: 1fr 1fr; gap:8px; margin-bottom:14px; font-size:11px;">
-          <div>No# &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;: DOC-20261124-001<br>Operator : Administrator<br>Tanggal &nbsp;: 24-11-2026</div>
+          <div>No#      : DOC-20261124-001<br>Operator : Administrator<br>Tanggal  : 24-11-2026</div>
           <div>Keterangan : Dokumen operasional ${storeName}</div>
         </div>
         <table style="width:100%; border-collapse:collapse; font-size:11px;">
@@ -3515,8 +3635,7 @@ function renderStrukDocPreview() {
             <tr><td>1</td><td>SKU-1001</td><td>Contoh Barang Persediaan</td><td>10</td><td>PCS</td></tr>
           </tbody>
         </table>
-      </div>
-    `;
+      </div>`;
   }
 }
 
@@ -3524,7 +3643,9 @@ function printStrukSampleTest() {
   const area = document.getElementById('stockAdjPrintArea');
   const canvas = document.getElementById('strukPreviewCanvas');
   if (!area || !canvas) return;
-  area.innerHTML = canvas.innerHTML;
+  const tpl = normalizeStrukTemplateVal(document.getElementById('strukPaperSizeSelect')?.value);
+  const wCss = tpl === 'RENE_INVOICE_A4' ? '190mm' : tpl === 'RENE_GROSIR_80' ? '70mm' : '44mm';
+  area.innerHTML = `<div style="width:${wCss}; max-width:${wCss}; margin:0 auto;">${canvas.innerHTML}</div>`;
   area.classList.add('printing');
   window.print();
   setTimeout(() => area.classList.remove('printing'), 500);

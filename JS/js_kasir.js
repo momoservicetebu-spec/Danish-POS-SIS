@@ -1565,7 +1565,6 @@ function reprintLastReceipt() {
   }
   printThermalReceipt(LAST_RECEIPT_OBJ);
 }
-
 function getReceiptPrintConfig() {
   const storeCode = getStoreCode();
   let saved = { ...KASIR_DESIGN_CFG };
@@ -1588,12 +1587,18 @@ function getReceiptPrintConfig() {
     } catch (e) {}
   }
 
-  const rawPaper = String(saved.strukPaperSize || '58mm').toUpperCase();
+  const rawTpl = String(saved.strukPaperSize || 'RENE_MINIMARKET_58').toUpperCase();
+  let templateCode = rawTpl;
+  if (rawTpl === '58MM' || rawTpl === '58') templateCode = 'RENE_MINIMARKET_58';
+  else if (rawTpl === '80MM' || rawTpl === '80') templateCode = 'RENE_GROSIR_80';
+  else if (rawTpl === 'A4' || rawTpl === 'DOT') templateCode = 'RENE_INVOICE_A4';
+
   let paperMode = '58';
-  if (rawPaper.includes('80')) paperMode = '80';
-  else if (rawPaper.includes('A4') || rawPaper.includes('DOT')) paperMode = 'A4';
+  if (templateCode.includes('80')) paperMode = '80';
+  else if (templateCode.includes('A4')) paperMode = 'A4';
 
   return {
+    templateCode,
     paperMode,
     showTax: saved.strukShowTaxDetail !== false,
     showPoints: Boolean(saved.strukShowMemberPoint),
@@ -1645,10 +1650,11 @@ function applyDynamicPageSizeCss(paperMode) {
 function printThermalReceipt(trx) {
   const prefs = KASIR_COMPANY_PREFS;
   const printCfg = getReceiptPrintConfig();
+  const tpl = printCfg.templateCode;
   applyDynamicPageSizeCss(printCfg.paperMode);
 
   const logoSrc =
-    KASIR_DESIGN_CFG.compLogo !== false
+    KASIR_DESIGN_CFG.compLogo !== false && tpl !== 'RENE_HEMAT_58'
       ? normalizeLogoDataUrl(prefs.logoBase64 || prefs.logoUrl || '')
       : '';
   const tableNo = (document.getElementById('kasirTableNumberInput')?.value || '').trim();
@@ -1663,6 +1669,8 @@ function printThermalReceipt(trx) {
   const tglFormatted = `${String(d.getDate()).padStart(2, '0')}-${String(d.getMonth() + 1).padStart(2, '0')}-${d.getFullYear()} ${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
 
   const totalQty = trx.items.reduce((acc, it) => acc + (Number(it.qty) || 0), 0);
+  const itemDiscSum = trx.items.reduce((acc, it) => acc + (Number(it.discNominal) || 0), 0);
+  const invDiscOnly = Math.max(0, (trx.totalDiskon || 0) - itemDiscSum);
   const netBeforeRound = Math.max(0, (trx.subtotal || 0) - (trx.totalDiskon || 0) + (trx.pajak || 0));
   const roundingDiff = (trx.grandTotal || 0) - netBeforeRound;
   const taxPct = Number(prefs.taxPct) || 11;
@@ -1672,12 +1680,20 @@ function printThermalReceipt(trx) {
     prefs.receiptFooter ||
     'TERIMA KASIH\n# Barang yang sudah dibeli tidak dapat ditukar/dikembalikan';
 
-  const baseFont = printCfg.paperMode === 'A4' ? '12.5px' : printCfg.paperMode === '80' ? '11px' : '10px';
+  const baseFont =
+    printCfg.paperMode === 'A4'
+      ? '12px'
+      : printCfg.paperMode === '80'
+      ? '10.5px'
+      : tpl === 'RENE_HEMAT_58'
+      ? '9px'
+      : '9.5px';
 
+  // Render tabel item berdasarkan template yang dipilih
   let rows = '';
-  if (printCfg.paperMode === 'A4') {
+  if (printCfg.paperMode === 'A4' || tpl === 'RENE_INVOICE_A4') {
     rows = `
-      <table style="width:100%; border-collapse:collapse; font-size:12px; margin:6px 0;">
+      <table style="width:100%; border-collapse:collapse; font-size:11.5px; margin:6px 0;">
         <thead>
           <tr style="border-top:1px solid #000; border-bottom:1px solid #000;">
             <th style="text-align:left; padding:4px 0;">Kts Nama Barang</th>
@@ -1693,9 +1709,43 @@ function printThermalReceipt(trx) {
               <tr style="border-bottom:1px dashed #ccc;">
                 <td style="padding:4px 0;">${it.qty} ${escapeHtml(it.nama)}</td>
                 <td style="text-align:right; padding:4px;">${formatNumber(it.harga)}</td>
-                <td style="text-align:right; padding:4px;">${formatNumber(it.discNominal || 0)}</td>
+                <td style="text-align:right; padding:4px;">${it.discNominal > 0 ? '-' + formatNumber(it.discNominal) : '0'}</td>
                 <td style="text-align:right; padding:4px 0;">${formatNumber(sub)}</td>
               </tr>`;
+          }).join('')}
+        </tbody>
+      </table>`;
+  } else if (tpl === 'RENE_PROMO_DISKON_58' || tpl === 'RENE_GROSIR_80') {
+    rows = `
+      <table style="width:100%; border-collapse:collapse; table-layout:fixed; font-size:${baseFont};">
+        <colgroup>
+          <col style="width:65%;">
+          <col style="width:35%;">
+        </colgroup>
+        <thead>
+          <tr style="border-bottom:1px dashed #000;">
+            <th style="text-align:left; font-weight:bold; padding-bottom:2px;">Nama Barang</th>
+            <th style="text-align:right; font-weight:bold; padding-bottom:2px;">Total</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${trx.items.map((it) => {
+            const gross = it.harga * it.qty;
+            const disc = Number(it.discNominal) || 0;
+            const taxMark = printCfg.showTax && trx.pajak > 0 ? ' *' : '';
+            return `
+              <tr>
+                <td colspan="2" style="text-align:left; font-weight:bold; padding-top:2px;">${escapeHtml(it.nama)}</td>
+              </tr>
+              <tr>
+                <td style="text-align:left; padding-left:4px;">${it.qty} ${escapeHtml(it.satuan || 'PCS')} x ${formatNumber(it.harga)}</td>
+                <td style="text-align:right; white-space:nowrap;">${formatNumber(gross)}${taxMark}</td>
+              </tr>
+              ${disc > 0 ? `
+              <tr>
+                <td style="text-align:left; padding-left:8px; font-style:italic;">Disc. Item</td>
+                <td style="text-align:right; white-space:nowrap;">-${formatNumber(disc)}</td>
+              </tr>` : ''}`;
           }).join('')}
         </tbody>
       </table>`;
@@ -1708,8 +1758,8 @@ function printThermalReceipt(trx) {
         </colgroup>
         <thead>
           <tr>
-            <th style="text-align:left; font-weight:bold; padding-bottom:3px;">Kts Nama Barang</th>
-            <th style="text-align:right; font-weight:bold; padding-bottom:3px;">Jumlah</th>
+            <th style="text-align:left; font-weight:bold; padding-bottom:2px;">Kts Nama Barang</th>
+            <th style="text-align:right; font-weight:bold; padding-bottom:2px;">Jumlah</th>
           </tr>
         </thead>
         <tbody>
@@ -1718,7 +1768,7 @@ function printThermalReceipt(trx) {
             const taxMark = printCfg.showTax && trx.pajak > 0 ? ' *' : '';
             return `
               <tr>
-                <td style="text-align:left; padding-right:4px;">${it.qty} ${escapeHtml(it.nama)}</td>
+                <td style="text-align:left; padding-right:3px;">${it.qty} ${escapeHtml(it.nama)}</td>
                 <td style="text-align:right; white-space:nowrap;">${formatNumber(sub)}${taxMark}</td>
               </tr>`;
           }).join('')}
@@ -1727,18 +1777,22 @@ function printThermalReceipt(trx) {
   }
 
   let html = `
-    <div class="${paperClass}" style="font-family:'Courier New', Courier, monospace; font-size:${baseFont}; line-height:1.3; color:#000;">
-      <div style="text-align:center; margin-bottom:5px;">
-        ${logoSrc ? `<img src="${logoSrc}" style="max-width:34mm; max-height:14mm; object-fit:contain; margin-bottom:2px;"><br>` : ''}
-        <strong style="font-size:${printCfg.paperMode === 'A4' ? '15px' : '11.5px'};">${escapeHtml(trx.namaToko)}</strong><br>
-        ${prefs.companyAddress ? `<span style="font-size:9.5px;">${escapeHtml(prefs.companyAddress)}</span><br>` : ''}
-        ${prefs.companyPhone ? `<span style="font-size:9.5px;">Telp. ${escapeHtml(prefs.companyPhone)}</span>` : ''}
+    <div class="${paperClass}" style="font-family:'Courier New', Courier, monospace; font-size:${baseFont}; line-height:${tpl === 'RENE_HEMAT_58' ? '1.15' : '1.28'}; color:#000;">
+      <div style="text-align:center; margin-bottom:4px;">
+        ${logoSrc ? `<img src="${logoSrc}" style="max-width:30mm; max-height:13mm; object-fit:contain; margin-bottom:2px;"><br>` : ''}
+        <strong style="font-size:${printCfg.paperMode === 'A4' ? '15px' : '11px'};">${escapeHtml(trx.namaToko)}</strong><br>
+        ${prefs.companyAddress && tpl !== 'RENE_HEMAT_58' ? `<span style="font-size:9px;">${escapeHtml(prefs.companyAddress)}</span><br>` : ''}
+        ${prefs.companyPhone ? `<span style="font-size:9px;">Telp. ${escapeHtml(prefs.companyPhone)}</span>` : ''}
       </div>
 
-      <div style="font-size:9.5px; border-top:1px dashed #000; border-bottom:1px dashed #000; padding:4px 0; margin-bottom:4px;">
-        <div>No# : ${escapeHtml(tableNo || trx.trxId)}</div>
-        <div>Kasir : ${escapeHtml(trx.kasirNama)}</div>
-        <div>Tanggal : ${tglFormatted}</div>
+      ${tpl === 'RENE_RESTO_58' ? `<div style="text-align:center; font-weight:bold; border:1px solid #000; padding:2px; margin-bottom:4px;">MEJA: ${escapeHtml(tableNo || 'TAKE AWAY')}</div>` : ''}
+
+      <div style="font-size:9px; border-top:1px dashed #000; border-bottom:1px dashed #000; padding:3px 0; margin-bottom:4px;">
+        ${tpl === 'RENE_HEMAT_58'
+          ? `<div>${escapeHtml(trx.trxId)} | ${tglFormatted}</div>`
+          : `<div>No# : ${escapeHtml(tableNo || trx.trxId)}</div>
+             <div>Kasir : ${escapeHtml(trx.kasirNama)}</div>
+             <div>Tanggal : ${tglFormatted}</div>`}
         ${trx.customerName ? `<div>Member : ${escapeHtml(trx.customerName)}</div>` : ''}
       </div>
 
@@ -1757,18 +1811,20 @@ function printThermalReceipt(trx) {
             <td style="text-align:left;">SUBTOTAL</td>
             <td style="text-align:right;">${formatNumber(trx.subtotal)}</td>
           </tr>
+          ${tpl === 'RENE_PROMO_DISKON_58' && itemDiscSum > 0 ? `
           <tr>
-            <td style="text-align:left;">DISKON</td>
-            <td style="text-align:right;">${trx.totalDiskon > 0 ? '-' + formatNumber(trx.totalDiskon) : '0'}</td>
+            <td style="text-align:left;">DISKON ITEM</td>
+            <td style="text-align:right;">-${formatNumber(itemDiscSum)}</td>
+          </tr>` : ''}
+          <tr>
+            <td style="text-align:left;">${tpl === 'RENE_PROMO_DISKON_58' ? 'DISKON NOTA' : 'DISKON'}</td>
+            <td style="text-align:right;">${(tpl === 'RENE_PROMO_DISKON_58' ? invDiscOnly : trx.totalDiskon) > 0 ? '-' + formatNumber(tpl === 'RENE_PROMO_DISKON_58' ? invDiscOnly : trx.totalDiskon) : '0'}</td>
           </tr>
-          ${
-            roundingDiff !== 0
-              ? `<tr>
-                   <td style="text-align:left;">PEMBULATAN</td>
-                   <td style="text-align:right;">${formatNumber(roundingDiff)}</td>
-                 </tr>`
-              : ''
-          }
+          ${roundingDiff !== 0 ? `
+          <tr>
+            <td style="text-align:left;">PEMBULATAN</td>
+            <td style="text-align:right;">${formatNumber(roundingDiff)}</td>
+          </tr>` : ''}
           <tr>
             <td style="text-align:left; font-weight:bold; border-top:1px dashed #000; padding-top:3px;">TOTAL</td>
             <td style="text-align:right; font-weight:bold; border-top:1px dashed #000; padding-top:3px;">${formatNumber(trx.grandTotal)}</td>
@@ -1783,48 +1839,46 @@ function printThermalReceipt(trx) {
             <td style="text-align:right;">${formatNumber(trx.kembalian)}</td>
           </tr>
         </table>
+        ${tpl === 'RENE_PROMO_DISKON_58' && trx.totalDiskon > 0 ? `
+          <div style="text-align:center; font-weight:bold; border:1px dashed #000; padding:2px; margin-top:4px; font-size:9.5px;">
+            ANDA HEMAT : Rp ${formatNumber(trx.totalDiskon)}
+          </div>` : ''}
       </div>
 
-      ${
-        printCfg.showTax && trx.pajak > 0
-          ? `<div style="font-size:9.5px; border-top:1px dashed #000; margin-top:4px; padding-top:4px;">
-               <table style="width:100%; border-collapse:collapse; table-layout:fixed; font-size:9.5px;">
-                 <colgroup>
-                   <col style="width:24%;">
-                   <col style="width:20%;">
-                   <col style="width:28%;">
-                   <col style="width:28%;">
-                 </colgroup>
-                 <tr>
-                   <th style="text-align:left;">PAJAK</th>
-                   <th style="text-align:left;">TARIF</th>
-                   <th style="text-align:right;">DPP</th>
-                   <th style="text-align:right;">PPN</th>
-                 </tr>
-                 <tr>
-                   <td style="text-align:left;">*</td>
-                   <td style="text-align:left;">${taxPct}%</td>
-                   <td style="text-align:right;">${formatNumber(dppVal)}</td>
-                   <td style="text-align:right;">${formatNumber(trx.pajak)}</td>
-                 </tr>
-               </table>
-             </div>`
-          : ''
-      }
+      ${printCfg.showTax && trx.pajak > 0 ? `
+        <div style="font-size:9px; border-top:1px dashed #000; margin-top:4px; padding-top:4px;">
+          <table style="width:100%; border-collapse:collapse; table-layout:fixed; font-size:9px;">
+            <colgroup>
+              <col style="width:24%;">
+              <col style="width:20%;">
+              <col style="width:28%;">
+              <col style="width:28%;">
+            </colgroup>
+            <tr>
+              <th style="text-align:left;">PAJAK</th>
+              <th style="text-align:left;">TARIF</th>
+              <th style="text-align:right;">DPP</th>
+              <th style="text-align:right;">PPN</th>
+            </tr>
+            <tr>
+              <td style="text-align:left;">*</td>
+              <td style="text-align:left;">${taxPct}%</td>
+              <td style="text-align:right;">${formatNumber(dppVal)}</td>
+              <td style="text-align:right;">${formatNumber(trx.pajak)}</td>
+            </tr>
+          </table>
+        </div>` : ''}
 
-      ${
-        printCfg.showPoints && trx.customerName
-          ? `<div style="font-size:9.5px; text-align:center; border-top:1px dashed #000; margin-top:4px; padding-top:4px;">
-               Poin Didapat: +${trx.earnedPts || 0} | Saldo Poin: ${trx.saldoPts || 0}
-             </div>`
-          : ''
-      }
+      ${printCfg.showPoints && trx.customerName ? `
+        <div style="font-size:9px; text-align:center; border-top:1px dashed #000; margin-top:4px; padding-top:4px;">
+          Poin Didapat: +${trx.earnedPts || 0} | Saldo Poin: ${trx.saldoPts || 0}
+        </div>` : ''}
 
-      <div style="text-align:center; font-size:9.5px; border-top:1px dashed #000; margin-top:5px; padding-top:5px; white-space:pre-line;">
+      <div style="text-align:center; font-size:9px; border-top:1px dashed #000; margin-top:5px; padding-top:4px; white-space:pre-line;">
         ${escapeHtml(footerText)}
       </div>
 
-      <div style="text-align:center; font-size:9px; margin-top:10mm; padding-bottom:4mm; letter-spacing:2px;">
+      <div style="text-align:center; font-size:9px; margin-top:8mm; padding-bottom:4mm; letter-spacing:2px;">
         . . . . . . . . . .
       </div>
     </div>`;
@@ -1834,10 +1888,10 @@ function printThermalReceipt(trx) {
       <div class="${paperClass}" style="page-break-before:always; border-top:2px dashed #000; padding-top:6px; font-family:'Courier New', Courier, monospace; font-size:${baseFont};">
         <div style="text-align:center; font-weight:bold; border-bottom:1px dashed #000; padding-bottom:4px; margin-bottom:6px;">
           SLIP PESANAN / DELIVERY<br>
-          <span style="font-size:9.5px;">${escapeHtml(tableNo || trx.trxId)} • ${tglFormatted}</span>
+          <span style="font-size:9px;">${escapeHtml(tableNo || trx.trxId)} • ${tglFormatted}</span>
         </div>
-        ${trx.items.map((it) => `<div style="font-size:11px; margin-bottom:3px;"><strong>${it.qty}x</strong> ${escapeHtml(it.nama)}</div>`).join('')}
-        <div style="text-align:center; font-size:9px; margin-top:10mm; padding-bottom:4mm; letter-spacing:2px;">. . . . . . . . . .</div>
+        ${trx.items.map((it) => `<div style="font-size:10.5px; margin-bottom:3px;"><strong>${it.qty}x</strong> ${escapeHtml(it.nama)}</div>`).join('')}
+        <div style="text-align:center; font-size:9px; margin-top:8mm; padding-bottom:4mm; letter-spacing:2px;">. . . . . . . . . .</div>
       </div>`;
   }
 
@@ -1852,7 +1906,6 @@ function printThermalReceipt(trx) {
 
   window.print();
 }
-
 // =========================================================================
 // 10. PPOB, TARIK TUNAI, RETUR, CASH DROP, TUTUP SHIFT & CETAK LABEL
 // =========================================================================

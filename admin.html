@@ -2275,10 +2275,13 @@
                   <small id="strukDocSubtitle" style="color:var(--text-muted);">Pilih desain struk pembayaran yang cocok untuk keperluan kasir toko Anda.</small>
                 </div>
                 <div style="display:flex; gap:8px; align-items:center; flex-wrap:wrap;">
-                  <select id="strukPaperSizeSelect" onchange="renderStrukDocPreview()" style="width:190px; padding:7px 10px;">
-                    <option value="58mm">Thermal 58mm (Minimarket 1)</option>
-                    <option value="80mm">Thermal 80mm (Minimarket 2)</option>
-                    <option value="A4">Kertas A4 / Dotmatrix</option>
+                  <select id="strukPaperSizeSelect" onchange="renderStrukDocPreview()" style="width:270px; padding:7px 10px; font-weight:600;">
+                    <option value="RENE_MINIMARKET_58">1. Thermal 58mm — Minimarket / Retail Standar</option>
+                    <option value="RENE_PROMO_DISKON_58">2. Thermal 58mm — Diskon Per Item &amp; Total Hemat</option>
+                    <option value="RENE_HEMAT_58">3. Thermal 58mm — Mode Hemat Kertas (Compact)</option>
+                    <option value="RENE_RESTO_58">4. Thermal 58mm — Resto, Kafe &amp; Nomor Meja</option>
+                    <option value="RENE_GROSIR_80">5. Thermal 80mm — Grosir &amp; Harga Satuan</option>
+                    <option value="RENE_INVOICE_A4">6. Faktur / Nota Besar (A4 / Dot Matrix)</option>
                   </select>
                   <button type="button" class="btn btn-blue btn-sm" onclick="printStrukSampleTest()">&#128424; Cetak Tes</button>
                   <button type="button" class="btn btn-green btn-sm" onclick="saveDesignSettings()">&#128190; Simpan</button>
