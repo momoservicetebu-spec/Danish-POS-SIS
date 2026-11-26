@@ -587,6 +587,381 @@
         border-top: 1px dashed var(--border);
       }
     }
+
+    /* =====================================================================
+       OPTIMASI TAMPILAN LAYAR BESAR / TOUCHSCREEN 65" - 75"+ (2K & 4K UHD)
+       ===================================================================== */
+    @media screen and (min-width: 2200px) {
+      /* Skalakan root & tata letak utama secara proporsional */
+      .rene-titlebar {
+        padding: 14px 28px;
+        font-size: 20px;
+      }
+      .rene-top-pill {
+        padding: 8px 18px;
+        font-size: 16px;
+        border-radius: 10px;
+      }
+
+      .rene-workspace {
+        grid-template-columns: 240px 1fr;
+        gap: 16px;
+        padding: 16px;
+      }
+
+      /* Perbesar tombol panel kiri agar pas untuk sentuhan jari di layar besar */
+      .rene-left-rail {
+        gap: 10px;
+      }
+      .rene-left-rail > button,
+      #reneQuickMenuGroup > button,
+      .rene-row-action-group > button {
+        font-size: 18px !important;
+        border-radius: 12px;
+        padding: 12px 14px;
+      }
+
+      /* Panel Logo & Grand Total */
+      .rene-logo-box {
+        width: 240px;
+      }
+      .rene-logo-box img {
+        max-height: 130px;
+      }
+      .rene-subtotal-box {
+        padding: 16px 26px;
+      }
+      .rene-subtotal-top {
+        font-size: 18px;
+      }
+      .rene-grand-total {
+        font-size: 84px !important;
+      }
+
+      /* Bar Input Scan, No Meja & Kasir */
+      .rene-scan-box {
+        padding: 14px 18px;
+        font-size: 20px;
+        border-radius: 12px;
+      }
+      .rene-table-box,
+      .rene-cashier-stamp {
+        padding: 14px 18px;
+        font-size: 18px;
+        border-radius: 12px;
+      }
+
+      /* Banner Item Aktif & Kategori */
+      .rene-active-item-bar {
+        padding: 14px 24px;
+      }
+      .rene-active-item-name {
+        font-size: 30px;
+      }
+      .rene-active-item-price {
+        font-size: 34px;
+      }
+      .rene-cat-pill {
+        padding: 10px 20px;
+        font-size: 17px;
+        border-radius: 10px;
+      }
+
+      /* Split Tengah: Etalase Promo (3 kolom di layar 4K) & Tabel Belanja */
+      .rene-center-split {
+        grid-template-columns: 480px 1fr;
+        gap: 16px;
+      }
+      .rene-promo-tab-btn {
+        padding: 12px 8px;
+        font-size: 16px;
+      }
+      .rene-promo-cards-grid {
+        grid-template-columns: repeat(3, 1fr);
+        gap: 12px;
+        padding: 12px;
+      }
+      .promo-quick-thumb {
+        height: 86px;
+        font-size: 40px;
+      }
+      .promo-quick-title {
+        font-size: 15px;
+      }
+      .promo-quick-price {
+        font-size: 16px;
+      }
+
+      /* Tabel Keranjang Belanja */
+      .rene-table th {
+        font-size: 16px;
+        padding: 14px 18px;
+      }
+      .rene-table td {
+        font-size: 20px;
+        padding: 14px 18px;
+      }
+      .rene-table td small {
+        font-size: 14px;
+      }
+      .rene-table-footer-tools {
+        padding: 10px 16px;
+        font-size: 15px;
+      }
+      .rene-mini-tag {
+        padding: 8px 16px;
+        font-size: 15px;
+      }
+
+      /* Bar Bawah: Member & Tombol BAYAR */
+      .rene-member-box {
+        padding: 14px 22px;
+        font-size: 19px;
+      }
+      .rene-pay-btn {
+        padding: 18px 54px;
+        font-size: 26px;
+        border-radius: 14px;
+      }
+
+      /* Modal Pembayaran & Pencarian di Layar 4K */
+      .modal-box {
+        max-width: 780px !important;
+        padding: 28px 34px;
+        font-size: 17px;
+      }
+      .modal-box h3 {
+        font-size: 24px;
+      }
+      .modal-box input,
+      .modal-box select {
+        padding: 14px 16px;
+        font-size: 18px;
+      }
+      .modal-box button {
+        font-size: 16px;
+        padding: 12px 16px;
+      }
+    }
+
+    /* =====================================================================
+       RESPONSIF TABLET (768px - 1024px) & SMARTPHONE (< 768px)
+       ===================================================================== */
+
+    /* 1. TAMPILAN TABLET (iPad / Android Tab Portrait & Landscape Kecil) */
+    @media screen and (max-width: 1024px) {
+      html, body {
+        height: auto;
+        min-height: 100vh;
+        overflow-y: auto;
+        overflow-x: hidden;
+      }
+      .rene-shell {
+        height: auto;
+        min-height: 100vh;
+      }
+
+      /* Titlebar atas fleksibel membungkus tombol */
+      .rene-titlebar {
+        flex-wrap: wrap;
+        gap: 6px;
+        padding: 8px 12px;
+      }
+      .rene-titlebar-actions {
+        flex-wrap: wrap;
+        gap: 5px;
+      }
+
+      /* Susunan Utama: 1 Kolom, Panel Tombol Kiri pindah ke bawah atau menjadi bar horizontal */
+      .rene-workspace {
+        display: flex;
+        flex-direction: column;
+        padding: 8px;
+        gap: 8px;
+      }
+
+      /* Ubah Panel Kiri menjadi Grid Tombol Cepat 5 Kolom di Tablet */
+      .rene-left-rail {
+        order: 2;
+        display: grid;
+        grid-template-columns: repeat(5, 1fr);
+        gap: 6px;
+        height: auto;
+      }
+      #reneQuickMenuGroup,
+      .rene-row-action-group {
+        display: contents !important;
+      }
+      .rene-left-rail button {
+        min-height: 44px;
+        font-size: 11.5px !important;
+        padding: 6px 4px;
+      }
+
+      .rene-main-area {
+        order: 1;
+      }
+
+      /* Perkecil tinggi Logo & Grand Total */
+      .rene-logo-box {
+        width: 110px;
+      }
+      .rene-grand-total {
+        font-size: 38px !important;
+      }
+
+      /* Area Tengah: Etalase Promo di atas (scroll horizontal) & Tabel Belanja di bawah */
+      .rene-center-split {
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+      }
+      .rene-promo-showcase {
+        max-height: 210px;
+      }
+      .rene-promo-cards-grid {
+        grid-template-columns: repeat(4, 1fr);
+      }
+      .rene-table-card {
+        min-height: 240px;
+      }
+    }
+
+    /* 2. TAMPILAN SMARTPHONE (HP Layar Kecil < 767px) */
+    @media screen and (max-width: 767px) {
+      .rene-titlebar {
+        font-size: 12px;
+      }
+      #hdrStoreName {
+        display: none;
+      }
+      .rene-top-pill {
+        padding: 4px 7px;
+        font-size: 10px;
+      }
+
+      /* Logo & Sub Total */
+      .rene-hero-row {
+        gap: 6px;
+      }
+      .rene-logo-box {
+        width: 76px;
+        padding: 4px;
+      }
+      .rene-subtotal-box {
+        padding: 8px 12px;
+      }
+      .rene-subtotal-top {
+        font-size: 10.5px;
+        flex-wrap: wrap;
+      }
+      .rene-grand-total {
+        font-size: 30px !important;
+      }
+
+      /* Input Scan Barang Full Width */
+      .rene-input-strip {
+        gap: 6px;
+      }
+      .rene-scan-box {
+        width: 100%;
+        min-width: 0;
+        font-size: 13px;
+        padding: 9px 10px;
+      }
+      .rene-table-box {
+        flex: 1;
+        width: auto;
+        font-size: 11.5px;
+      }
+      .rene-cashier-stamp {
+        font-size: 11px;
+        padding: 6px 8px;
+      }
+
+      /* Banner Item Terakhir */
+      .rene-active-item-bar {
+        padding: 6px 10px;
+      }
+      .rene-active-item-name {
+        font-size: 14px;
+      }
+      .rene-active-item-price {
+        font-size: 16px;
+      }
+
+      /* Etalase Promo 2 Kolom Kompak */
+      .rene-promo-showcase {
+        max-height: 185px;
+      }
+      .rene-promo-cards-grid {
+        grid-template-columns: repeat(2, 1fr);
+        gap: 6px;
+      }
+      .promo-quick-thumb {
+        height: 40px;
+        font-size: 20px;
+      }
+
+      /* Tabel Keranjang Belanja */
+      .rene-table th,
+      .rene-table td {
+        padding: 7px 6px;
+        font-size: 11.5px;
+      }
+      .rene-table-footer-tools span {
+        display: none;
+      }
+
+      /* Panel Tombol Fungsi jadi 3 Kolom di HP */
+      .rene-left-rail {
+        grid-template-columns: repeat(3, 1fr);
+        gap: 5px;
+      }
+      .rene-left-rail button {
+        min-height: 40px;
+        font-size: 11px !important;
+      }
+
+      /* Bar Bawah Sticky agar Tombol BAYAR selalu mudah dijangkau jempol */
+      .rene-bottom-bar {
+        position: sticky;
+        bottom: 0;
+        z-index: 50;
+        background: #F8FAFC;
+        padding: 8px 0;
+        border-top: 1px solid #CBD5E1;
+        flex-direction: column;
+        gap: 6px;
+      }
+      .rene-member-box {
+        width: 100%;
+        min-width: 0;
+        box-sizing: border-box;
+        padding: 7px 10px;
+        font-size: 12px;
+      }
+      .rene-pay-btn {
+        width: 100%;
+        padding: 13px;
+        font-size: 16px;
+      }
+
+      /* Modal Full-Width di Layar HP */
+      .modal-backdrop {
+        padding: 8px;
+      }
+      .modal-box {
+        padding: 14px 16px;
+        border-radius: 10px;
+      }
+      .modal-box div[style*="grid-template-columns:repeat(5"] {
+        grid-template-columns: repeat(3, 1fr) !important;
+      }
+      .modal-box div[style*="grid-template-columns:1fr 1fr"] {
+        grid-template-columns: 1fr !important;
+      }
+    }
   </style>
 </head>
 <body>
