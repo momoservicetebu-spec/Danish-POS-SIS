@@ -1909,6 +1909,42 @@ const baseFont =
 
   window.print();
 }
+
+function showMobileReceiptPreviewModal(receiptHtml, rawEscText) {
+  let modal = document.getElementById('mobileReceiptModal');
+  if (!modal) {
+    modal = document.createElement('div');
+    modal.id = 'mobileReceiptModal';
+    modal.className = 'modal-backdrop';
+    modal.style.zIndex = '9999';
+    document.body.appendChild(modal);
+  }
+
+  const encodedRaw = encodeURIComponent(rawEscText);
+  modal.innerHTML = `
+    <div class="modal-box" style="max-width:360px; padding:14px;">
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
+        <strong style="font-size:15px;">Struk Transaksi</strong>
+        <button type="button" onclick="document.getElementById('mobileReceiptModal').classList.remove('active')" style="border:none; background:none; font-size:20px; cursor:pointer;">&times;</button>
+      </div>
+      <div style="background:#FFF; border:1px dashed #94A3B8; padding:10px; max-height:55vh; overflow-y:auto; margin-bottom:12px;">
+        ${receiptHtml}
+      </div>
+      <div style="display:flex; flex-direction:column; gap:8px;">
+        <a href="rawbt:${encodedRaw}" style="display:block; text-align:center; padding:11px; border-radius:8px; background:#10B981; color:#FFF; font-weight:800; text-decoration:none; font-size:13px;">
+          🖨️ Cetak Printer Bluetooth (RawBT)
+        </a>
+        <button type="button" onclick="window.print()" style="padding:10px; border-radius:8px; border:1px solid #2563EB; background:#EFF6FF; color:#1E3A8A; font-weight:700; cursor:pointer; font-size:13px;">
+          📄 Print Browser / Simpan PDF
+        </button>
+        <button type="button" onclick="document.getElementById('mobileReceiptModal').classList.remove('active')" style="padding:9px; border-radius:8px; border:1px solid #CBD5E1; background:#F8FAFC; color:#334155; font-weight:600; cursor:pointer;">
+          Tutup
+        </button>
+      </div>
+    </div>
+  `;
+  modal.classList.add('active');
+}
 // =========================================================================
 // 10. PPOB, TARIK TUNAI, RETUR, CASH DROP, TUTUP SHIFT & CETAK LABEL
 // =========================================================================
