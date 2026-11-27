@@ -2574,3 +2574,52 @@ window.addEventListener('resize', () => {
   if (!grandTotalEl) return;
   grandTotalEl.style.fontSize = window.innerWidth <= 900 ? '30px' : (KASIR_DESIGN_CFG.totalSize || '52px');
 });
+
+// Ganti baris window.print(); di akhir fungsi printThermalReceipt(trx) dengan ini:
+  const isMobileDevice = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
+
+  if (isMobileDevice) {
+    // 1. Susun teks struk ESC/POS untuk Printer Thermal Bluetooth (RawBT)
+    const lineW = printCfg.paperMode === '80' ? 42 : 32;
+    const sep = '-'.repeat(lineW) + '\n';
+    const padLR = (l, r) => {
+      const left = String(l || '');
+      const right = String(r || '');
+      const space = Math.max(1, lineW - left.length - right.length);
+      return left.slice(0, lineW - right.length - 1) + ' '.repeat(space) + right + '\n';
+    };
+
+    let escText = '';
+    escText += `${trx.namaToko}\n`;
+    if (prefs.companyAddress) escText += `${prefs.companyAddress}\n`;
+    if (prefs.companyPhone) escText += `Telp: ${prefs.companyPhone}\n`;
+    escText += sep;
+    escText += `No   : ${tableNo || trx.trxId}\n`;
+    escText += `Kasir: ${trx.kasirNama}\n`;
+    escText += `Tgl  : ${tglFormatted}\n`;
+    if (trx.customerName) escText += `Mbr  : ${trx.customerName}\n`;
+    escText += sep;
+
+    trx.items.forEach((it) => {
+      const sub = it.harga * it.qty - (it.discNominal || 0);
+      escText += `${it.nama}\n`;
+      escText += padLR(`  ${it.qty} x ${formatNumber(it.harga)}`, formatNumber(sub));
+    });
+
+    escText += sep;
+    escText += padLR('SUBTOTAL', formatNumber(trx.subtotal));
+    if (trx.totalDiskon > 0) escText += padLR('DISKON', '-' + formatNumber(trx.totalDiskon));
+    if (trx.pajak > 0) escText += padLR(`PPN ${taxPct}%`, formatNumber(trx.pajak));
+    escText += padLR('TOTAL', 'Rp ' + formatNumber(trx.grandTotal));
+    (trx.payments || []).forEach((p) => {
+      escText += padLR(p.method === 'CASH' ? 'TUNAI' : p.method, formatNumber(p.amount));
+    });
+    escText += padLR('KEMBALI', formatNumber(trx.kembalian));
+    escText += sep;
+    escText += `${footerText}\n\n\n`;
+
+    // 2. Tampilkan Popup Struk HP (Bisa Cetak Bluetooth RawBT atau Simpan/Print PDF)
+    showMobileReceiptPreviewModal(html, escText);
+  } else {
+    setTimeout(() => window.print(), 150);
+  }
