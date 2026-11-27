@@ -2376,3 +2376,201 @@ function switchGuideTab(tabName, btnEl) {
     btnEl.style.border = 'none';
   }
 }
+
+// =========================================================================
+// 12. AUTO-RESPONSIVE MOBILE / HP PATCH (LAYAR <= 900PX)
+// =========================================================================
+(function injectMobileKasirPatch() {
+  const style = document.createElement('style');
+  style.id = 'kasirMobileResponsivePatch';
+  style.textContent = `
+    @media screen and (max-width: 900px) {
+      html, body {
+        max-width: 100vw !important;
+        overflow-x: hidden !important;
+        height: auto !important;
+        min-height: 100vh !important;
+      }
+
+      /* 1. Topbar Atas: Rapi & Bisa Digulir Horizontal Tanpa Terpotong */
+      #reneTitleBar, .rene-titlebar, .pos-topbar {
+        display: flex !important;
+        flex-wrap: wrap !important;
+        align-items: center !important;
+        justify-content: space-between !important;
+        gap: 6px !important;
+        padding: 8px 10px !important;
+        width: 100% !important;
+        box-sizing: border-box !important;
+        height: auto !important;
+      }
+      #reneTitleBar > div, .rene-titlebar > div {
+        display: flex !important;
+        flex-wrap: wrap !important;
+        align-items: center !important;
+        gap: 5px !important;
+        max-width: 100% !important;
+      }
+      #reneTitleBar button, .rene-titlebar button, #syncStatusPill {
+        font-size: 11px !important;
+        padding: 5px 8px !important;
+        white-space: nowrap !important;
+      }
+
+      /* 2. Kontainer Utama: Ubah Grid Desktop Menjadi Tumpukan Vertikal 1 Kolom */
+      .rene-main-wrapper, .rene-container, .pos-container, .main-layout, .kasir-grid {
+        display: flex !important;
+        flex-direction: column !important;
+        width: 100% !important;
+        max-width: 100vw !important;
+        height: auto !important;
+        overflow: visible !important;
+        padding: 8px !important;
+        gap: 10px !important;
+        box-sizing: border-box !important;
+      }
+
+      /* 3. Panel Kiri (Tombol F5, F3, F6, dll): Ubah Jadi Grid 3 Kolom Ringkas */
+      .rene-left-sidebar, .rene-side-actions, .left-panel, .sidebar-buttons {
+        display: grid !important;
+        grid-template-columns: repeat(3, 1fr) !important;
+        gap: 6px !important;
+        width: 100% !important;
+        max-width: 100% !important;
+        height: auto !important;
+        order: 3 !important;
+      }
+      .rene-left-sidebar button, .rene-side-actions button, .left-panel button {
+        width: 100% !important;
+        min-height: 40px !important;
+        padding: 6px 4px !important;
+        font-size: 11px !important;
+        line-height: 1.2 !important;
+        white-space: normal !important;
+        text-align: center !important;
+        margin: 0 !important;
+      }
+
+      /* 4. Area Kerja Tengah & Kanan: Lebar Penuh 100% */
+      .rene-center-panel, .rene-right-panel, .center-panel, .right-panel, .cart-section {
+        width: 100% !important;
+        max-width: 100% !important;
+        min-width: 0 !important;
+        height: auto !important;
+        box-sizing: border-box !important;
+      }
+
+      /* 5. Header Logo + Total Tagihan: Susun Rapi & Kecilkan Font Grand Total */
+      .rene-top-summary, .summary-header, .header-box {
+        display: flex !important;
+        flex-direction: column !important;
+        align-items: stretch !important;
+        gap: 8px !important;
+        width: 100% !important;
+      }
+      #reneLogoBox {
+        width: 100% !important;
+        max-height: 76px !important;
+        padding: 4px !important;
+      }
+      #reneLogoBox img, #reneLogoBox svg {
+        max-height: 64px !important;
+        width: auto !important;
+      }
+      #lblGrandTotal {
+        font-size: 30px !important;
+        line-height: 1.1 !important;
+        word-break: break-word !important;
+      }
+      #lblSubItemInfo {
+        font-size: 11.5px !important;
+        white-space: normal !important;
+      }
+
+      /* 6. Input Scan Barcode & Bar Member: Lebar Penuh */
+      #barcodeInput, #kasirTableNumberInput {
+        width: 100% !important;
+        font-size: 14px !important;
+        padding: 10px !important;
+        box-sizing: border-box !important;
+      }
+      .rene-member-bar, .rene-active-item-box {
+        width: 100% !important;
+        flex-wrap: wrap !important;
+        gap: 6px !important;
+        box-sizing: border-box !important;
+      }
+
+      /* 7. Bar Kategori Cepat: Scroll Horizontal Halus */
+      #kasirCategoryQuickBar {
+        display: flex !important;
+        flex-wrap: nowrap !important;
+        overflow-x: auto !important;
+        gap: 6px !important;
+        padding-bottom: 4px !important;
+        width: 100% !important;
+      }
+      #kasirCategoryQuickBar .rene-cat-pill {
+        flex: 0 0 auto !important;
+        font-size: 12px !important;
+        padding: 6px 12px !important;
+      }
+
+      /* 8. Tabel Keranjang Belanja: Tampil Penuh & Bisa Digeser Jika Sempit */
+      .rene-cart-wrapper, .cart-table-container, .table-responsive {
+        width: 100% !important;
+        max-height: 280px !important;
+        overflow-x: auto !important;
+        overflow-y: auto !important;
+        order: 1 !important;
+      }
+      .rene-cart-wrapper table, #cartTableBody {
+        width: 100% !important;
+        font-size: 12px !important;
+      }
+
+      /* 9. Etalase Promo Spesial & Fast Food: 2 Kolom Rapi */
+      .rene-showcase-panel, .showcase-wrapper {
+        width: 100% !important;
+        order: 2 !important;
+      }
+      #showcaseCardsGrid {
+        grid-template-columns: repeat(2, 1fr) !important;
+        gap: 8px !important;
+        max-height: 260px !important;
+        overflow-y: auto !important;
+      }
+
+      /* 10. Tombol BAYAR Utama & Modal di HP */
+      .btn-checkout-main, .rene-pay-btn, button[onclick*="openCheckoutModal"] {
+        width: 100% !important;
+        min-height: 48px !important;
+        font-size: 16px !important;
+        margin-top: 6px !important;
+      }
+      .modal-box, .modal-content {
+        width: 95vw !important;
+        max-width: 95vw !important;
+        max-height: 90vh !important;
+        overflow-y: auto !important;
+        padding: 12px !important;
+      }
+    }
+  `;
+  document.head.appendChild(style);
+})();
+
+// Pastikan font Grand Total tidak membesar ke 52px saat dibuka di layar HP
+const _origApplyKasirDesignToDOM = applyKasirDesignToDOM;
+applyKasirDesignToDOM = function () {
+  _origApplyKasirDesignToDOM();
+  const grandTotalEl = document.getElementById('lblGrandTotal');
+  if (grandTotalEl && window.innerWidth <= 900) {
+    grandTotalEl.style.fontSize = '30px';
+  }
+};
+window.addEventListener('resize', () => {
+  const grandTotalEl = document.getElementById('lblGrandTotal');
+  if (!grandTotalEl) return;
+  grandTotalEl.style.fontSize = window.innerWidth <= 900 ? '30px' : (KASIR_DESIGN_CFG.totalSize || '52px');
+});
